@@ -103,12 +103,24 @@ async function disconnect() {
 }
 
 /**
+ * Get configured calendar ID or default to primary
+ */
+async function getCalendarId() {
+  const db = getDb();
+  const calendarIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleCalendarId']);
+  const calendarId = calendarIdRow?.value || process.env.GOOGLE_CALENDAR_ID || 'primary';
+  logger.info(`Using Google Calendar ID: ${calendarId}`);
+  return calendarId;
+}
+
+/**
  * Create a calendar event
  */
 async function createEvent(eventData) {
   try {
     const oauth2Client = await getOAuthClient();
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const calendarId = await getCalendarId();
     
     const event = {
       summary: eventData.title,
@@ -134,9 +146,9 @@ async function createEvent(eventData) {
       event.attendees = eventData.attendees.map(email => ({ email }));
     }
     
-    logger.info(`Creating calendar event: ${eventData.title}`);
+    logger.info(`Creating calendar event: ${eventData.title} in calendar: ${calendarId}`);
     const response = await calendar.events.insert({
-      calendarId: 'primary',
+      calendarId: calendarId,
       requestBody: event,
     });
     
@@ -155,9 +167,10 @@ async function listEvents(maxResults = 50) {
   try {
     const oauth2Client = await getOAuthClient();
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const calendarId = await getCalendarId();
     
     const response = await calendar.events.list({
-      calendarId: 'primary',
+      calendarId: calendarId,
       timeMin: new Date().toISOString(),
       maxResults: maxResults,
       singleEvents: true,
@@ -239,6 +252,34 @@ async function createEventFromCommitment(commitment) {
   }
 }
 
+/**
+ * List all calendars accessible to the user
+ */
+async function listCalendars() {
+  try {
+    const oauth2Client = await getOAuthClient();
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    
+    const response = await calendar.calendarList.list();
+    
+    const calendars = response.data.items.map(cal => ({
+      id: cal.id,
+      name: cal.summary,
+      description: cal.description,
+      primary: cal.primary || false,
+      accessRole: cal.accessRole,
+      backgroundColor: cal.backgroundColor,
+      foregroundColor: cal.foregroundColor
+    }));
+    
+    logger.info(`Retrieved ${calendars.length} calendars`);
+    return calendars;
+  } catch (error) {
+    logger.error('Error listing calendars', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getAuthUrl,
   getTokenFromCode,
@@ -246,6 +287,7 @@ module.exports = {
   disconnect,
   createEvent,
   listEvents,
-  createEventFromCommitment
+  createEventFromCommitment,
+  listCalendars
 };
 

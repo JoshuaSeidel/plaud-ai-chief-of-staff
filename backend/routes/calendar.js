@@ -25,13 +25,19 @@ router.get('/events', async (req, res) => {
     logger.info('Google Calendar not connected, trying iCloud');
     const db = getDb();
     const row = await db.get('SELECT value FROM config WHERE key = ?', ['icalCalendarUrl']);
-    const calendarUrl = row?.value;
+    let calendarUrl = row?.value;
     
     if (!calendarUrl || calendarUrl.trim() === '') {
       return res.status(400).json({ 
         error: 'No calendar configured',
         message: 'Please connect Google Calendar or configure iCloud calendar URL'
       });
+    }
+    
+    // Convert webcal:// to https:// (webcal is not a valid protocol for HTTP requests)
+    if (calendarUrl.startsWith('webcal://')) {
+      calendarUrl = calendarUrl.replace('webcal://', 'https://');
+      logger.info('Converted webcal:// to https://');
     }
     
     logger.info('Fetching calendar events from iCloud');
@@ -187,6 +193,22 @@ router.get('/google/status', async (req, res) => {
     res.json({ connected });
   } catch (error) {
     res.json({ connected: false, error: error.message });
+  }
+});
+
+/**
+ * Google Calendar - List available calendars
+ */
+router.get('/google/calendars', async (req, res) => {
+  try {
+    const calendars = await googleCalendar.listCalendars();
+    res.json({ calendars });
+  } catch (error) {
+    logger.error('Error listing calendars', error);
+    res.status(500).json({ 
+      error: 'Error listing calendars',
+      message: error.message
+    });
   }
 });
 

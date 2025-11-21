@@ -11,6 +11,7 @@ function Configuration() {
     googleClientId: '',
     googleClientSecret: '',
     googleRedirectUri: '',
+    googleCalendarId: '',
     dbType: 'sqlite',
     postgresHost: '',
     postgresPort: '5432',
@@ -72,6 +73,7 @@ function Configuration() {
         googleClientId: appData.googleClientId || '',
         googleClientSecret: appData.googleClientSecret ? '••••••••' : '',
         googleRedirectUri: appData.googleRedirectUri || '',
+        googleCalendarId: appData.googleCalendarId || '',
         dbType: actualDbType,
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
@@ -179,6 +181,9 @@ function Configuration() {
       }
       if (config.googleRedirectUri) {
         appUpdates.googleRedirectUri = config.googleRedirectUri;
+      }
+      if (config.googleCalendarId) {
+        appUpdates.googleCalendarId = config.googleCalendarId;
       }
       
       // System configuration (stored in /app/data/config.json)
@@ -368,8 +373,21 @@ function Configuration() {
                     Disconnect
                   </button>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.5rem' }}>
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
                   Commitments with deadlines will automatically create calendar events. Events sync across all your devices.
+                </p>
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  Calendar ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={config.googleCalendarId}
+                  onChange={(e) => handleChange('googleCalendarId', e.target.value)}
+                  placeholder="primary (default) or specific calendar ID"
+                />
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.5rem' }}>
+                  Leave blank to use your primary calendar. To find calendar IDs: <a href="https://calendar.google.com/calendar/u/0/r/settings" target="_blank" rel="noopener noreferrer">Calendar Settings</a> → Select calendar → Scroll to "Integrate calendar"
                 </p>
               </div>
             ) : (
