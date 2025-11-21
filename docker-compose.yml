@@ -1,0 +1,31 @@
+# Docker Compose for LOCAL DEVELOPMENT ONLY
+# For production/Unraid, use the single container with docker run command
+
+version: '3.8'
+
+services:
+  ai-chief-of-staff:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-chief-of-staff-dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_PATH=/app/data/ai-chief-of-staff.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ICAL_CALENDAR_URL=${ICAL_CALENDAR_URL}
+      - PLAUD_API_KEY=${PLAUD_API_KEY}
+      - PLAUD_API_URL=${PLAUD_API_URL}
+    volumes:
+      - ./dev-data:/app/data
+      - ./dev-uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
