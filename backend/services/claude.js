@@ -232,22 +232,30 @@ Return ONLY valid JSON (no markdown, no explanations):
     // Extract JSON from response (Claude sometimes wraps it in markdown)
     let extracted;
     try {
-      // Try to find JSON in markdown code block first
-      const codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-      if (codeBlockMatch) {
-        logger.info('Found JSON in markdown code block');
-        extracted = JSON.parse(codeBlockMatch[1]);
-      } else {
-        // Try to find raw JSON
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          logger.info('Found raw JSON in response');
-          extracted = JSON.parse(jsonMatch[0]);
-        } else {
-          logger.error('No JSON found in response', { responseSample: responseText.substring(0, 200) });
-          throw new Error('AI response did not contain valid JSON');
+      // Remove markdown code blocks if present
+      let cleanText = responseText.trim();
+      if (cleanText.startsWith('```')) {
+        // Extract content between ``` markers
+        const match = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (match) {
+          cleanText = match[1].trim();
+          logger.info('Removed markdown code block wrapper');
         }
       }
+      
+      // Find the outermost JSON object
+      const firstBrace = cleanText.indexOf('{');
+      const lastBrace = cleanText.lastIndexOf('}');
+      
+      if (firstBrace === -1 || lastBrace === -1) {
+        logger.error('No JSON braces found in response', { responseSample: cleanText.substring(0, 200) });
+        throw new Error('AI response did not contain valid JSON');
+      }
+      
+      const jsonString = cleanText.substring(firstBrace, lastBrace + 1);
+      logger.info(`Extracted JSON string (length: ${jsonString.length})`);
+      
+      extracted = JSON.parse(jsonString);
     } catch (parseError) {
       logger.error('JSON parsing failed', { 
         error: parseError.message,
