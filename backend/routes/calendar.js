@@ -10,22 +10,19 @@ const logger = createModuleLogger('CALENDAR');
  * Fetch calendar events from iCloud
  */
 router.get('/events', async (req, res) => {
+  let calendarUrl;
+  
   try {
     // Get calendar URL from database config
     const db = getDb();
     const row = await db.get('SELECT value FROM config WHERE key = ?', ['icalCalendarUrl']);
-    const calendarUrl = row?.value;
+    calendarUrl = row?.value;
     
     if (!calendarUrl || calendarUrl.trim() === '') {
       logger.warn('Calendar events requested but iCloud calendar URL not configured');
       return res.status(400).json({ error: 'iCloud calendar URL not configured. Please set it in Configuration page.' });
     }
-  } catch (dbError) {
-    logger.error('Error retrieving calendar URL from database', dbError);
-    return res.status(500).json({ error: 'Error retrieving calendar configuration' });
-  }
-
-  try {
+    
     logger.info('Fetching calendar events from iCloud');
     const events = await ical.async.fromURL(calendarUrl);
     const eventList = [];
@@ -47,7 +44,11 @@ router.get('/events', async (req, res) => {
     res.json(eventList);
   } catch (error) {
     logger.error('Error fetching calendar events', error);
-    res.status(500).json({ error: 'Error fetching calendar events', message: error.message });
+    res.status(500).json({ 
+      error: 'Error fetching calendar events', 
+      message: error.message,
+      details: 'Check that your iCloud calendar URL is correct and accessible'
+    });
   }
 });
 
