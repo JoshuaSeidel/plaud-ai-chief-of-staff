@@ -591,9 +591,20 @@ class DatabaseWrapper {
           }
         }
         
-        // Add RETURNING id to INSERT queries to get the lastID (if not already present)
+        // Add RETURNING clause to INSERT queries to get the lastID (if not already present)
+        // For config table, return key instead of id
         if (pgQuery.trim().toUpperCase().startsWith('INSERT') && !pgQuery.toUpperCase().includes('RETURNING')) {
-          pgQuery += ' RETURNING id';
+          // Determine which table we're inserting into
+          const tableMatch = pgQuery.match(/INSERT INTO\s+(\w+)/i);
+          const tableName = tableMatch ? tableMatch[1] : null;
+          
+          if (tableName === 'config') {
+            // Config table uses 'key' as primary key
+            pgQuery += ' RETURNING key';
+          } else {
+            // Other tables use 'id' as primary key
+            pgQuery += ' RETURNING id';
+          }
         }
         
         dbLogger.info(`Executing query: ${pgQuery.substring(0, 150)}...`);
