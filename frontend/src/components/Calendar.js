@@ -25,7 +25,10 @@ function Calendar() {
     setError(null);
     try {
       const response = await calendarAPI.getEvents();
-      setEvents(response.data);
+      // Backend returns {source: 'google'|'icloud', events: [...]}
+      const data = response.data;
+      const eventList = data.events || data || [];
+      setEvents(Array.isArray(eventList) ? eventList : []);
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load calendar events';
       setError(errorMessage);
@@ -99,6 +102,9 @@ function Calendar() {
 
   const groupEventsByDate = () => {
     const grouped = {};
+    if (!Array.isArray(events)) {
+      return grouped;
+    }
     events.forEach(event => {
       const dateKey = new Date(event.start).toDateString();
       if (!grouped[dateKey]) {
