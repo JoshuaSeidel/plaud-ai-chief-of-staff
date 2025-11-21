@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 
-                     (window.location.port === '3001' ? '/api' : 'http://localhost:3001/api');
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
+import { commitmentsAPI } from '../services/api';
 
 function Commitments() {
   const [commitments, setCommitments] = useState([]);
@@ -23,7 +15,7 @@ function Commitments() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/commitments?status=${filter}`);
+      const response = await commitmentsAPI.getAll(filter);
       setCommitments(response.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load commitments');
@@ -34,7 +26,7 @@ function Commitments() {
 
   const updateStatus = async (id, newStatus) => {
     try {
-      await api.put(`/commitments/${id}`, { status: newStatus });
+      await commitmentsAPI.update(id, { status: newStatus });
       loadCommitments();
     } catch (err) {
       setError('Failed to update commitment status');

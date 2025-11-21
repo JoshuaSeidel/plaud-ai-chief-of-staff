@@ -51,4 +51,13 @@ export const calendarAPI = {
   createBlock: (eventData) => api.post('/calendar/block', eventData),
 };
 
+// Commitments API
+export const commitmentsAPI = {
+  getAll: (status = 'all') => api.get(`/commitments?status=${status}`),
+  getById: (id) => api.get(`/commitments/${id}`),
+  update: (id, data) => api.put(`/commitments/${id}`, data),
+  delete: (id) => api.delete(`/commitments/${id}`),
+  getOverdue: () => api.get('/commitments/status/overdue'),
+};
+
 export default api;
