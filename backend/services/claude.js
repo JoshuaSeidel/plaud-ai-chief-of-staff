@@ -52,7 +52,19 @@ async function getAnthropicClient() {
     logger.info(`Creating Anthropic client with API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
     
     const client = new Anthropic({ apiKey });
-    logger.info('Anthropic client created successfully');
+    logger.info(`Anthropic client created successfully. Type: ${typeof client}, has messages: ${!!client?.messages}, has create: ${!!client?.messages?.create}`);
+    
+    if (!client || !client.messages || !client.messages.create) {
+      logger.error('Anthropic client is invalid!', {
+        hasClient: !!client,
+        hasMessages: !!client?.messages,
+        hasCreate: !!client?.messages?.create,
+        clientType: typeof client,
+        clientKeys: client ? Object.keys(client) : []
+      });
+      throw new Error('Failed to create valid Anthropic client');
+    }
+    
     return client;
   } catch (error) {
     logger.error('Fatal error in getAnthropicClient:', { 
