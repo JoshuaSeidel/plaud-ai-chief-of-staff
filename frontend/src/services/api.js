@@ -26,6 +26,7 @@ export const transcriptsAPI = {
   upload: (formData) => api.post('/transcripts/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
+  uploadText: (data) => api.post('/transcripts/upload-text', data),
   getAll: (limit = 50) => api.get(`/transcripts?limit=${limit}`),
   getById: (id) => api.get(`/transcripts/${id}`),
   delete: (id) => api.delete(`/transcripts/${id}`),

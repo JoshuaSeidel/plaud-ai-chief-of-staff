@@ -3,16 +3,12 @@ const router = express.Router();
 const { getDb } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
 const fs = require('fs');
+const { createModuleLogger } = require('../utils/logger');
 
-// Logger for the transcripts route
-const logger = {
-  info: (msg, ...args) => console.log(`[TRANSCRIPTS] ${msg}`, ...args),
-  error: (msg, ...args) => console.error(`[TRANSCRIPTS ERROR] ${msg}`, ...args),
-  warn: (msg, ...args) => console.warn(`[TRANSCRIPTS WARNING] ${msg}`, ...args)
-};
+const logger = createModuleLogger('TRANSCRIPTS');
 
 /**
- * Upload transcript
+ * Upload transcript file
  */
 router.post('/upload', (req, res) => {
   const upload = req.app.get('upload');
@@ -46,6 +42,13 @@ router.post('/upload', (req, res) => {
       const transcriptId = result.lastID;
       logger.info(`Transcript saved with ID: ${transcriptId}`);
 
+      // Clean up uploaded file
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupErr) {
+        logger.warn('Failed to clean up uploaded file:', cleanupErr);
+      }
+
       try {
         // Extract commitments using Claude
         logger.info('Extracting commitments with Claude...');
@@ -57,7 +60,7 @@ router.post('/upload', (req, res) => {
           const stmt = db.prepare('INSERT INTO commitments (transcript_id, description, assignee, deadline) VALUES (?, ?, ?, ?)');
           
           for (const commitment of extracted.commitments) {
-            stmt.run(transcriptId, commitment.description, commitment.assignee, commitment.deadline);
+            stmt.run(transcriptId, commitment.description, commitment.assignee || null, commitment.deadline || null);
           }
           
           await stmt.finalize();
@@ -69,7 +72,7 @@ router.post('/upload', (req, res) => {
           const stmt = db.prepare('INSERT INTO context (transcript_id, context_type, content, priority) VALUES (?, ?, ?, ?)');
           
           for (const item of extracted.actionItems) {
-            stmt.run(transcriptId, 'action_item', item.description, item.priority);
+            stmt.run(transcriptId, 'action_item', item.description, item.priority || 'medium');
           }
           
           await stmt.finalize();
@@ -99,6 +102,85 @@ router.post('/upload', (req, res) => {
       });
     }
   });
+});
+
+/**
+ * Upload transcript text (manual paste)
+ */
+router.post('/upload-text', async (req, res) => {
+  const { filename, content, source } = req.body;
+
+  if (!filename || !content) {
+    logger.warn('Text upload attempted without filename or content');
+    return res.status(400).json({ error: 'Filename and content are required' });
+  }
+
+  logger.info(`Manual text upload: ${filename} (${content.length} characters)`);
+
+  try {
+    const db = getDb();
+
+    // Save to database
+    const result = await db.run(
+      'INSERT INTO transcripts (filename, content, source) VALUES (?, ?, ?)',
+      [filename, content, source || 'manual']
+    );
+
+    const transcriptId = result.lastID;
+    logger.info(`Transcript saved with ID: ${transcriptId}`);
+
+    try {
+      // Extract commitments using Claude
+      logger.info('Extracting commitments with Claude...');
+      const extracted = await extractCommitments(content);
+      logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
+
+      // Save commitments
+      if (extracted.commitments && extracted.commitments.length > 0) {
+        const stmt = db.prepare('INSERT INTO commitments (transcript_id, description, assignee, deadline) VALUES (?, ?, ?, ?)');
+        
+        for (const commitment of extracted.commitments) {
+          stmt.run(transcriptId, commitment.description, commitment.assignee || null, commitment.deadline || null);
+        }
+        
+        await stmt.finalize();
+        logger.info(`Saved ${extracted.commitments.length} commitments`);
+      }
+
+      // Save context items
+      if (extracted.actionItems && extracted.actionItems.length > 0) {
+        const stmt = db.prepare('INSERT INTO context (transcript_id, context_type, content, priority) VALUES (?, ?, ?, ?)');
+        
+        for (const item of extracted.actionItems) {
+          stmt.run(transcriptId, 'action_item', item.description, item.priority || 'medium');
+        }
+        
+        await stmt.finalize();
+        logger.info(`Saved ${extracted.actionItems.length} action items`);
+      }
+
+      res.json({
+        message: 'Transcript saved and processed successfully',
+        transcriptId,
+        extracted
+      });
+    } catch (extractError) {
+      logger.error('Error extracting commitments:', extractError);
+      res.json({
+        message: 'Transcript saved but extraction failed',
+        transcriptId,
+        warning: 'Could not extract commitments automatically',
+        error: extractError.message
+      });
+    }
+  } catch (error) {
+    logger.error('Error processing transcript:', error);
+    res.status(500).json({ 
+      error: 'Error processing transcript', 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
 });
 
 /**
