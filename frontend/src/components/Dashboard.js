@@ -50,11 +50,111 @@ function Dashboard({ setActiveTab }) {
   };
 
   const handleGenerateWeeklyReport = async () => {
-    alert('Weekly Report feature coming soon! This will generate a summary of the past week\'s activities.');
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await briefAPI.generateWeeklyReport();
+      // Show the report in a modal or new section
+      const reportWindow = window.open('', '_blank', 'width=800,height=600');
+      reportWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Weekly Report - ${new Date().toLocaleDateString()}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+              max-width: 800px;
+              margin: 2rem auto;
+              padding: 2rem;
+              background: #1a1a1a;
+              color: #e4e4e7;
+              line-height: 1.6;
+            }
+            h1, h2, h3 { color: #60a5fa; }
+            ul { margin-left: 1.5rem; }
+            strong { color: #fbbf24; }
+            .stats {
+              display: flex;
+              gap: 1rem;
+              margin: 1rem 0;
+              padding: 1rem;
+              background: #27272a;
+              border-radius: 8px;
+            }
+            .stat {
+              flex: 1;
+              text-align: center;
+            }
+            .stat-value {
+              font-size: 2rem;
+              font-weight: bold;
+              color: #60a5fa;
+            }
+            .stat-label {
+              font-size: 0.9rem;
+              color: #a1a1aa;
+            }
+            pre {
+              background: #27272a;
+              padding: 1rem;
+              border-radius: 8px;
+              overflow-x: auto;
+              white-space: pre-wrap;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>📊 Weekly Report</h1>
+          <p><em>Generated: ${new Date(response.data.generatedAt).toLocaleString()}</em></p>
+          
+          ${response.data.stats ? `
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-value">${response.data.stats.totalTranscripts || 0}</div>
+              <div class="stat-label">Transcripts</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${response.data.stats.completedCommitments || 0}</div>
+              <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${response.data.stats.pendingCommitments || 0}</div>
+              <div class="stat-label">Pending</div>
+            </div>
+          </div>
+          ` : ''}
+          
+          <pre>${response.data.report}</pre>
+          
+          <button onclick="window.print()" style="
+            margin-top: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+          ">🖨️ Print Report</button>
+        </body>
+        </html>
+      `);
+      reportWindow.document.close();
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to generate weekly report';
+      setError(errorMessage);
+      console.error('Weekly report generation error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleViewCalendar = () => {
-    alert('Calendar integration coming soon! This will show your upcoming events and allow you to create time blocks.');
+    // Navigate to calendar tab
+    if (setActiveTab) {
+      setActiveTab('calendar');
+    }
   };
 
   return (

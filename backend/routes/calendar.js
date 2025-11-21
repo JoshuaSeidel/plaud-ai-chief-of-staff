@@ -1,49 +1,95 @@
 const express = require('express');
 const router = express.Router();
 const ical = require('node-ical');
+const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('CALENDAR');
 
 /**
+ * Get calendar URL from config
+ */
+async function getCalendarUrl() {
+  const db = getDb();
+  try {
+    const row = await db.get('SELECT value FROM config WHERE key = ?', ['icalCalendarUrl']);
+    if (row && row.value) {
+      let url = row.value;
+      // Handle JSON-encoded values
+      if (url.startsWith('"')) {
+        url = JSON.parse(url);
+      }
+      return url;
+    }
+  } catch (err) {
+    logger.error('Error getting calendar URL from config', err);
+  }
+  return null;
+}
+
+/**
  * Fetch calendar events from iCloud
  */
 router.get('/events', async (req, res) => {
-  const calendarUrl = process.env.ICAL_CALENDAR_URL;
-  
-  if (!calendarUrl) {
-    logger.warn('Calendar events requested but iCloud calendar URL not configured');
-    return res.status(400).json({ error: 'iCloud calendar URL not configured' });
-  }
-
   try {
+    const calendarUrl = await getCalendarUrl();
+    
+    if (!calendarUrl) {
+      logger.warn('Calendar events requested but iCloud calendar URL not configured');
+      return res.status(400).json({ 
+        error: 'iCloud calendar URL not configured',
+        message: 'Please configure your iCloud calendar URL in the Configuration tab'
+      });
+    }
+
     logger.info('Fetching calendar events from iCloud');
-    const events = await ical.async.fromURL(calendarUrl);
+    
+    // Convert webcal:// to https://
+    const httpsUrl = calendarUrl.replace('webcal://', 'https://');
+    
+    const events = await ical.async.fromURL(httpsUrl);
     const eventList = [];
+    const now = new Date();
+    const futureLimit = new Date();
+    futureLimit.setMonth(futureLimit.getMonth() + 2); // Next 2 months
 
     for (const [key, event] of Object.entries(events)) {
       if (event.type === 'VEVENT') {
-        eventList.push({
-          id: key,
-          summary: event.summary,
-          start: event.start,
-          end: event.end,
-          description: event.description,
-          location: event.location
-        });
+        const eventStart = new Date(event.start);
+        const eventEnd = new Date(event.end);
+        
+        // Only include upcoming events (not past events)
+        if (eventEnd >= now && eventStart <= futureLimit) {
+          eventList.push({
+            id: key,
+            summary: event.summary || 'Untitled Event',
+            start: event.start,
+            end: event.end,
+            description: event.description || '',
+            location: event.location || '',
+            allDay: !event.start.getHours && !event.start.getMinutes
+          });
+        }
       }
     }
 
-    logger.info(`Retrieved ${eventList.length} calendar events`);
+    // Sort by start time
+    eventList.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+    logger.info(`Retrieved ${eventList.length} upcoming calendar events`);
     res.json(eventList);
   } catch (error) {
     logger.error('Error fetching calendar events', error);
-    res.status(500).json({ error: 'Error fetching calendar events', message: error.message });
+    res.status(500).json({ 
+      error: 'Error fetching calendar events', 
+      message: error.message,
+      hint: 'Make sure your calendar URL is correct and publicly accessible'
+    });
   }
 });
 
 /**
- * Create calendar block (note: iCloud webcal is read-only, this is a placeholder)
+ * Create calendar block and return ICS file
  */
 router.post('/block', async (req, res) => {
   const { title, startTime, endTime, description } = req.body;
@@ -58,23 +104,17 @@ router.post('/block', async (req, res) => {
     end: endTime
   });
 
-  // NOTE: iCloud calendar URLs are typically read-only
-  // To create events, you would need to use CalDAV protocol or macOS Calendar app
-  // This is a placeholder that returns the event data for manual creation
+  const icsContent = generateICS(title, startTime, endTime, description);
   
-  const event = {
+  logger.info('Calendar block ICS file generated');
+  res.json({
+    message: 'Calendar block created successfully',
     title,
     startTime,
     endTime,
     description,
-    icsFormat: generateICS(title, startTime, endTime, description)
-  };
-
-  logger.info('Calendar block data generated (manual import needed)');
-  res.json({
-    message: 'Calendar block created (manual import needed)',
-    event,
-    instructions: 'Download the ICS file and import it into your iCloud calendar'
+    icsContent,
+    downloadUrl: `/api/calendar/download/${encodeURIComponent(title)}.ics`
   });
 });
 
@@ -84,17 +124,22 @@ router.post('/block', async (req, res) => {
 function generateICS(title, startTime, endTime, description) {
   const start = new Date(startTime).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const end = new Date(endTime).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   
   return `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//AI Chief of Staff//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
 BEGIN:VEVENT
 UID:${Date.now()}@aichief
-DTSTAMP:${start}
+DTSTAMP:${now}
 DTSTART:${start}
 DTEND:${end}
 SUMMARY:${title}
 DESCRIPTION:${description || ''}
+STATUS:CONFIRMED
+SEQUENCE:0
 END:VEVENT
 END:VCALENDAR`;
 }
@@ -102,12 +147,21 @@ END:VCALENDAR`;
 /**
  * Download ICS file
  */
-router.get('/block/:id/download', (req, res) => {
-  logger.info(`ICS download requested for event ID: ${req.params.id}`);
-  // This would retrieve a stored event and return as ICS file
-  res.setHeader('Content-Type', 'text/calendar');
-  res.setHeader('Content-Disposition', 'attachment; filename=event.ics');
-  res.send('Placeholder ICS content');
+router.get('/download/:filename', (req, res) => {
+  const { filename } = req.params;
+  const { title, startTime, endTime, description } = req.query;
+  
+  if (!title || !startTime || !endTime) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+  
+  logger.info(`ICS download requested for: ${filename}`);
+  
+  const icsContent = generateICS(title, startTime, endTime, description);
+  
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(icsContent);
 });
 
 module.exports = router;

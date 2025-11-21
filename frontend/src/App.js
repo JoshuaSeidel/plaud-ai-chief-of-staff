@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Dashboard from './components/Dashboard';
 import Configuration from './components/Configuration';
 import Transcripts from './components/Transcripts';
+import Calendar from './components/Calendar';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -26,6 +27,13 @@ function App() {
             Transcripts
           </button>
           <button 
+            className={activeTab === 'calendar' ? 'active' : ''}
+            onClick={() => setActiveTab('calendar')}
+            data-tab="calendar"
+          >
+            Calendar
+          </button>
+          <button 
             className={activeTab === 'config' ? 'active' : ''}
             onClick={() => setActiveTab('config')}
             data-tab="config"
@@ -38,6 +46,7 @@ function App() {
       <main className="container">
         {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
         {activeTab === 'transcripts' && <Transcripts />}
+        {activeTab === 'calendar' && <Calendar />}
         {activeTab === 'config' && <Configuration />}
       </main>
     </div>

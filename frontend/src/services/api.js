@@ -18,6 +18,7 @@ export const briefAPI = {
   generate: () => api.post('/brief/generate'),
   getRecent: (limit = 7) => api.get(`/brief/recent?limit=${limit}`),
   getByDate: (date) => api.get(`/brief/${date}`),
+  generateWeeklyReport: () => api.post('/brief/weekly-report'),
 };
 
 // Transcripts API

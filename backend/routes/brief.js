@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
-const { generateDailyBrief } = require('../services/claude');
+const { generateDailyBrief, generateWeeklyReport } = require('../services/claude');
 
 // Logger for the brief route
 const logger = {
@@ -179,6 +179,98 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ 
       error: 'Error deleting brief',
       message: err.message
+    });
+  }
+});
+
+/**
+ * Generate weekly report
+ */
+router.post('/weekly-report', async (req, res) => {
+  logger.info('Generating weekly report...');
+  
+  try {
+    const db = getDb();
+    
+    // Get data from last 7 days
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoISO = weekAgo.toISOString();
+
+    logger.info(`Fetching data from ${weekAgoISO}`);
+
+    // Fetch transcripts from the week
+    const transcriptsQuery = `
+      SELECT * FROM transcripts 
+      WHERE upload_date >= ?
+      ORDER BY upload_date DESC
+    `;
+
+    // Fetch commitments from the week
+    const commitmentsQuery = `
+      SELECT * FROM commitments 
+      WHERE created_date >= ?
+      ORDER BY status, deadline ASC
+    `;
+
+    // Fetch context from the week
+    const contextQuery = `
+      SELECT * FROM context 
+      WHERE created_date >= ? AND status = 'active'
+      ORDER BY created_date DESC
+    `;
+
+    // Fetch briefs from the week
+    const briefsQuery = `
+      SELECT * FROM briefs 
+      WHERE created_date >= ?
+      ORDER BY brief_date DESC
+    `;
+
+    const transcriptRows = await db.all(transcriptsQuery, [weekAgoISO]);
+    const commitmentRows = await db.all(commitmentsQuery, [weekAgoISO]);
+    const contextRows = await db.all(contextQuery, [weekAgoISO]);
+    const briefRows = await db.all(briefsQuery, [weekAgoISO]);
+
+    logger.info(`Found ${transcriptRows.length} transcripts, ${commitmentRows.length} commitments, ${contextRows.length} context items`);
+
+    // Calculate completed vs pending commitments
+    const completedCommitments = commitmentRows.filter(c => c.status === 'completed');
+    const pendingCommitments = commitmentRows.filter(c => c.status !== 'completed');
+
+    const weekData = {
+      transcripts: transcriptRows,
+      commitments: {
+        all: commitmentRows,
+        completed: completedCommitments,
+        pending: pendingCommitments
+      },
+      context: contextRows,
+      briefs: briefRows,
+      stats: {
+        totalTranscripts: transcriptRows.length,
+        totalCommitments: commitmentRows.length,
+        completedCommitments: completedCommitments.length,
+        pendingCommitments: pendingCommitments.length,
+        contextItems: contextRows.length
+      }
+    };
+
+    logger.info('Calling Claude API to generate weekly report...');
+    const report = await generateWeeklyReport(weekData);
+    logger.info('Weekly report generated successfully');
+
+    res.json({ 
+      report, 
+      generatedAt: new Date().toISOString(),
+      stats: weekData.stats
+    });
+  } catch (error) {
+    logger.error('Error generating weekly report:', error);
+    res.status(500).json({ 
+      error: 'Error generating weekly report', 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
