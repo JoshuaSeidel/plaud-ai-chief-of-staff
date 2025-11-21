@@ -7,14 +7,15 @@ const path = require('path');
 // Load environment variables
 dotenv.config();
 
-// Import routes
-const briefRoutes = require('./routes/brief');
-const transcriptRoutes = require('./routes/transcripts');
-const configRoutes = require('./routes/config');
-const calendarRoutes = require('./routes/calendar');
-
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Initialize database before loading routes
+const { initializeDatabase } = require('./database/db');
+
+console.log('=================================');
+console.log('AI Chief of Staff - Starting...');
+console.log('=================================');
 
 // Middleware
 app.use(cors());
@@ -38,35 +39,58 @@ const upload = multer({ storage });
 // Make upload middleware available to routes
 app.set('upload', upload);
 
-// Routes
-app.use('/api/brief', briefRoutes);
-app.use('/api/transcripts', transcriptRoutes);
-app.use('/api/config', configRoutes);
-app.use('/api/calendar', calendarRoutes);
-
-// Health check
+// Health check (available before database is initialized)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'AI Chief of Staff API is running' });
 });
 
-// Serve frontend for any non-API routes (for all-in-one container)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Initialize and start server
+async function startServer() {
+  try {
+    // Initialize database first
+    console.log('Initializing database...');
+    await initializeDatabase();
+    console.log('Database ready');
+    
+    // Import and setup routes after database is initialized
+    const briefRoutes = require('./routes/brief');
+    const transcriptRoutes = require('./routes/transcripts');
+    const configRoutes = require('./routes/config');
+    const calendarRoutes = require('./routes/calendar');
+    
+    app.use('/api/brief', briefRoutes);
+    app.use('/api/transcripts', transcriptRoutes);
+    app.use('/api/config', configRoutes);
+    app.use('/api/calendar', calendarRoutes);
+    
+    // Serve frontend for any non-API routes (for all-in-one container)
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
+    
+    // Error handling middleware
+    app.use((err, req, res, next) => {
+      console.error('Error:', err);
+      res.status(500).json({ 
+        error: 'Something went wrong!',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
+    });
+    
+    // Start server
+    app.listen(PORT, () => {
+      console.log('=================================');
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'production'}`);
+      console.log('=================================');
+    });
+    
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-});
+startServer();
 
 module.exports = app;

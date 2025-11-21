@@ -24,20 +24,26 @@ function Configuration() {
 
   const loadConfig = async () => {
     try {
-      const response = await configAPI.getAll();
-      const data = response.data;
+      // Load app config from database
+      const appResponse = await configAPI.getAll();
+      const appData = appResponse.data;
+      
+      // Load system config from file
+      const sysResponse = await fetch('/api/config/system');
+      const sysData = await sysResponse.json();
+      
       setConfig({
-        anthropicApiKey: data.anthropicApiKey ? '••••••••' : '',
-        claudeModel: data.claudeModel || 'claude-sonnet-4-5-20250929',
-        plaudApiKey: data.plaudApiKey ? '••••••••' : '',
-        plaudApiUrl: data.plaudApiUrl || 'https://api.plaud.ai',
-        icalCalendarUrl: data.icalCalendarUrl || '',
-        dbType: data.dbType || 'sqlite',
-        postgresHost: data.postgresHost || '',
-        postgresPort: data.postgresPort || '5432',
-        postgresDb: data.postgresDb || '',
-        postgresUser: data.postgresUser || '',
-        postgresPassword: data.postgresPassword ? '••••••••' : '',
+        anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
+        claudeModel: appData.claudeModel || 'claude-sonnet-4-5-20250929',
+        plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
+        plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
+        icalCalendarUrl: appData.icalCalendarUrl || '',
+        dbType: sysData.dbType || 'sqlite',
+        postgresHost: sysData.postgres?.host || '',
+        postgresPort: sysData.postgres?.port || '5432',
+        postgresDb: sysData.postgres?.database || '',
+        postgresUser: sysData.postgres?.user || '',
+        postgresPassword: sysData.postgres?.password === '********' ? '••••••••' : '',
       });
     } catch (err) {
       console.error('Failed to load config:', err);
@@ -53,29 +59,61 @@ function Configuration() {
     setMessage(null);
 
     try {
-      // Only send non-masked values
-      const updates = {};
-      Object.keys(config).forEach(key => {
+      // Separate app config and system config
+      const appUpdates = {};
+      const sysUpdates = {
+        dbType: config.dbType
+      };
+      
+      // App configuration (stored in database)
+      ['anthropicApiKey', 'claudeModel', 'plaudApiKey', 'plaudApiUrl', 'icalCalendarUrl'].forEach(key => {
         const value = config[key];
-        // Skip masked passwords
         if (value && !value.includes('•')) {
-          updates[key] = value;
-        } else if (key === 'claudeModel' || key === 'plaudApiUrl' || key === 'icalCalendarUrl' || 
-                   key === 'dbType' || key === 'postgresHost' || key === 'postgresPort' || 
-                   key === 'postgresDb' || key === 'postgresUser') {
-          // Include non-password fields even if empty
-          updates[key] = value;
+          appUpdates[key] = value;
+        } else if (key === 'claudeModel' || key === 'plaudApiUrl' || key === 'icalCalendarUrl') {
+          appUpdates[key] = value;
         }
       });
+      
+      // System configuration (stored in /data/config.json)
+      if (config.dbType === 'postgres') {
+        sysUpdates.postgres = {};
+        if (config.postgresHost) sysUpdates.postgres.host = config.postgresHost;
+        if (config.postgresPort) sysUpdates.postgres.port = parseInt(config.postgresPort);
+        if (config.postgresDb) sysUpdates.postgres.database = config.postgresDb;
+        if (config.postgresUser) sysUpdates.postgres.user = config.postgresUser;
+        if (config.postgresPassword && !config.postgresPassword.includes('•')) {
+          sysUpdates.postgres.password = config.postgresPassword;
+        }
+      }
 
-      await configAPI.bulkUpdate(updates);
-      setMessage({ type: 'success', text: 'Configuration saved successfully!' });
-      setTimeout(() => {
-        loadConfig();
-        setMessage(null);
-      }, 2000);
+      // Save app config
+      await configAPI.bulkUpdate(appUpdates);
+      
+      // Save system config
+      const sysResponse = await fetch('/api/config/system', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sysUpdates)
+      });
+      
+      const sysResult = await sysResponse.json();
+      
+      if (sysResult.requiresRestart) {
+        setMessage({ 
+          type: 'warning', 
+          text: 'Configuration saved! Please restart the container for database changes to take effect.' 
+        });
+      } else {
+        setMessage({ type: 'success', text: 'Configuration saved successfully!' });
+        setTimeout(() => {
+          loadConfig();
+          setMessage(null);
+        }, 2000);
+      }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to save configuration' });
+      console.error('Save error:', err);
+      setMessage({ type: 'error', text: 'Failed to save configuration: ' + err.message });
     } finally {
       setSaving(false);
     }
@@ -91,8 +129,8 @@ function Configuration() {
 
         {message && (
           <div style={{ 
-            backgroundColor: message.type === 'success' ? '#e5ffe5' : '#ffe5e5',
-            color: message.type === 'success' ? '#00a000' : '#d70015',
+            backgroundColor: message.type === 'success' ? '#e5ffe5' : message.type === 'warning' ? '#fff8e5' : '#ffe5e5',
+            color: message.type === 'success' ? '#00a000' : message.type === 'warning' ? '#d78a00' : '#d70015',
             padding: '1rem',
             borderRadius: '8px',
             marginBottom: '1rem'

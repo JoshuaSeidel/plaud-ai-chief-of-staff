@@ -1,46 +1,77 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const db = require('../database/db');
+const { getDb, getDbType } = require('../database/db');
 
 /**
  * Get Anthropic client with API key from database config
  */
 async function getAnthropicClient() {
-  return new Promise((resolve, reject) => {
-    db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey'], (err, row) => {
-      if (err) {
-        reject(err);
-      } else if (!row) {
-        reject(new Error('Anthropic API key not configured. Please set it in the Configuration page.'));
-      } else {
-        try {
-          const apiKey = JSON.parse(row.value);
-          const anthropic = new Anthropic({ apiKey });
-          resolve(anthropic);
-        } catch (e) {
-          reject(new Error('Invalid API key format'));
+  const db = getDb();
+  const dbType = getDbType();
+  
+  if (dbType === 'postgres') {
+    const result = await db.query('SELECT value FROM config WHERE key = $1', ['anthropicApiKey']);
+    if (result.rows.length === 0) {
+      throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
+    }
+    try {
+      const apiKey = JSON.parse(result.rows[0].value);
+      return new Anthropic({ apiKey });
+    } catch (e) {
+      throw new Error('Invalid API key format');
+    }
+  } else {
+    return new Promise((resolve, reject) => {
+      db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey'], (err, row) => {
+        if (err) {
+          reject(err);
+        } else if (!row) {
+          reject(new Error('Anthropic API key not configured. Please set it in the Configuration page.'));
+        } else {
+          try {
+            const apiKey = JSON.parse(row.value);
+            const anthropic = new Anthropic({ apiKey });
+            resolve(anthropic);
+          } catch (e) {
+            reject(new Error('Invalid API key format'));
+          }
         }
-      }
+      });
     });
-  });
+  }
 }
 
 /**
  * Get Claude model from database config
  */
 async function getClaudeModel() {
-  return new Promise((resolve) => {
-    db.get('SELECT value FROM config WHERE key = ?', ['claudeModel'], (err, row) => {
-      if (err || !row) {
-        resolve('claude-sonnet-4-5-20250929'); // Default model
-      } else {
-        try {
-          resolve(JSON.parse(row.value));
-        } catch (e) {
-          resolve('claude-sonnet-4-5-20250929');
+  const db = getDb();
+  const dbType = getDbType();
+  
+  if (dbType === 'postgres') {
+    const result = await db.query('SELECT value FROM config WHERE key = $1', ['claudeModel']);
+    if (result.rows.length === 0) {
+      return 'claude-sonnet-4-5-20250929'; // Default model
+    }
+    try {
+      return JSON.parse(result.rows[0].value);
+    } catch (e) {
+      return 'claude-sonnet-4-5-20250929';
+    }
+  } else {
+    return new Promise((resolve) => {
+      db.get('SELECT value FROM config WHERE key = ?', ['claudeModel'], (err, row) => {
+        if (err || !row) {
+          resolve('claude-sonnet-4-5-20250929'); // Default model
+        } else {
+          try {
+            resolve(JSON.parse(row.value));
+          } catch (e) {
+            resolve('claude-sonnet-4-5-20250929');
+          }
         }
-      }
+      });
     });
-  });
+  }
 }
 
 /**

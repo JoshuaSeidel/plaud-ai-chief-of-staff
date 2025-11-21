@@ -27,7 +27,14 @@ RUN mkdir -p /app/public
 COPY --from=frontend-build /app/frontend/build /app/public
 
 # Create necessary directories
-RUN mkdir -p /app/uploads /app/data
+RUN mkdir -p /app/uploads /data
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV CONFIG_DIR=/data
+
+# Volume for persistent data
+VOLUME ["/data"]
 
 # Expose ports
 EXPOSE 3001

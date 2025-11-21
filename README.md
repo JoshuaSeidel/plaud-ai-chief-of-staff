@@ -43,15 +43,14 @@ An intelligent executive assistant that automates personal productivity by inges
 - **Container Port**: `3001` → **Host Port**: `3001`
 
 **Volume Mappings:**
-- **Container Path**: `/app/data` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff/data`
+- **Container Path**: `/data` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff`
 - **Container Path**: `/app/uploads` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff/uploads`
 
 **Environment Variables (Optional):**
 - **Variable**: `NODE_ENV` → **Value**: `production`
 - **Variable**: `PORT` → **Value**: `3001`
-- **Variable**: `DB_TYPE` → **Value**: `sqlite` or `postgres` (optional, can configure in UI)
 
-**Note:** API keys and database credentials are configured through the web UI, not environment variables.
+**Note:** All API keys and database credentials are configured through the web UI at Settings page after first launch.
 
 4. Click **Apply** to start the container
 5. Access at `http://YOUR-UNRAID-IP:3001`
@@ -68,13 +67,59 @@ SSH into your Unraid server and run:
 docker run -d \
   --name=ai-chief-of-staff \
   -p 3001:3001 \
-  -v /mnt/user/appdata/ai-chief-of-staff/data:/app/data \
+  -v /mnt/user/appdata/ai-chief-of-staff:/data \
   -v /mnt/user/appdata/ai-chief-of-staff/uploads:/app/uploads \
   --restart=unless-stopped \
   ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest
 ```
 
-**Note:** All API keys and credentials are configured through the web UI after first launch.
+## Configuration
+
+After starting the container:
+
+1. Navigate to `http://YOUR-IP:3001`
+2. Click on the **Configuration** tab
+3. Configure the following:
+
+### Required Configuration
+- **Anthropic API Key**: Get from [console.anthropic.com](https://console.anthropic.com/)
+- **Claude Model**: Select the model (default: Claude Sonnet 4.5)
+
+### Optional Configuration
+- **Plaud API**: For automatic transcript pulling
+- **iCloud Calendar**: For calendar integration
+- **Database**: Switch from SQLite to PostgreSQL
+
+### Database Configuration
+
+The app stores all configuration in `/data/config.json` and uses it at startup. You have two database options:
+
+#### SQLite (Default)
+- Zero configuration required
+- Database stored in `/data/ai-chief-of-staff.db`
+- Perfect for single-user deployments
+
+#### PostgreSQL
+- For multi-user or high-volume deployments
+- Configure in the Settings page:
+  - PostgreSQL Host
+  - Port (default: 5432)
+  - Database Name
+  - Username
+  - Password
+- The app will automatically:
+  - Create the database if it doesn't exist
+  - Create all tables
+  - Migrate data from SQLite when you switch
+
+**To switch databases:**
+1. Go to Configuration page
+2. Select "PostgreSQL" as Database Type
+3. Enter your PostgreSQL connection details
+4. Click Save
+5. Restart the container - data will be migrated automatically
+
+**Note:** All credentials are stored in `/data/config.json` which persists across container restarts.
 
 ## Docker Installation (Other Platforms)
 
