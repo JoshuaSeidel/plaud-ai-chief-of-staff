@@ -10,7 +10,10 @@ const logger = createModuleLogger('CLAUDE');
 async function getAnthropicClient() {
   try {
     logger.info('Retrieving Anthropic API key from configuration');
+    const dbType = getDbType();
     const db = getDb();
+    
+    logger.info(`Database type: ${dbType}`);
     
     if (!db) {
       logger.error('Database connection is not available');
@@ -19,13 +22,18 @@ async function getAnthropicClient() {
     
     logger.info('Querying database for anthropicApiKey...');
     
+    // First, let's see what keys exist in the config table
+    const allKeys = await db.all('SELECT key FROM config');
+    logger.info(`All keys in config table: ${JSON.stringify(allKeys.map(r => r.key))}`);
+    
     // Use the unified DatabaseWrapper method - it handles both SQLite and PostgreSQL
     const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
     
-    logger.info(`Database query returned: ${row ? 'row found' : 'no row'}`);
+    logger.info(`Database query returned: ${row ? JSON.stringify({found: true, hasValue: !!row.value, valueLength: row.value?.length}) : 'NO ROW FOUND'}`);
     
     if (!row) {
       logger.error('Anthropic API key not found in configuration database');
+      logger.error('This means the config table exists but has no row with key=anthropicApiKey');
       throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
     }
     
