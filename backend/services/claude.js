@@ -10,44 +10,26 @@ const logger = createModuleLogger('CLAUDE');
 async function getAnthropicClient() {
   logger.info('Retrieving Anthropic API key from configuration');
   const db = getDb();
-  const dbType = getDbType();
   
-  if (dbType === 'postgres') {
-    const result = await db.query('SELECT value FROM config WHERE key = $1', ['anthropicApiKey']);
-    if (result.rows.length === 0) {
-      logger.error('Anthropic API key not found in configuration');
-      throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
+  // Use the unified DatabaseWrapper method - it handles both SQLite and PostgreSQL
+  const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
+  
+  if (!row) {
+    logger.error('Anthropic API key not found in configuration');
+    throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
+  }
+  
+  try {
+    // Handle both plain strings and JSON-encoded values
+    let apiKey = row.value;
+    if (apiKey.startsWith('"')) {
+      apiKey = JSON.parse(apiKey);
     }
-    try {
-      // Handle both plain strings and JSON-encoded values
-      let apiKey = result.rows[0].value;
-      if (apiKey.startsWith('"')) {
-        apiKey = JSON.parse(apiKey);
-      }
-      logger.info('Anthropic client initialized successfully');
-      return new Anthropic({ apiKey });
-    } catch (e) {
-      logger.error('Invalid API key format', e);
-      throw new Error('Invalid API key format');
-    }
-  } else {
-    const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
-    if (!row) {
-      logger.error('Anthropic API key not found in configuration');
-      throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
-    }
-    try {
-      // Handle both plain strings and JSON-encoded values
-      let apiKey = row.value;
-      if (apiKey.startsWith('"')) {
-        apiKey = JSON.parse(apiKey);
-      }
-      logger.info('Anthropic client initialized successfully');
-      return new Anthropic({ apiKey });
-    } catch (e) {
-      logger.error('Invalid API key format', e);
-      throw new Error('Invalid API key format');
-    }
+    logger.info('Anthropic client initialized successfully');
+    return new Anthropic({ apiKey });
+  } catch (e) {
+    logger.error('Invalid API key format', e);
+    throw new Error('Invalid API key format');
   }
 }
 
@@ -56,44 +38,26 @@ async function getAnthropicClient() {
  */
 async function getClaudeModel() {
   const db = getDb();
-  const dbType = getDbType();
   
-  if (dbType === 'postgres') {
-    const result = await db.query('SELECT value FROM config WHERE key = $1', ['claudeModel']);
-    if (result.rows.length === 0) {
-      logger.info('Claude model not configured, using default: claude-sonnet-4-5-20250929');
-      return 'claude-sonnet-4-5-20250929'; // Default model
+  // Use the unified DatabaseWrapper method - it handles both SQLite and PostgreSQL
+  const row = await db.get('SELECT value FROM config WHERE key = ?', ['claudeModel']);
+  
+  if (!row) {
+    logger.info('Claude model not configured, using default: claude-sonnet-4-5-20250929');
+    return 'claude-sonnet-4-5-20250929'; // Default model
+  }
+  
+  try {
+    // Handle both plain strings and JSON-encoded values
+    let model = row.value;
+    if (model.startsWith('"')) {
+      model = JSON.parse(model);
     }
-    try {
-      // Handle both plain strings and JSON-encoded values
-      let model = result.rows[0].value;
-      if (model.startsWith('"')) {
-        model = JSON.parse(model);
-      }
-      logger.info(`Using Claude model: ${model}`);
-      return model;
-    } catch (e) {
-      logger.warn('Error parsing model config, using default', e);
-      return 'claude-sonnet-4-5-20250929';
-    }
-  } else {
-    const row = await db.get('SELECT value FROM config WHERE key = ?', ['claudeModel']);
-    if (!row) {
-      logger.info('Claude model not configured, using default: claude-sonnet-4-5-20250929');
-      return 'claude-sonnet-4-5-20250929'; // Default model
-    }
-    try {
-      // Handle both plain strings and JSON-encoded values
-      let model = row.value;
-      if (model.startsWith('"')) {
-        model = JSON.parse(model);
-      }
-      logger.info(`Using Claude model: ${model}`);
-      return model;
-    } catch (e) {
-      logger.warn('Error parsing model config, using default', e);
-      return 'claude-sonnet-4-5-20250929';
-    }
+    logger.info(`Using Claude model: ${model}`);
+    return model;
+  } catch (e) {
+    logger.warn('Error parsing model config, using default', e);
+    return 'claude-sonnet-4-5-20250929';
   }
 }
 
