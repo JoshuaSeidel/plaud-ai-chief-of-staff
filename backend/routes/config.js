@@ -126,11 +126,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Key and value are required' });
     }
     
-    logger.info(`Updating config key: ${key}`);
+    logger.info(`Updating config key: ${key} (type: ${typeof value}, length: ${value?.length || 0})`);
     const db = getDb();
     
-    // Store strings as-is, only stringify complex objects
-    const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
+    // Always store as plain string - never JSON.stringify strings
+    // Express has already parsed the JSON request body, so value is the actual value
+    const storedValue = String(value);
+    
+    logger.info(`Storing value as plain string (length: ${storedValue.length})`);
     
     // Use unified interface - works for both SQLite and PostgreSQL
     await db.run(
@@ -167,7 +170,9 @@ router.put('/', async (req, res) => {
     const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)');
     
     for (const [key, value] of Object.entries(config)) {
-      const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
+      // Always store as plain string - Express has already parsed JSON
+      const storedValue = String(value);
+      logger.info(`Bulk update: ${key} = ${storedValue.substring(0, 20)}... (length: ${storedValue.length})`);
       stmt.run(key, storedValue);
     }
     
@@ -198,11 +203,9 @@ router.get('/:key', async (req, res) => {
       return res.status(404).json({ error: 'Configuration key not found' });
     }
     
-    try {
-      res.json({ key, value: JSON.parse(row.value) });
-    } catch {
-      res.json({ key, value: row.value });
-    }
+    // Return value as-is (it's stored as a plain string)
+    logger.info(`Returning config value for ${key} (length: ${row.value?.length || 0})`);
+    res.json({ key, value: row.value });
   } catch (err) {
     logger.error(`Error fetching config key: ${req.params.key}`, err);
     res.status(500).json({ error: 'Error fetching configuration', message: err.message });

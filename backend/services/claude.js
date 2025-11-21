@@ -19,28 +19,20 @@ async function getAnthropicClient() {
     throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
   }
   
-  // Handle both plain strings and JSON-encoded values
+  // API key is stored as a plain string
   let apiKey = row.value;
-  logger.info(`Retrieved API key from database (length: ${apiKey ? apiKey.length : 0}, starts with: ${apiKey ? apiKey.substring(0, 8) : 'null'})`);
+  logger.info(`Retrieved API key from database (length: ${apiKey ? apiKey.length : 0}, starts with: ${apiKey ? apiKey.substring(0, 10) : 'null'})`);
   
-  // If it's wrapped in quotes (JSON stringified), parse it
-  if (apiKey && typeof apiKey === 'string' && apiKey.startsWith('"') && apiKey.endsWith('"')) {
-    try {
-      apiKey = JSON.parse(apiKey);
-      logger.info('API key was JSON-encoded, unwrapped successfully');
-    } catch (parseErr) {
-      logger.error('Failed to parse JSON-encoded API key:', parseErr);
-      throw new Error('Invalid API key format in database');
-    }
-  }
-  
-  if (!apiKey || apiKey.trim() === '') {
-    logger.error('API key is empty or whitespace');
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+    logger.error('API key is empty, null, or whitespace');
     throw new Error('Anthropic API key is empty. Please set it in the Configuration page.');
   }
   
-  logger.info(`Creating Anthropic client with API key: ${apiKey.substring(0, 8)}...`);
-  return new Anthropic({ apiKey: apiKey.trim() });
+  // Trim whitespace and use the key directly
+  apiKey = apiKey.trim();
+  
+  logger.info(`Creating Anthropic client with API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
+  return new Anthropic({ apiKey });
 }
 
 /**
@@ -57,18 +49,10 @@ async function getClaudeModel() {
     return 'claude-sonnet-4-5-20250929'; // Default model
   }
   
-  try {
-    // Handle both plain strings and JSON-encoded values
-    let model = row.value;
-    if (model.startsWith('"')) {
-      model = JSON.parse(model);
-    }
-    logger.info(`Using Claude model: ${model}`);
-    return model;
-  } catch (e) {
-    logger.warn('Error parsing model config, using default', e);
-    return 'claude-sonnet-4-5-20250929';
-  }
+  // Model is stored as a plain string
+  const model = row.value?.trim() || 'claude-sonnet-4-5-20250929';
+  logger.info(`Using Claude model: ${model}`);
+  return model;
 }
 
 /**
