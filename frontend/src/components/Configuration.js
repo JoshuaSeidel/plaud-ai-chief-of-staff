@@ -15,6 +15,10 @@ function Configuration() {
     postgresUser: '',
     postgresPassword: '',
   });
+  
+  // Track which fields have been loaded from server (to know which ones to skip on save)
+  const [loadedFields, setLoadedFields] = useState({});
+  
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -32,6 +36,14 @@ function Configuration() {
       const sysResponse = await fetch('/api/config/system');
       const sysData = await sysResponse.json();
       
+      // Track which fields were actually loaded (have values)
+      const loaded = {
+        anthropicApiKey: !!appData.anthropicApiKey,
+        plaudApiKey: !!appData.plaudApiKey,
+        postgresPassword: !!(sysData.postgres?.password && sysData.postgres.password !== '********')
+      };
+      
+      setLoadedFields(loaded);
       setConfig({
         anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
         claudeModel: appData.claudeModel || 'claude-sonnet-4-5-20250929',
@@ -52,6 +64,10 @@ function Configuration() {
 
   const handleChange = (key, value) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+    // If user is typing in a field that was masked, mark it as changed
+    if (value && !value.includes('•')) {
+      setLoadedFields(prev => ({ ...prev, [key]: false }));
+    }
   };
 
   const handleSave = async () => {
@@ -66,14 +82,25 @@ function Configuration() {
       };
       
       // App configuration (stored in database)
-      ['anthropicApiKey', 'claudeModel', 'plaudApiKey', 'plaudApiUrl', 'icalCalendarUrl'].forEach(key => {
-        const value = config[key];
-        if (value && !value.includes('•')) {
-          appUpdates[key] = value;
-        } else if (key === 'claudeModel' || key === 'plaudApiUrl' || key === 'icalCalendarUrl') {
-          appUpdates[key] = value;
-        }
-      });
+      // Save API keys only if they've been changed (not masked anymore)
+      if (config.anthropicApiKey && !config.anthropicApiKey.includes('•')) {
+        appUpdates.anthropicApiKey = config.anthropicApiKey;
+      } else if (!config.anthropicApiKey && loadedFields.anthropicApiKey) {
+        // Key was cleared - save empty string
+        appUpdates.anthropicApiKey = '';
+      }
+      
+      if (config.plaudApiKey && !config.plaudApiKey.includes('•')) {
+        appUpdates.plaudApiKey = config.plaudApiKey;
+      } else if (!config.plaudApiKey && loadedFields.plaudApiKey) {
+        // Key was cleared - save empty string
+        appUpdates.plaudApiKey = '';
+      }
+      
+      // Always save these fields (they're not masked)
+      appUpdates.claudeModel = config.claudeModel;
+      appUpdates.plaudApiUrl = config.plaudApiUrl;
+      appUpdates.icalCalendarUrl = config.icalCalendarUrl;
       
       // System configuration (stored in /data/config.json)
       if (config.dbType === 'postgres') {
@@ -124,7 +151,7 @@ function Configuration() {
       <div className="card">
         <h2>Configuration</h2>
         <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
-          Configure your AI Chief of Staff application settings.
+          Configure your AI Chief of Staff application settings. All settings persist across container restarts.
         </p>
 
         {message && (
@@ -150,7 +177,12 @@ function Configuration() {
             onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
             placeholder="sk-ant-..."
           />
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
+          {config.anthropicApiKey.includes('•') && (
+            <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
+              ✓ API key is configured (change to update)
+            </p>
+          )}
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.anthropicApiKey.includes('•') ? '0' : '-0.5rem' }}>
             Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>
           </p>
 
@@ -188,6 +220,11 @@ function Configuration() {
             onChange={(e) => handleChange('plaudApiKey', e.target.value)}
             placeholder="Your Plaud API key"
           />
+          {config.plaudApiKey.includes('•') && (
+            <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
+              ✓ API key is configured (change to update)
+            </p>
+          )}
           
           <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Plaud API URL
@@ -284,6 +321,11 @@ function Configuration() {
                 placeholder="••••••••"
                 style={{ marginBottom: 0 }}
               />
+              {config.postgresPassword.includes('•') && (
+                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '0.5rem' }}>
+                  ✓ Password is configured (change to update)
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -291,6 +333,10 @@ function Configuration() {
         <button onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save Configuration'}
         </button>
+        
+        <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '1rem' }}>
+          💾 All settings are saved to <code>/data/config.json</code> and the database, and persist across container restarts.
+        </p>
       </div>
 
       <div className="card">
