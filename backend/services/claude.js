@@ -243,17 +243,37 @@ Return ONLY valid JSON (no markdown, no explanations):
         }
       }
       
-      // Find the outermost JSON object
+      // Find the outermost JSON object by counting braces
       const firstBrace = cleanText.indexOf('{');
-      const lastBrace = cleanText.lastIndexOf('}');
-      
-      if (firstBrace === -1 || lastBrace === -1) {
-        logger.error('No JSON braces found in response', { responseSample: cleanText.substring(0, 200) });
+      if (firstBrace === -1) {
+        logger.error('No opening brace found in response', { responseSample: cleanText.substring(0, 200) });
         throw new Error('AI response did not contain valid JSON');
       }
       
+      // Count braces to find matching closing brace
+      let braceCount = 0;
+      let lastBrace = -1;
+      for (let i = firstBrace; i < cleanText.length; i++) {
+        if (cleanText[i] === '{') braceCount++;
+        if (cleanText[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            lastBrace = i;
+            break;
+          }
+        }
+      }
+      
+      if (lastBrace === -1) {
+        logger.error('No matching closing brace found', { 
+          responseSample: cleanText.substring(0, 500),
+          responseEnd: cleanText.substring(cleanText.length - 200)
+        });
+        throw new Error('AI response JSON is incomplete');
+      }
+      
       const jsonString = cleanText.substring(firstBrace, lastBrace + 1);
-      logger.info(`Extracted JSON string (length: ${jsonString.length})`);
+      logger.info(`Extracted JSON string (length: ${jsonString.length}, start: ${jsonString.substring(0, 50)}, end: ${jsonString.substring(jsonString.length - 50)})`);
       
       extracted = JSON.parse(jsonString);
     } catch (parseError) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import Configuration from './components/Configuration';
 import Transcripts from './components/Transcripts';
@@ -6,7 +6,33 @@ import Calendar from './components/Calendar';
 import Commitments from './components/Commitments';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Get initial tab from URL hash or default to dashboard
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace('#', '');
+    const validTabs = ['dashboard', 'transcripts', 'commitments', 'calendar', 'config'];
+    return validTabs.includes(hash) ? hash : 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    window.location.hash = activeTab;
+  }, [activeTab]);
+
+  // Listen for hash changes (back/forward browser buttons)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      const validTabs = ['dashboard', 'transcripts', 'commitments', 'calendar', 'config'];
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   return (
     <div className="app">
