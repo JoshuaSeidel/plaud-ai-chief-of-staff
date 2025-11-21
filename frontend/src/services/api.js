@@ -1,10 +1,14 @@
 import axios from 'axios';
 
-// Auto-detect if running in all-in-one container or separate containers
-// In all-in-one, frontend is served from same origin, so use relative path
-// In development/multi-container, use environment variable or default to localhost:3001
+// Auto-detect API base URL
+// Priority:
+// 1. REACT_APP_API_URL environment variable (for custom setups)
+// 2. If on localhost:3000 (development), use localhost:3001/api
+// 3. Otherwise (production/SWAG/etc), use relative path /api (same origin)
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
-                     (window.location.port === '3001' ? '/api' : 'http://localhost:3001/api');
+                     (window.location.hostname === 'localhost' && window.location.port === '3000' 
+                       ? 'http://localhost:3001/api' 
+                       : '/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
