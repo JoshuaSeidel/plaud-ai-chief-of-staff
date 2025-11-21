@@ -3,6 +3,7 @@ import Dashboard from './components/Dashboard';
 import Configuration from './components/Configuration';
 import Transcripts from './components/Transcripts';
 import Calendar from './components/Calendar';
+import Commitments from './components/Commitments';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -27,6 +28,13 @@ function App() {
             Transcripts
           </button>
           <button 
+            className={activeTab === 'commitments' ? 'active' : ''}
+            onClick={() => setActiveTab('commitments')}
+            data-tab="commitments"
+          >
+            Commitments
+          </button>
+          <button 
             className={activeTab === 'calendar' ? 'active' : ''}
             onClick={() => setActiveTab('calendar')}
             data-tab="calendar"
@@ -46,6 +54,7 @@ function App() {
       <main className="container">
         {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
         {activeTab === 'transcripts' && <Transcripts />}
+        {activeTab === 'commitments' && <Commitments />}
         {activeTab === 'calendar' && <Calendar />}
         {activeTab === 'config' && <Configuration />}
       </main>

@@ -104,11 +104,15 @@ async function startServer() {
     const transcriptRoutes = require('./routes/transcripts');
     const configRoutes = require('./routes/config');
     const calendarRoutes = require('./routes/calendar');
+    const commitmentsRoutes = require('./routes/commitments');
+    const webhookRoutes = require('./routes/webhook');
     
     app.use('/api/brief', briefRoutes);
     app.use('/api/transcripts', transcriptRoutes);
     app.use('/api/config', configRoutes);
     app.use('/api/calendar', calendarRoutes);
+    app.use('/api/commitments', commitmentsRoutes);
+    app.use('/api/webhook', webhookRoutes);
     
     serverLogger.info('API routes initialized');
     

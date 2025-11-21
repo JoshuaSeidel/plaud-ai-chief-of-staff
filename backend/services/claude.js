@@ -276,8 +276,162 @@ Keep it executive-level: clear, concise, outcome-focused.`;
   }
 }
 
+/**
+ * Detect patterns across multiple transcripts
+ */
+async function detectPatterns(transcripts) {
+  logger.info('Detecting patterns across transcripts', {
+    transcriptCount: transcripts.length
+  });
+
+  const prompt = `Analyze these meeting transcripts and identify recurring patterns:
+
+${transcripts.map((t, i) => `
+Meeting ${i + 1} (${t.filename}):
+${t.content.substring(0, 2000)}...
+`).join('\n')}
+
+Identify:
+1. **Recurring Themes**: Topics that come up repeatedly
+2. **Resource Constraints**: Mentions of limited resources (time, budget, people)
+3. **Blocking Issues**: Problems that keep appearing without resolution
+4. **Risk Indicators**: Red flags or concerns mentioned multiple times
+5. **Progress Patterns**: Are things moving forward or stuck?
+
+Return results as JSON:
+{
+  "themes": [{"theme": "...", "frequency": 3, "impact": "high|medium|low"}],
+  "resourceConstraints": ["..."],
+  "blockingIssues": ["..."],
+  "riskIndicators": ["..."],
+  "progressAssessment": "..."
+}`;
+
+  try {
+    const anthropic = await getAnthropicClient();
+    const model = await getClaudeModel();
+    
+    logger.info(`Calling Claude API for pattern detection with model: ${model}`);
+    const startTime = Date.now();
+    
+    const message = await anthropic.messages.create({
+      model: model,
+      max_tokens: 2000,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    });
+
+    const duration = Date.now() - startTime;
+    const responseText = message.content[0].text;
+    
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    let patterns;
+    
+    if (jsonMatch) {
+      patterns = JSON.parse(jsonMatch[0]);
+    } else {
+      patterns = JSON.parse(responseText);
+    }
+    
+    logger.info(`Pattern detection completed in ${duration}ms`, {
+      themes: patterns.themes?.length || 0,
+      constraints: patterns.resourceConstraints?.length || 0,
+      tokens: message.usage?.total_tokens
+    });
+    
+    return patterns;
+  } catch (error) {
+    logger.error('Error detecting patterns', error);
+    throw error;
+  }
+}
+
+/**
+ * Flag risks in commitments and context
+ */
+async function flagRisks(data) {
+  logger.info('Analyzing risks', {
+    commitments: data.commitments?.length || 0,
+    context: data.context?.length || 0
+  });
+
+  const prompt = `Analyze this data and identify risks that need attention:
+
+Commitments:
+${JSON.stringify(data.commitments, null, 2)}
+
+Context:
+${JSON.stringify(data.context, null, 2)}
+
+Identify:
+1. **Overdue Items**: Things past their deadline
+2. **At-Risk Deliverables**: Items likely to miss deadlines
+3. **Unaddressed Issues**: Problems mentioned but not acted on
+4. **Resource Conflicts**: Multiple commitments with same deadline
+5. **Vague Commitments**: Unclear or unactionable items
+
+Return results as JSON:
+{
+  "overdueItems": [{"id": ..., "description": "...", "daysOverdue": ...}],
+  "atRiskItems": [{"id": ..., "description": "...", "reason": "..."}],
+  "unaddressedIssues": ["..."],
+  "resourceConflicts": ["..."],
+  "vagueCommitments": [{"id": ..., "description": "...", "suggestion": "..."}]
+}`;
+
+  try {
+    const anthropic = await getAnthropicClient();
+    const model = await getClaudeModel();
+    
+    logger.info(`Calling Claude API for risk flagging with model: ${model}`);
+    const startTime = Date.now();
+    
+    const message = await anthropic.messages.create({
+      model: model,
+      max_tokens: 1500,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    });
+
+    const duration = Date.now() - startTime;
+    const responseText = message.content[0].text;
+    
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    let risks;
+    
+    if (jsonMatch) {
+      risks = JSON.parse(jsonMatch[0]);
+    } else {
+      risks = JSON.parse(responseText);
+    }
+    
+    logger.info(`Risk flagging completed in ${duration}ms`, {
+      overdue: risks.overdueItems?.length || 0,
+      atRisk: risks.atRiskItems?.length || 0,
+      tokens: message.usage?.total_tokens
+    });
+    
+    return risks;
+  } catch (error) {
+    logger.error('Error flagging risks', error);
+    throw error;
+  }
+}
+
 module.exports = {
   generateDailyBrief,
   extractCommitments,
-  generateWeeklyReport
+  generateWeeklyReport,
+  detectPatterns,
+  flagRisks
 };

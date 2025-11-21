@@ -282,6 +282,12 @@ function Dashboard({ setActiveTab }) {
           >
             📅 View Calendar
           </button>
+          <button 
+            className="secondary"
+            onClick={() => setActiveTab && setActiveTab('commitments')}
+          >
+            📋 View Commitments
+          </button>
         </div>
         
         <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#f5f5f7', borderRadius: '8px' }}>

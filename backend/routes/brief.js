@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
-const { generateDailyBrief, generateWeeklyReport } = require('../services/claude');
+const { generateDailyBrief, generateWeeklyReport, detectPatterns, flagRisks } = require('../services/claude');
 
 // Logger for the brief route
 const logger = {
@@ -271,6 +271,88 @@ router.post('/weekly-report', async (req, res) => {
       error: 'Error generating weekly report', 
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * Detect patterns across recent transcripts
+ */
+router.post('/patterns', async (req, res) => {
+  logger.info('Detecting patterns across transcripts...');
+  
+  try {
+    const db = getDb();
+    
+    // Get transcripts from last 2 weeks
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    
+    const transcripts = await db.all(
+      'SELECT * FROM transcripts WHERE upload_date >= ? ORDER BY upload_date DESC LIMIT 10',
+      [twoWeeksAgo.toISOString()]
+    );
+    
+    if (transcripts.length === 0) {
+      return res.status(400).json({ 
+        error: 'Not enough data', 
+        message: 'Need at least one transcript to detect patterns' 
+      });
+    }
+    
+    logger.info(`Analyzing ${transcripts.length} transcripts for patterns`);
+    const patterns = await detectPatterns(transcripts);
+    
+    res.json({
+      patterns,
+      transcriptsAnalyzed: transcripts.length,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error detecting patterns:', error);
+    res.status(500).json({ 
+      error: 'Error detecting patterns', 
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Flag risks in current commitments and context
+ */
+router.post('/risks', async (req, res) => {
+  logger.info('Flagging risks...');
+  
+  try {
+    const db = getDb();
+    
+    // Get active commitments
+    const commitments = await db.all(
+      'SELECT * FROM commitments WHERE status != ? ORDER BY deadline ASC',
+      ['completed']
+    );
+    
+    // Get active context
+    const context = await db.all(
+      'SELECT * FROM context WHERE status = ? ORDER BY created_date DESC LIMIT 50',
+      ['active']
+    );
+    
+    logger.info(`Analyzing ${commitments.length} commitments and ${context.length} context items for risks`);
+    
+    const risks = await flagRisks({ commitments, context });
+    
+    res.json({
+      risks,
+      commitmentsAnalyzed: commitments.length,
+      contextAnalyzed: context.length,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error flagging risks:', error);
+    res.status(500).json({ 
+      error: 'Error flagging risks', 
+      message: error.message
     });
   }
 });
