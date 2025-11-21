@@ -169,53 +169,36 @@ async function extractCommitments(transcriptText, meetingDate = null) {
   const today = new Date().toISOString().split('T')[0];
   const dateContext = meetingDate ? `This meeting occurred on: ${meetingDate}` : `Today's date: ${today}`;
 
-  const prompt = `You are an AI assistant analyzing a meeting transcript. Your job is to extract ALL actionable items, both explicitly stated AND implied by the conversation.
+  const prompt = `Analyze this meeting transcript and extract actionable items - both explicitly stated AND implied by the discussion.
 
 ${dateContext}
 
-**Important Instructions:**
-1. Look for EXPLICIT commitments where someone says "I will...", "I'll...", "We'll...", "Let me..."
-2. Look for IMPLICIT tasks that logically follow from the discussion (e.g., "We need to decide..." implies someone should schedule a decision meeting)
-3. For EVERY commitment/task, determine a reasonable deadline based on urgency cues:
-   - If a specific date/deadline is mentioned, use it (convert relative dates like "next week" to actual dates)
-   - If urgency is mentioned ("ASAP", "urgent", "critical", "blocker"), assign deadline within 2-3 business days
-   - If something blocks other work, assign deadline within 1 week
-   - If no urgency mentioned, assign deadline 2 weeks from meeting date
-   - For research/investigation tasks, assign 1 week
-   - For follow-up meetings, assign 1-2 weeks
-4. Extract the meeting context and decisions
-5. Provide a brief solution suggestion for each commitment when applicable
+Look for:
+- EXPLICIT commitments: "I will...", "I'll...", "We'll...", "Let me..."
+- IMPLICIT tasks: Problems discussed that need solutions, decisions that need follow-up, research mentioned, etc.
+- Assign realistic deadlines: Use mentioned dates, or estimate based on urgency (urgent=3 days, normal=2 weeks, research=1 week)
 
 Transcript:
 ${transcriptText}
 
-Return results as JSON:
+Return ONLY valid JSON (no markdown, no explanations):
 {
-  "meetingContext": "Brief summary of what this meeting was about",
   "commitments": [
     {
-      "description": "Clear description of what needs to be done",
-      "assignee": "Name or 'team' or 'TBD' if unclear",
-      "deadline": "YYYY-MM-DD format",
-      "urgency": "high|medium|low",
-      "suggestedApproach": "Brief suggestion on how to tackle this",
-      "blocksOtherWork": true/false
+      "description": "What needs to be done",
+      "assignee": "Name or TBD",
+      "deadline": "YYYY-MM-DD or null"
     }
   ],
   "actionItems": [
-    {
-      "description": "Specific action needed", 
-      "priority": "high|medium|low",
-      "category": "decision|research|implementation|communication|follow-up"
-    }
+    {"description": "Action needed", "priority": "high|medium|low"}
   ],
   "followUps": [
-    {"description": "...", "with": "person/team name"}
+    {"description": "Follow-up item", "with": "person/team"}
   ],
   "risks": [
-    {"description": "...", "impact": "high|medium|low"}
-  ],
-  "decisions": ["Key decision 1", "Key decision 2"]
+    {"description": "Risk or blocker", "impact": "high|medium|low"}
+  ]
 }`;
 
   try {
@@ -244,14 +227,33 @@ Return results as JSON:
     const duration = Date.now() - startTime;
     const responseText = message.content[0].text;
     
-    // Extract JSON from response (Claude sometimes wraps it in markdown)
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    let extracted;
+    logger.info(`Raw AI response length: ${responseText.length} characters`);
     
-    if (jsonMatch) {
-      extracted = JSON.parse(jsonMatch[0]);
-    } else {
-      extracted = JSON.parse(responseText);
+    // Extract JSON from response (Claude sometimes wraps it in markdown)
+    let extracted;
+    try {
+      // Try to find JSON in markdown code block first
+      const codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+      if (codeBlockMatch) {
+        logger.info('Found JSON in markdown code block');
+        extracted = JSON.parse(codeBlockMatch[1]);
+      } else {
+        // Try to find raw JSON
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          logger.info('Found raw JSON in response');
+          extracted = JSON.parse(jsonMatch[0]);
+        } else {
+          logger.error('No JSON found in response', { responseSample: responseText.substring(0, 200) });
+          throw new Error('AI response did not contain valid JSON');
+        }
+      }
+    } catch (parseError) {
+      logger.error('JSON parsing failed', { 
+        error: parseError.message,
+        responseSample: responseText.substring(0, 500)
+      });
+      throw new Error(`Failed to parse AI response: ${parseError.message}`);
     }
     
     logger.info(`Extraction completed in ${duration}ms`, {
