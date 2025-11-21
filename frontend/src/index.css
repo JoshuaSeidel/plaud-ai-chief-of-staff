@@ -321,3 +321,210 @@ table {
   background: none;
   padding: 0;
 }
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablet and below */
+@media (max-width: 768px) {
+  .header {
+    padding: 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.25rem;
+  }
+
+  .nav {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nav button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+  }
+
+  .card h2 {
+    font-size: 1.125rem;
+  }
+
+  button {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
+  }
+
+  button + button {
+    margin-top: 0.5rem;
+  }
+
+  input[type="text"],
+  input[type="url"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+}
+
+/* Mobile phone */
+@media (max-width: 480px) {
+  .header {
+    padding: 0.75rem;
+  }
+
+  .header h1 {
+    font-size: 1.125rem;
+  }
+
+  .nav {
+    gap: 0.25rem;
+  }
+
+  .nav button {
+    padding: 0.5rem;
+    font-size: 0.8125rem;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .container {
+    padding: 0.75rem;
+  }
+
+  .card {
+    padding: 0.875rem;
+    border-radius: 8px;
+  }
+
+  .card h2 {
+    font-size: 1rem;
+    margin-bottom: 0.875rem;
+  }
+
+  .card h3 {
+    font-size: 0.9375rem;
+    margin-top: 1rem;
+  }
+
+  .brief-content h1 {
+    font-size: 1.25rem;
+  }
+
+  .brief-content h2 {
+    font-size: 1.125rem;
+  }
+
+  .brief-content h3 {
+    font-size: 1rem;
+  }
+
+  .file-upload {
+    padding: 1.5rem 1rem;
+    font-size: 0.9375rem;
+  }
+}
+
+/* Ensure proper viewport on mobile */
+@media (max-width: 768px) {
+  /* Make tables scrollable on mobile */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Stack form elements vertically on mobile */
+  .card > div {
+    margin-bottom: 1rem;
+  }
+
+  /* Better spacing for lists on mobile */
+  ul, ol {
+    padding-left: 1.25rem;
+  }
+
+  /* Ensure code blocks are scrollable */
+  .brief-content pre,
+  pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Better touch targets for mobile */
+  a, button, input, select, textarea {
+    min-height: 44px; /* iOS recommended touch target */
+  }
+
+  /* Improve textarea on mobile */
+  textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+}
+
+/* Landscape phone */
+@media (max-width: 768px) and (orientation: landscape) {
+  .header {
+    padding: 0.5rem 1rem;
+  }
+
+  .nav {
+    margin-top: 0.5rem;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+}
+
+/* iPhone specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific */
+  input[type="text"],
+  input[type="url"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevents zoom */
+  }
+
+  /* Fix sticky hover states on iOS */
+  button:hover {
+    background-color: #3b82f6;
+  }
+
+  button.secondary:hover {
+    background-color: #3f3f46;
+  }
+}
+
+/* Dark mode safe area for notch devices (iPhone X+) */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  .header {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .container {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
