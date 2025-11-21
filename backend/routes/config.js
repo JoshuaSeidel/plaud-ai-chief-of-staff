@@ -220,6 +220,50 @@ router.get('/:key', async (req, res) => {
 });
 
 /**
+ * Health check for config system - verifies database connection and table
+ */
+router.get('/health', async (req, res) => {
+  try {
+    const db = getDb();
+    const dbType = getDbType();
+    
+    // Try to query the config table
+    let tableExists = false;
+    let rowCount = 0;
+    let sampleKeys = [];
+    
+    try {
+      const rows = await db.all('SELECT key FROM config LIMIT 5');
+      tableExists = true;
+      rowCount = rows.length;
+      sampleKeys = rows.map(r => r.key);
+    } catch (tableError) {
+      tableExists = false;
+    }
+    
+    res.json({
+      status: 'ok',
+      database: {
+        type: dbType,
+        connected: true,
+        tableExists,
+        rowCount,
+        sampleKeys
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      error: err.message,
+      database: {
+        type: getDbType(),
+        connected: false
+      }
+    });
+  }
+});
+
+/**
  * Debug endpoint to check what's actually stored in the database
  */
 router.get('/debug/raw/:key', async (req, res) => {
