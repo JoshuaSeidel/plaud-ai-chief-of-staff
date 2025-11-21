@@ -8,22 +8,29 @@ const logger = createModuleLogger('CONFIG');
 
 /**
  * Get system configuration from /app/data/config.json
+ * Also includes actual runtime database type
  */
 router.get('/system', (req, res) => {
   try {
     logger.info('Fetching system configuration');
     const config = configManager.loadConfig();
+    const actualDbType = getDbType(); // What's actually being used
+    
+    // Add runtime info
+    const response = { ...config };
+    response._runtime = {
+      actualDbType: actualDbType,
+      configFileDbType: config.dbType || 'sqlite'
+    };
     
     // Don't send passwords in response
-    if (config.postgres) {
-      const sanitized = { ...config };
-      if (sanitized.postgres.password) {
-        sanitized.postgres.password = '********';
+    if (response.postgres) {
+      if (response.postgres.password) {
+        response.postgres.password = '********';
       }
-      return res.json(sanitized);
     }
     
-    res.json(config);
+    res.json(response);
   } catch (err) {
     logger.error('Error loading system config', err);
     res.status(500).json({ error: 'Error loading system configuration', message: err.message });
