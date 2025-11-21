@@ -486,12 +486,46 @@ class DatabaseWrapper {
         let paramIndex = 1;
         pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
         
-        // Add RETURNING id to INSERT queries to get the lastID
+        // Convert SQLite INSERT OR REPLACE to PostgreSQL INSERT ... ON CONFLICT
+        // Example: INSERT OR REPLACE INTO config (key, value, updated_date) VALUES ($1, $2, CURRENT_TIMESTAMP)
+        if (pgQuery.toUpperCase().includes('INSERT OR REPLACE INTO')) {
+          // Extract table name and the rest
+          const insertOrReplaceMatch = pgQuery.match(/INSERT OR REPLACE INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES/i);
+          if (insertOrReplaceMatch) {
+            const tableName = insertOrReplaceMatch[1];
+            const columns = insertOrReplaceMatch[2].split(',').map(c => c.trim());
+            
+            // For config table, the primary key is 'key', for others it's 'id'
+            const primaryKey = tableName === 'config' ? 'key' : 'id';
+            
+            // Build the UPDATE SET clause (all columns except the primary key)
+            const updateColumns = columns.filter(col => col !== primaryKey);
+            const updateSet = updateColumns.map(col => `${col} = EXCLUDED.${col}`).join(', ');
+            
+            // Replace INSERT OR REPLACE with INSERT ... ON CONFLICT
+            pgQuery = pgQuery.replace(
+              /INSERT OR REPLACE INTO/i,
+              'INSERT INTO'
+            );
+            
+            // Add ON CONFLICT clause before any RETURNING clause
+            if (pgQuery.toUpperCase().includes('RETURNING')) {
+              pgQuery = pgQuery.replace(
+                /RETURNING/i,
+                `ON CONFLICT (${primaryKey}) DO UPDATE SET ${updateSet} RETURNING`
+              );
+            } else {
+              pgQuery += ` ON CONFLICT (${primaryKey}) DO UPDATE SET ${updateSet}`;
+            }
+          }
+        }
+        
+        // Add RETURNING id to INSERT queries to get the lastID (if not already present)
         if (pgQuery.trim().toUpperCase().startsWith('INSERT') && !pgQuery.toUpperCase().includes('RETURNING')) {
           pgQuery += ' RETURNING id';
         }
         
-        dbLogger.info(`Executing query: ${pgQuery.substring(0, 100)}...`);
+        dbLogger.info(`Executing query: ${pgQuery.substring(0, 150)}...`);
         const result = await pool.query(pgQuery, params);
         
         return {

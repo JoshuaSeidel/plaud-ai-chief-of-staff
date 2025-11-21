@@ -93,33 +93,21 @@ router.get('/', async (req, res) => {
   try {
     logger.info('Fetching application configuration from database');
     const db = getDb();
-    const dbType = getDbType();
     
-    if (dbType === 'postgres') {
-      const result = await db.query('SELECT * FROM config');
-      const config = {};
-      result.rows.forEach(row => {
-        try {
-          config[row.key] = JSON.parse(row.value);
-        } catch {
-          config[row.key] = row.value;
-        }
-      });
-      logger.info(`Retrieved ${Object.keys(config).length} config keys`);
-      res.json(config);
-    } else {
-      const rows = await db.all('SELECT * FROM config');
-      const config = {};
-      rows.forEach(row => {
-        try {
-          config[row.key] = JSON.parse(row.value);
-        } catch {
-          config[row.key] = row.value;
-        }
-      });
-      logger.info(`Retrieved ${Object.keys(config).length} config keys`);
-      res.json(config);
-    }
+    // Use unified interface - works for both SQLite and PostgreSQL
+    const rows = await db.all('SELECT * FROM config');
+    const config = {};
+    
+    rows.forEach(row => {
+      try {
+        config[row.key] = JSON.parse(row.value);
+      } catch {
+        config[row.key] = row.value;
+      }
+    });
+    
+    logger.info(`Retrieved ${Object.keys(config).length} config keys`);
+    res.json(config);
   } catch (err) {
     logger.error('Error fetching config', err);
     res.status(500).json({ error: 'Error fetching configuration', message: err.message });
@@ -140,28 +128,18 @@ router.post('/', async (req, res) => {
     
     logger.info(`Updating config key: ${key}`);
     const db = getDb();
-    const dbType = getDbType();
     
     // Store strings as-is, only stringify complex objects
     const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
     
-    if (dbType === 'postgres') {
-      await db.query(
-        `INSERT INTO config (key, value, updated_date) 
-         VALUES ($1, $2, CURRENT_TIMESTAMP) 
-         ON CONFLICT (key) DO UPDATE SET value = $2, updated_date = CURRENT_TIMESTAMP`,
-        [key, storedValue]
-      );
-      logger.info(`Config key updated successfully: ${key}`);
-      res.json({ message: 'Configuration updated successfully', key, value });
-    } else {
-      await db.run(
-        'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [key, storedValue]
-      );
-      logger.info(`Config key updated successfully: ${key}`);
-      res.json({ message: 'Configuration updated successfully', key, value });
-    }
+    // Use unified interface - works for both SQLite and PostgreSQL
+    await db.run(
+      'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
+      [key, storedValue]
+    );
+    
+    logger.info(`Config key updated successfully: ${key}`);
+    res.json({ message: 'Configuration updated successfully', key, value });
   } catch (err) {
     logger.error('Error updating config', err);
     res.status(500).json({ error: 'Error updating configuration', message: err.message });
@@ -184,32 +162,18 @@ router.put('/', async (req, res) => {
     logger.info(`Bulk updating ${keys.length} config keys`);
     
     const db = getDb();
-    const dbType = getDbType();
     
-    if (dbType === 'postgres') {
-      for (const [key, value] of Object.entries(config)) {
-        const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
-        await db.query(
-          `INSERT INTO config (key, value, updated_date) 
-           VALUES ($1, $2, CURRENT_TIMESTAMP) 
-           ON CONFLICT (key) DO UPDATE SET value = $2, updated_date = CURRENT_TIMESTAMP`,
-          [key, storedValue]
-        );
-      }
-      logger.info('Bulk update completed successfully');
-      res.json({ message: 'Configuration updated successfully', count: keys.length });
-    } else {
-      const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)');
-      
-      for (const [key, value] of Object.entries(config)) {
-        const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
-        stmt.run(key, storedValue);
-      }
-      
-      await stmt.finalize();
-      logger.info('Bulk update completed successfully');
-      res.json({ message: 'Configuration updated successfully', count: keys.length });
+    // Use unified interface for batch operations
+    const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)');
+    
+    for (const [key, value] of Object.entries(config)) {
+      const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
+      stmt.run(key, storedValue);
     }
+    
+    await stmt.finalize();
+    logger.info('Bulk update completed successfully');
+    res.json({ message: 'Configuration updated successfully', count: keys.length });
   } catch (err) {
     logger.error('Error in bulk config update', err);
     res.status(500).json({ error: 'Error updating configuration', message: err.message });
@@ -225,30 +189,19 @@ router.get('/:key', async (req, res) => {
     logger.info(`Fetching config key: ${key}`);
     
     const db = getDb();
-    const dbType = getDbType();
     
-    if (dbType === 'postgres') {
-      const result = await db.query('SELECT value FROM config WHERE key = $1', [key]);
-      if (result.rows.length === 0) {
-        logger.warn(`Config key not found: ${key}`);
-        return res.status(404).json({ error: 'Configuration key not found' });
-      }
-      try {
-        res.json({ key, value: JSON.parse(result.rows[0].value) });
-      } catch {
-        res.json({ key, value: result.rows[0].value });
-      }
-    } else {
-      const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
-      if (!row) {
-        logger.warn(`Config key not found: ${key}`);
-        return res.status(404).json({ error: 'Configuration key not found' });
-      }
-      try {
-        res.json({ key, value: JSON.parse(row.value) });
-      } catch {
-        res.json({ key, value: row.value });
-      }
+    // Use unified interface - works for both SQLite and PostgreSQL
+    const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
+    
+    if (!row) {
+      logger.warn(`Config key not found: ${key}`);
+      return res.status(404).json({ error: 'Configuration key not found' });
+    }
+    
+    try {
+      res.json({ key, value: JSON.parse(row.value) });
+    } catch {
+      res.json({ key, value: row.value });
     }
   } catch (err) {
     logger.error(`Error fetching config key: ${req.params.key}`, err);
