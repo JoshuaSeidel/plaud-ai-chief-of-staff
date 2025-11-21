@@ -35,12 +35,20 @@ function Configuration() {
   const loadConfig = async () => {
     try {
       // Load app config from database
+      console.log('Loading app config from database...');
       const appResponse = await configAPI.getAll();
       const appData = appResponse.data;
+      console.log('App config loaded:', Object.keys(appData));
       
       // Load system config from file
+      console.log('Loading system config...');
       const sysResponse = await fetch('/api/config/system');
       const sysData = await sysResponse.json();
+      console.log('System config loaded:', { 
+        dbType: sysData.dbType, 
+        actualDbType: sysData._runtime?.actualDbType,
+        hasPostgres: !!sysData.postgres 
+      });
       
       // Track which fields were actually loaded (have values)
       const loaded = {
@@ -51,6 +59,10 @@ function Configuration() {
       };
       
       setLoadedFields(loaded);
+      
+      // Use actual runtime DB type if available, otherwise use config file value
+      const actualDbType = sysData._runtime?.actualDbType || sysData.dbType || 'sqlite';
+      
       setConfig({
         anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
         claudeModel: appData.claudeModel || 'claude-sonnet-4-5-20250929',
@@ -60,7 +72,7 @@ function Configuration() {
         googleClientId: appData.googleClientId || '',
         googleClientSecret: appData.googleClientSecret ? '••••••••' : '',
         googleRedirectUri: appData.googleRedirectUri || '',
-        dbType: sysData.dbType || 'sqlite',
+        dbType: actualDbType,
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
         postgresDb: sysData.postgres?.database || '',
@@ -69,6 +81,10 @@ function Configuration() {
       });
     } catch (err) {
       console.error('Failed to load config:', err);
+      setMessage({ 
+        type: 'error', 
+        text: 'Failed to load configuration. Check console for details.' 
+      });
     }
   };
 
@@ -123,6 +139,8 @@ function Configuration() {
     setMessage(null);
 
     try {
+      console.log('Starting configuration save...');
+      
       // Separate app config and system config
       const appUpdates = {};
       const sysUpdates = {
@@ -176,7 +194,9 @@ function Configuration() {
       }
 
       // Save app config
+      console.log('Saving app config:', Object.keys(appUpdates));
       await configAPI.bulkUpdate(appUpdates);
+      console.log('App config saved successfully');
       
       // Save system config
       const sysResponse = await fetch('/api/config/system', {
