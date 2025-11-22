@@ -348,11 +348,18 @@ async function generateWeeklyReport(weekData) {
 
 ${JSON.stringify(weekData, null, 2)}
 
-Format the report with:
-1. WHAT SHIPPED (completed deliverables)
-2. WHAT'S AT RISK (blockers, delays)
-3. NEXT WEEK'S FOCUS (priorities and goals)
+The data includes all task types:
+- Commitments: formal promises/deliverables
+- Action Items: specific actions needed
+- Follow-ups: items needing additional discussion
+- Risks: potential blockers/issues
 
+Format the report with:
+1. WHAT SHIPPED (completed tasks across all types)
+2. WHAT'S AT RISK (blockers, delays, and identified risks)
+3. NEXT WEEK'S FOCUS (priorities across commitments, actions, follow-ups)
+
+Include task counts by type in your summary.
 Keep it executive-level: clear, concise, outcome-focused.`;
 
   try {

@@ -234,24 +234,45 @@ router.post('/weekly-report', async (req, res) => {
 
     logger.info(`Found ${transcriptRows.length} transcripts, ${commitmentRows.length} commitments, ${contextRows.length} context items`);
 
-    // Calculate completed vs pending commitments
-    const completedCommitments = commitmentRows.filter(c => c.status === 'completed');
-    const pendingCommitments = commitmentRows.filter(c => c.status !== 'completed');
+    // Calculate completed vs pending tasks
+    const completedTasks = commitmentRows.filter(c => c.status === 'completed');
+    const pendingTasks = commitmentRows.filter(c => c.status !== 'completed');
+    
+    // Group tasks by type
+    const tasksByType = {
+      commitments: commitmentRows.filter(c => (c.task_type || 'commitment') === 'commitment'),
+      actions: commitmentRows.filter(c => c.task_type === 'action'),
+      followUps: commitmentRows.filter(c => c.task_type === 'follow-up'),
+      risks: commitmentRows.filter(c => c.task_type === 'risk')
+    };
 
     const weekData = {
       transcripts: transcriptRows,
+      tasks: {
+        all: commitmentRows,
+        completed: completedTasks,
+        pending: pendingTasks,
+        byType: tasksByType
+      },
+      // Keep commitments for backward compatibility
       commitments: {
         all: commitmentRows,
-        completed: completedCommitments,
-        pending: pendingCommitments
+        completed: completedTasks,
+        pending: pendingTasks
       },
       context: contextRows,
       briefs: briefRows,
       stats: {
         totalTranscripts: transcriptRows.length,
-        totalCommitments: commitmentRows.length,
-        completedCommitments: completedCommitments.length,
-        pendingCommitments: pendingCommitments.length,
+        totalTasks: commitmentRows.length,
+        completedTasks: completedTasks.length,
+        pendingTasks: pendingTasks.length,
+        byType: {
+          commitments: tasksByType.commitments.length,
+          actions: tasksByType.actions.length,
+          followUps: tasksByType.followUps.length,
+          risks: tasksByType.risks.length
+        },
         contextItems: contextRows.length
       }
     };
