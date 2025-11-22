@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#3b82f6" rx="100"/>
+  
+  <!-- AI Chip/Brain icon -->
+  <g transform="translate(256,256)">
+    <!-- Center circle -->
+    <circle cx="0" cy="0" r="80" fill="#ffffff" opacity="0.9"/>
+    
+    <!-- Neural network nodes -->
+    <circle cx="-60" cy="-60" r="20" fill="#ffffff"/>
+    <circle cx="60" cy="-60" r="20" fill="#ffffff"/>
+    <circle cx="-60" cy="60" r="20" fill="#ffffff"/>
+    <circle cx="60" cy="60" r="20" fill="#ffffff"/>
+    <circle cx="0" cy="-80" r="20" fill="#ffffff"/>
+    <circle cx="0" cy="80" r="20" fill="#ffffff"/>
+    <circle cx="-80" cy="0" r="20" fill="#ffffff"/>
+    <circle cx="80" cy="0" r="20" fill="#ffffff"/>
+    
+    <!-- Connecting lines -->
+    <line x1="-60" y1="-60" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    <line x1="60" y1="-60" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    <line x1="-60" y1="60" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    <line x1="60" y1="60" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    <line x1="0" y1="-80" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    <line x1="0" y1="80" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    <line x1="-80" y1="0" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    <line x1="80" y1="0" x2="0" y2="0" stroke="#ffffff" stroke-width="4" opacity="0.6"/>
+    
+    <!-- Document/clipboard elements at bottom -->
+    <rect x="-50" y="100" width="100" height="120" fill="#ffffff" rx="8"/>
+    <line x1="-30" y1="130" x2="30" y2="130" stroke="#3b82f6" stroke-width="6" stroke-linecap="round"/>
+    <line x1="-30" y1="155" x2="30" y2="155" stroke="#3b82f6" stroke-width="6" stroke-linecap="round"/>
+    <line x1="-30" y1="180" x2="15" y2="180" stroke="#3b82f6" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- Checkmark -->
+    <polyline points="25,175 35,185 55,155" fill="none" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" transform="translate(-10, -5)"/>
+  </g>
+</svg>
+
