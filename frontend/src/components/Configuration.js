@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { configAPI } from '../services/api';
+import { PullToRefresh } from './PullToRefresh';
 
 function Configuration() {
   const [config, setConfig] = useState({
@@ -163,6 +164,11 @@ function Configuration() {
     }
   };
 
+  const handleRefresh = async () => {
+    await loadConfig();
+    await checkGoogleCalendarStatus();
+  };
+
   const checkGoogleCalendarStatus = async () => {
     try {
       const response = await fetch('/api/calendar/google/status');
@@ -307,7 +313,8 @@ function Configuration() {
   };
 
   return (
-    <div className="configuration">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="configuration">
       <div className="card">
         <h2>Configuration</h2>
         <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
@@ -979,7 +986,8 @@ function Configuration() {
           <li>Create calendar blocks automatically</li>
         </ul>
       </div>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 

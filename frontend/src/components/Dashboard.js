@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { briefAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
+import { PullToRefresh } from './PullToRefresh';
 
 function Dashboard({ setActiveTab }) {
   const [brief, setBrief] = useState(null);
@@ -23,6 +24,10 @@ function Dashboard({ setActiveTab }) {
       // No brief for today yet, that's okay
       console.log('No brief for today yet');
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadTodaysBrief();
   };
 
   const generateBrief = async () => {
@@ -157,8 +162,38 @@ function Dashboard({ setActiveTab }) {
     }
   };
 
+  // Parse deliverables table from brief
+  const parseDeliverablesTable = (briefText) => {
+    if (!briefText) return null;
+    
+    // Find the deliverables section
+    const deliverablesMatch = briefText.match(/##\s*2\.\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##|$)/i);
+    if (!deliverablesMatch) return null;
+    
+    const deliverablesSection = deliverablesMatch[0];
+    
+    // Try to extract table rows
+    const tableMatch = deliverablesSection.match(/\|(.+)\|/g);
+    if (!tableMatch || tableMatch.length < 2) return null;
+    
+    // Parse header
+    const headerRow = tableMatch[0].split('|').map(cell => cell.trim()).filter(cell => cell);
+    if (headerRow.length < 5) return null;
+    
+    // Parse data rows (skip header and separator)
+    const dataRows = tableMatch.slice(2).map(row => {
+      const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell);
+      return cells.length >= 5 ? cells : null;
+    }).filter(row => row !== null);
+    
+    return { headerRow, dataRows };
+  };
+
+  const deliverablesData = brief ? parseDeliverablesTable(brief) : null;
+
   return (
-    <div className="dashboard">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="dashboard">
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2>Morning Dashboard</h2>
@@ -247,50 +282,147 @@ function Dashboard({ setActiveTab }) {
             color: '#e5e5e7',
             overflowX: 'auto'
           }}>
-            <ReactMarkdown
-              components={{
-                h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
-                strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
-                em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
-                ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
-                p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
-                table: ({node, ...props}) => <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  marginTop: '1rem',
-                  marginBottom: '1rem',
-                  backgroundColor: '#18181b',
-                  border: '1px solid #3f3f46'
-                }} {...props} />,
-                thead: ({node, ...props}) => <thead style={{
-                  backgroundColor: '#27272a',
-                  borderBottom: '2px solid #60a5fa'
-                }} {...props} />,
-                tbody: ({node, ...props}) => <tbody {...props} />,
-                tr: ({node, ...props}) => <tr style={{
-                  borderBottom: '1px solid #3f3f46'
-                }} {...props} />,
-                th: ({node, ...props}) => <th style={{
-                  padding: '0.75rem',
-                  textAlign: 'left',
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  fontSize: '0.9rem'
-                }} {...props} />,
-                td: ({node, ...props}) => <td style={{
-                  padding: '0.75rem',
-                  color: '#e5e5e7',
-                  fontSize: '0.9rem',
-                  verticalAlign: 'top'
-                }} {...props} />
-              }}
-            >
-              {brief}
-            </ReactMarkdown>
+            {deliverablesData ? (
+              <>
+                {/* Render brief with deliverables section replaced */}
+                {brief.split(/##\s*2\.\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##|$)/i).map((section, index) => {
+                  if (index === 0) {
+                    return (
+                      <ReactMarkdown key={index}
+                        components={{
+                          h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                          h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                          h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                          strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
+                          em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
+                          ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                          ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                          li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
+                          p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />
+                        }}
+                      >
+                        {section}
+                      </ReactMarkdown>
+                    );
+                  } else if (index === 1) {
+                    return (
+                      <div key={index}>
+                        <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}}>2. DELIVERABLES THIS WEEK</h2>
+                        <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem' }}>
+                          <table style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            backgroundColor: '#18181b',
+                            border: '1px solid #3f3f46',
+                            minWidth: '600px'
+                          }}>
+                            <thead style={{
+                              backgroundColor: '#27272a',
+                              borderBottom: '2px solid #60a5fa'
+                            }}>
+                              <tr>
+                                {deliverablesData.headerRow.map((header, i) => (
+                                  <th key={i} style={{
+                                    padding: '0.75rem',
+                                    textAlign: 'left',
+                                    color: '#fff',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.9rem',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {header}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {deliverablesData.dataRows.map((row, rowIndex) => (
+                                <tr key={rowIndex} style={{
+                                  borderBottom: '1px solid #3f3f46'
+                                }}>
+                                  {row.map((cell, cellIndex) => (
+                                    <td key={cellIndex} style={{
+                                      padding: '0.75rem',
+                                      color: '#e5e5e7',
+                                      fontSize: '0.9rem',
+                                      verticalAlign: 'top',
+                                      wordBreak: 'break-word'
+                                    }}>
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <ReactMarkdown
+                          components={{
+                            h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                            h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                            h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                            strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
+                            em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
+                            ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                            ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                            li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
+                            p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />
+                          }}
+                        >
+                          {section}
+                        </ReactMarkdown>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </>
+            ) : (
+              <ReactMarkdown
+                components={{
+                  h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                  strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
+                  em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
+                  ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
+                  p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
+                  table: ({node, ...props}) => <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    marginTop: '1rem',
+                    marginBottom: '1rem',
+                    backgroundColor: '#18181b',
+                    border: '1px solid #3f3f46'
+                  }} {...props} />,
+                  thead: ({node, ...props}) => <thead style={{
+                    backgroundColor: '#27272a',
+                    borderBottom: '2px solid #60a5fa'
+                  }} {...props} />,
+                  tbody: ({node, ...props}) => <tbody {...props} />,
+                  tr: ({node, ...props}) => <tr style={{
+                    borderBottom: '1px solid #3f3f46'
+                  }} {...props} />,
+                  th: ({node, ...props}) => <th style={{
+                    padding: '0.75rem',
+                    textAlign: 'left',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem'
+                  }} {...props} />,
+                  td: ({node, ...props}) => <td style={{
+                    padding: '0.75rem',
+                    color: '#e5e5e7',
+                    fontSize: '0.9rem',
+                    verticalAlign: 'top'
+                  }} {...props} />
+                }}
+              >
+                {brief}
+              </ReactMarkdown>
+            )}
           </div>
         )}
 
@@ -343,7 +475,8 @@ function Dashboard({ setActiveTab }) {
           </ul>
         </div>
       </div>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 

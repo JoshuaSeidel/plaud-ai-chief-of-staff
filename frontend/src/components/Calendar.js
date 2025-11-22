@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { calendarAPI } from '../services/api';
+import { PullToRefresh } from './PullToRefresh';
 
 function Calendar() {
   const [events, setEvents] = useState([]);
@@ -36,6 +37,10 @@ function Calendar() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadEvents();
   };
 
   const handleCreateBlock = async (e) => {
@@ -118,7 +123,8 @@ function Calendar() {
   const groupedEvents = groupEventsByDate();
 
   return (
-    <div className="calendar">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="calendar">
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2>📅 Calendar</h2>
@@ -330,7 +336,8 @@ function Calendar() {
           <li>Events are automatically filtered to show next 2 months</li>
         </ul>
       </div>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 

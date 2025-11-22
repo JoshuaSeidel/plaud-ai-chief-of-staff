@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { commitmentsAPI } from '../services/api';
+import { PullToRefresh } from './PullToRefresh';
 
 function Commitments() {
   const [commitments, setCommitments] = useState([]);
@@ -23,6 +24,10 @@ function Commitments() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadCommitments();
   };
 
   const updateStatus = async (id, newStatus) => {
@@ -119,7 +124,8 @@ function Commitments() {
   };
 
   return (
-    <div className="commitments">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="commitments">
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2>📋 Tasks</h2>
@@ -424,7 +430,8 @@ function Commitments() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 

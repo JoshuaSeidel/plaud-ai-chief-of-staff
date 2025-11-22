@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { transcriptsAPI } from '../services/api';
+import { PullToRefresh } from './PullToRefresh';
 
 function Transcripts() {
   const [transcripts, setTranscripts] = useState([]);
@@ -24,6 +25,10 @@ function Transcripts() {
     } catch (err) {
       setError('Failed to load transcripts');
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadTranscripts();
   };
 
   const handleFileUpload = async (event) => {
@@ -200,7 +205,8 @@ function Transcripts() {
   };
 
   return (
-    <div className="transcripts">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="transcripts">
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2>Upload Transcript</h2>
@@ -407,7 +413,8 @@ function Transcripts() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 
