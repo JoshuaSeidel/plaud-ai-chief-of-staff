@@ -654,7 +654,7 @@ class DatabaseWrapper {
           }
         }
         
-        dbLogger.info(`Executing query: ${pgQuery.substring(0, 150)}...`);
+        dbLogger.info(`Executing FULL query: ${pgQuery}`);
         const result = await pool.query(pgQuery, params);
         
         // Get lastID based on table's primary key column
