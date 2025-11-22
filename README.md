@@ -4,12 +4,53 @@ An intelligent executive assistant that automates personal productivity by inges
 
 ## Features
 
-- 📊 **Morning Dashboard**: AI-generated top 3 priorities from last 2 weeks of context
-- 📝 **Transcript Upload**: Upload Plaud meeting transcripts with automatic processing
-- 🤖 **Claude AI Integration**: Extracts commitments, action items, and generates daily briefs
-- 💾 **SQLite Database**: Maintains rolling 2-week context window
-- ⚙️ **Configuration UI**: Easy setup for API keys and settings
-- 🐳 **Single Docker Container**: Simple deployment on Unraid or any Docker host
+### Core Functionality
+- 📊 **Smart Dashboard**: AI-generated priorities, patterns, and insights
+- 📝 **Transcript Processing**: Upload transcripts (file or paste) with automatic AI extraction
+- 🤖 **Claude AI Integration**: Extracts tasks, actions, follow-ups, and risks
+- 💾 **Dual Database Support**: SQLite or PostgreSQL with unified interface
+- ⚙️ **Configuration UI**: Easy setup for API keys, prompts, and integrations
+- 🐳 **Docker Deployment**: Single container, works on Unraid or any Docker host
+
+### Task Management
+- 📋 **Unified Task System**: Commitments, Actions, Follow-ups, Risks in one view
+- 🎨 **Visual Organization**: Color-coded badges and type-based filtering
+- ⏰ **Smart Deadlines**: AI assigns intelligent deadlines (default 2 weeks)
+- 📊 **Task Analytics**: Stats by type and status
+- ✅ **Status Tracking**: Mark complete, view overdue, filter by status
+
+### Calendar Integration
+- 📅 **Google Calendar**: Full OAuth integration with event creation
+- 🔄 **Two-Way Sync**: Events from calendar, create events for tasks
+- 📝 **Rich Descriptions**: AI-generated 3-5 paragraph event details
+- 🔔 **Smart Event Titles**: Task type emojis and descriptive titles
+- 🗑️ **Auto Cleanup**: Deletes old events when reprocessing transcripts
+
+### AI Customization
+- 🎛️ **Editable Prompts**: Customize all AI prompts via UI
+- 🔄 **Live Updates**: Changes apply immediately (no restart needed)
+- 📋 **Template System**: Use variables like {{transcriptText}}, {{taskType}}
+- 🔙 **Reset to Default**: Restore original prompts anytime
+
+### Progressive Web App
+- 📱 **Installable**: Add to home screen on iOS/Android/Desktop
+- 🌐 **Offline Support**: Works without internet connection
+- 🔔 **Push Notifications**: Task reminders and overdue alerts
+- 📲 **Background Sync**: Offline tasks sync when online
+- 🚀 **Fast Loading**: Service worker caching for instant load
+
+### Notifications & Reminders
+- ⏰ **Task Reminders**: Notifications 24 hours before deadline
+- ⚠️ **Overdue Alerts**: Daily summary of overdue tasks
+- 📅 **Event Reminders**: Upcoming calendar event notifications
+- 🔄 **Auto Scheduling**: Checks every 30 minutes
+- ✅ **Sync Alerts**: Success notifications for offline task sync
+
+### Weekly Reports
+- 📊 **Executive Summaries**: AI-generated weekly reports
+- 📈 **Progress Tracking**: What shipped, what's at risk
+- 🎯 **Next Week Focus**: Priorities and commitments
+- 📋 **All Task Types**: Includes commitments, actions, follow-ups, risks
 
 ## Tech Stack
 
@@ -107,6 +148,8 @@ After starting the container:
 - **Google Calendar**: OAuth integration for automatic event creation (recommended)
 - **iCloud Calendar**: Read-only calendar viewing (alternative to Google Calendar)
 - **Database**: Switch from SQLite to PostgreSQL
+- **Push Notifications**: Enable task reminders and alerts
+- **AI Prompts**: Customize AI behavior via the Prompts tab
 
 ### Database Configuration
 
@@ -317,6 +360,186 @@ tar -czf ai-chief-backup-$(date +%Y%m%d).tar.gz \
 ```bash
 tar -xzf ai-chief-backup-YYYYMMDD.tar.gz -C /mnt/user/appdata/
 ```
+
+## Push Notifications Setup
+
+Enable task reminders and overdue alerts on your devices.
+
+### 1. Generate VAPID Keys
+
+VAPID keys are required for web push notifications. Generate them once:
+
+```bash
+docker exec -it ai-chief-of-staff npx web-push generate-vapid-keys
+```
+
+This will output:
+```
+=======================================
+Public Key:
+BNxW...your-public-key...xyz
+
+Private Key:
+AbC...your-private-key...123
+=======================================
+```
+
+### 2. Configure Environment Variables
+
+Add these to your container's environment variables:
+
+```bash
+VAPID_PUBLIC_KEY=your-public-key-from-above
+VAPID_PRIVATE_KEY=your-private-key-from-above
+VAPID_SUBJECT=mailto:your-email@example.com
+```
+
+**Unraid:**
+1. Stop the container
+2. Edit container settings
+3. Add the three environment variables above
+4. Start the container
+
+**Docker Compose:**
+Add to `environment:` section in `docker-compose.yml`
+
+### 3. Enable Notifications in Browser
+
+1. Open the app in your browser
+2. Grant notification permission when prompted
+3. App will automatically subscribe to push notifications
+
+### 4. Test Notifications
+
+Send a test notification:
+```bash
+curl -X POST http://YOUR-IP:3001/api/notifications/test
+```
+
+### Notification Types
+
+The app sends these automated notifications:
+
+- **📋 Task Reminders**: 24 hours before deadline
+- **⚠️ Overdue Alerts**: Daily summary of overdue tasks
+- **📅 Event Reminders**: Before calendar events (future)
+- **✅ Sync Success**: When offline tasks sync
+
+### Scheduler
+
+The task scheduler runs automatically and checks:
+- Every **30 minutes** for upcoming tasks
+- Tasks due within **24 hours**
+- Overdue tasks
+
+No configuration needed - starts with the server.
+
+### Mobile Installation
+
+For push notifications on mobile:
+
+**iOS (Safari):**
+1. Open app in Safari
+2. Tap Share → "Add to Home Screen"
+3. Grant notification permission when prompted
+
+**Android (Chrome):**
+1. Open app in Chrome
+2. Tap menu → "Install app"
+3. Grant notification permission when prompted
+
+### Troubleshooting Notifications
+
+**Notifications not working?**
+1. Check VAPID keys are set correctly
+2. Verify browser supports push (Chrome, Firefox, Edge, Safari 16+)
+3. Check notification permission in browser settings
+4. Look for errors in browser console
+5. Verify task scheduler is running (check server logs)
+
+**Check subscription status:**
+```bash
+# Check database for subscriptions
+docker exec -it ai-chief-of-staff sqlite3 /app/data/ai-chief-of-staff.db "SELECT * FROM push_subscriptions;"
+```
+
+## Offline Mode & Background Sync
+
+The app works offline and syncs when connection is restored.
+
+### How It Works
+
+1. **Offline Detection**: App detects when internet is unavailable
+2. **Local Storage**: Tasks created offline are saved to IndexedDB
+3. **Background Sync**: When connection restored, tasks sync automatically
+4. **Success Notification**: You're notified when sync completes
+
+### Creating Tasks Offline
+
+All task creation features work offline:
+- Upload transcripts (saved locally until online)
+- Manual task creation (future feature)
+- Task updates and completions
+
+### Monitoring Offline Status
+
+- Connection status visible in app (future)
+- Offline tasks viewable in Tasks page (future)
+- Success notification when tasks sync
+
+### Manual Sync Trigger
+
+If auto-sync fails, manually trigger:
+```javascript
+// In browser console
+navigator.serviceWorker.ready.then(reg => reg.sync.register('sync-tasks'));
+```
+
+## Customizing AI Prompts
+
+All AI prompts are editable via the **🤖 AI Prompts** tab.
+
+### Available Prompts
+
+1. **Task Extraction**: Extracts commitments, actions, follow-ups, risks from transcripts
+2. **Calendar Event Description**: Generates detailed event descriptions
+3. **Weekly Report**: Creates executive summaries
+
+### Editing Prompts
+
+1. Open the **AI Prompts** tab
+2. Select prompt to edit
+3. Modify text in the editor
+4. Use template variables: `{{transcriptText}}`, `{{taskType}}`, etc.
+5. Click **Save Changes**
+6. Test with new transcript upload
+
+### Template Variables
+
+Available in prompts:
+
+- `{{transcriptText}}` - Full meeting transcript
+- `{{dateContext}}` - Meeting date information
+- `{{taskType}}` - Type of task (commitment, action, etc.)
+- `{{description}}` - Task description
+- `{{assignee}}` - Person assigned
+- `{{priority}}` - Task priority/urgency
+- `{{weekData}}` - Weekly summary data
+
+### Reset to Defaults
+
+If you want to restore original prompts:
+1. Select the prompt
+2. Click **Reset to Default**
+3. Confirm
+
+### Tips for Custom Prompts
+
+- Be specific about output format (JSON structure)
+- Include examples for better results
+- Test with sample transcripts
+- Use template variables for dynamic content
+- Changes apply immediately (no restart)
 
 ## Troubleshooting
 
