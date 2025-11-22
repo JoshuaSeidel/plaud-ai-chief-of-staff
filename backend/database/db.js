@@ -789,6 +789,19 @@ async function runMigrations() {
           dbLogger.warn('Migration warning:', err.message);
         }
       }
+      
+      // Migration 3: Add calendar_event_id for tracking Google Calendar events
+      try {
+        await pool.query(`
+          ALTER TABLE commitments 
+          ADD COLUMN IF NOT EXISTS calendar_event_id TEXT
+        `);
+        dbLogger.info('✓ Added calendar_event_id column to commitments');
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          dbLogger.warn('Migration warning:', err.message);
+        }
+      }
     } else {
       // SQLite migrations
       // Check if columns exist
@@ -803,12 +816,14 @@ async function runMigrations() {
       const hasSuggestedApproach = tableInfo.some(col => col.name === 'suggested_approach');
       const hasTaskType = tableInfo.some(col => col.name === 'task_type');
       const hasPriority = tableInfo.some(col => col.name === 'priority');
+      const hasCalendarEventId = tableInfo.some(col => col.name === 'calendar_event_id');
       
       const columnsToAdd = [];
       if (!hasUrgency) columnsToAdd.push({ name: 'urgency', type: 'TEXT' });
       if (!hasSuggestedApproach) columnsToAdd.push({ name: 'suggested_approach', type: 'TEXT' });
       if (!hasTaskType) columnsToAdd.push({ name: 'task_type', type: 'TEXT', default: "'commitment'" });
       if (!hasPriority) columnsToAdd.push({ name: 'priority', type: 'TEXT', default: "'medium'" });
+      if (!hasCalendarEventId) columnsToAdd.push({ name: 'calendar_event_id', type: 'TEXT' });
       
       if (columnsToAdd.length > 0) {
         dbLogger.info('Adding missing columns to commitments table...');

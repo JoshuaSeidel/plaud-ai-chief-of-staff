@@ -544,10 +544,53 @@ Return results as JSON:
   }
 }
 
+/**
+ * Generate detailed calendar event description for a task
+ */
+async function generateEventDescription(task, transcriptContext = '') {
+  const prompt = `Generate a detailed, actionable calendar event description for this task:
+
+Task Type: ${task.type || task.task_type || 'Task'}
+Title: ${task.description}
+Assignee: ${task.assignee || 'Not assigned'}
+Priority/Urgency: ${task.priority || task.urgency || 'medium'}
+${task.suggested_approach ? `Suggested Approach: ${task.suggested_approach}` : ''}
+${task.mitigation ? `Mitigation Strategy: ${task.mitigation}` : ''}
+${transcriptContext ? `\nContext from meeting:\n${transcriptContext.substring(0, 500)}` : ''}
+
+Generate a calendar event description (3-5 paragraphs) that includes:
+1. **What needs to be done** - Clear summary of the task
+2. **Why it matters** - Context and importance
+3. **How to approach it** - Concrete steps or suggestions
+4. **Success criteria** - What "done" looks like
+5. **Resources/considerations** - Any relevant notes
+
+Make it actionable and specific. Use markdown formatting.`;
+
+  try {
+    const anthropic = await getAnthropicClient();
+    const model = await getClaudeModel();
+    const maxTokens = await getMaxTokens();
+    
+    const message = await anthropic.messages.create({
+      model: model,
+      max_tokens: Math.min(maxTokens, 1500),
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    return message.content[0].text;
+  } catch (error) {
+    logger.error('Error generating event description', error);
+    // Fallback to basic description
+    return `${task.description}\n\n${task.suggested_approach || task.mitigation || 'No additional details available.'}`;
+  }
+}
+
 module.exports = {
   generateDailyBrief,
   extractCommitments,
   generateWeeklyReport,
   detectPatterns,
-  flagRisks
+  flagRisks,
+  generateEventDescription
 };

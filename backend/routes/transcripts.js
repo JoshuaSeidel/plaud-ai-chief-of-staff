@@ -18,7 +18,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   let totalSaved = 0;
   let calendarEventsCreated = 0;
   
-  // Prepare statement for all task types
+  // Prepare statement for all task types (without calendar_event_id initially)
   const stmt = db.prepare(
     'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
@@ -43,7 +43,9 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       
       if (item.deadline && isGoogleConnected) {
         try {
-          await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, type: 'Commitment' });
+          const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
+          // Store the calendar event ID
+          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
           calendarEventsCreated++;
         } catch (calError) {
           logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -73,7 +75,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       
       if (item.deadline && isGoogleConnected) {
         try {
-          await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, type: 'Action Item' });
+          const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' });
+          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
           calendarEventsCreated++;
         } catch (calError) {
           logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -104,7 +107,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       
       if (item.deadline && isGoogleConnected) {
         try {
-          await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, type: 'Follow-up' });
+          const event = await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
+          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
           calendarEventsCreated++;
         } catch (calError) {
           logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -134,7 +138,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       
       if (item.deadline && isGoogleConnected) {
         try {
-          await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, type: 'Risk' });
+          const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'risk' });
+          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
           calendarEventsCreated++;
         } catch (calError) {
           logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -461,9 +466,25 @@ router.post('/:id/reprocess', async (req, res) => {
     logger.info(`Reprocessing transcript: ${transcript.filename}`);
     
     // Delete existing commitments and context for this transcript
+    // Get existing calendar event IDs before deleting
+    const existingTasks = await db.all('SELECT calendar_event_id FROM commitments WHERE transcript_id = ? AND calendar_event_id IS NOT NULL', [id]);
+    const eventIdsToDelete = existingTasks.map(t => t.calendar_event_id).filter(Boolean);
+    
+    // Delete calendar events if Google Calendar is connected
+    if (eventIdsToDelete.length > 0 && await googleCalendar.isConnected()) {
+      logger.info(`Deleting ${eventIdsToDelete.length} calendar events for transcript ${id}`);
+      try {
+        await googleCalendar.deleteEvents(eventIdsToDelete);
+        logger.info(`Deleted calendar events successfully`);
+      } catch (calError) {
+        logger.warn(`Failed to delete some calendar events:`, calError.message);
+      }
+    }
+    
+    // Delete tasks and context from database
     await db.run('DELETE FROM commitments WHERE transcript_id = ?', [id]);
     await db.run('DELETE FROM context WHERE transcript_id = ?', [id]);
-    logger.info(`Cleared existing commitments and context for transcript ${id}`);
+    logger.info(`Cleared existing tasks and context for transcript ${id}`);
     
     // Extract commitments using Claude
     try {

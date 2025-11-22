@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
+const { generateEventDescription } = require('./claude');
 
 const logger = createModuleLogger('GOOGLE-CALENDAR');
 
@@ -218,11 +219,18 @@ async function createEventFromCommitment(commitment) {
     const startTime = eventTime.toISOString();
     const endTime = new Date(eventTime.getTime() + 60 * 60 * 1000).toISOString(); // 1 hour duration
     
-    let description = commitment.description;
-    
-    // Add suggested approach if available
-    if (commitment.suggested_approach) {
-      description += `\n\n💡 Suggested Approach:\n${commitment.suggested_approach}`;
+    // Generate detailed AI description
+    logger.info(`Generating AI description for task: ${commitment.description.substring(0, 50)}...`);
+    let description;
+    try {
+      description = await generateEventDescription(commitment, commitment.transcriptContext);
+    } catch (err) {
+      logger.warn('Failed to generate AI description, using fallback', err.message);
+      // Fallback to basic description
+      description = commitment.description;
+      if (commitment.suggested_approach) {
+        description += `\n\n💡 Suggested Approach:\n${commitment.suggested_approach}`;
+      }
     }
     
     // Add urgency indicator
@@ -236,20 +244,76 @@ async function createEventFromCommitment(commitment) {
       description = `${urgencyEmoji[commitment.urgency] || ''} ${description}`;
     }
     
+    // Determine title prefix based on task type
+    const typePrefix = {
+      'commitment': '📋',
+      'action': '⚡',
+      'follow-up': '🔄',
+      'risk': '⚠️'
+    };
+    const prefix = typePrefix[commitment.task_type || commitment.type] || '📋';
+    const taskType = (commitment.task_type || commitment.type || 'Task').replace(/-/g, ' ');
+    
     const event = await createEvent({
-      title: `[Commitment] ${commitment.description.substring(0, 80)}`,
+      title: `${prefix} [${taskType}] ${commitment.description.substring(0, 70)}`,
       startTime,
       endTime,
       description,
       timeZone: 'America/New_York'
     });
     
-    logger.info(`Created calendar event for commitment ${commitment.id}: ${event.id}`);
+    logger.info(`Created calendar event for ${taskType} ${commitment.id}: ${event.id}`);
     return event;
   } catch (error) {
     logger.error(`Error creating event from commitment ${commitment.id}`, error);
     throw error;
   }
+}
+
+/**
+ * Delete a calendar event by ID
+ */
+async function deleteEvent(eventId) {
+  try {
+    const oauth2Client = await getOAuthClient();
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    
+    const db = getDb();
+    const calendarIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleCalendarId']);
+    const calendarId = calendarIdRow?.value || 'primary';
+    
+    await calendar.events.delete({
+      calendarId,
+      eventId
+    });
+    
+    logger.info(`Deleted calendar event: ${eventId}`);
+    return true;
+  } catch (error) {
+    if (error.code === 404 || error.message?.includes('Not Found')) {
+      logger.warn(`Calendar event ${eventId} not found (may have been already deleted)`);
+      return false;
+    }
+    logger.error(`Error deleting calendar event ${eventId}`, error);
+    throw error;
+  }
+}
+
+/**
+ * Delete multiple calendar events by IDs
+ */
+async function deleteEvents(eventIds) {
+  const results = [];
+  for (const eventId of eventIds) {
+    try {
+      const deleted = await deleteEvent(eventId);
+      results.push({ eventId, deleted });
+    } catch (error) {
+      logger.error(`Failed to delete event ${eventId}:`, error.message);
+      results.push({ eventId, deleted: false, error: error.message });
+    }
+  }
+  return results;
 }
 
 /**
@@ -288,6 +352,8 @@ module.exports = {
   createEvent,
   listEvents,
   createEventFromCommitment,
+  deleteEvent,
+  deleteEvents,
   listCalendars
 };
 
