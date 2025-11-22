@@ -188,7 +188,13 @@ ${dateContext}
 Look for:
 - EXPLICIT commitments: "I will...", "I'll...", "We'll...", "Let me..."
 - IMPLICIT tasks: Problems discussed that need solutions, decisions that need follow-up, research mentioned, etc.
-- Assign realistic deadlines: Use mentioned dates, or estimate based on urgency (urgent=3 days, normal=2 weeks, research=1 week)
+- Assign realistic deadlines within 2 WEEKS unless a specific date/timeline is mentioned:
+  * If specific date mentioned: use that date
+  * If "urgent" or "ASAP": meeting date + 3 days
+  * If "this week": meeting date + 5 days  
+  * If no timeline: meeting date + 7-14 days (default to 1 week for most tasks)
+  * Research/investigation: meeting date + 10 days
+- ALL items should have deadlines - never use null for deadline
 
 Transcript:
 ${transcriptText}
@@ -199,17 +205,35 @@ Return ONLY valid JSON (no markdown, no explanations):
     {
       "description": "What needs to be done",
       "assignee": "Name or TBD",
-      "deadline": "YYYY-MM-DD or null"
+      "deadline": "YYYY-MM-DD (required - use meeting date + 7-14 days if not specified)",
+      "urgency": "high|medium|low",
+      "suggested_approach": "Brief suggestion on how to accomplish this"
     }
   ],
   "actionItems": [
-    {"description": "Action needed", "priority": "high|medium|low"}
+    {
+      "description": "Action needed", 
+      "priority": "high|medium|low",
+      "assignee": "Name or TBD",
+      "deadline": "YYYY-MM-DD (required - use meeting date + 3-7 days)",
+      "suggested_approach": "How to complete this action"
+    }
   ],
   "followUps": [
-    {"description": "Follow-up item", "with": "person/team"}
+    {
+      "description": "Follow-up item", 
+      "with": "person/team",
+      "deadline": "YYYY-MM-DD (required - use meeting date + 5-10 days)",
+      "priority": "high|medium|low"
+    }
   ],
   "risks": [
-    {"description": "Risk or blocker", "impact": "high|medium|low"}
+    {
+      "description": "Risk or blocker", 
+      "impact": "high|medium|low",
+      "deadline": "YYYY-MM-DD (when this needs to be addressed)",
+      "mitigation": "Suggested mitigation strategy"
+    }
   ]
 }`;
 

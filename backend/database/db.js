@@ -761,7 +761,7 @@ async function runMigrations() {
     dbLogger.info('Running database migrations...');
     
     if (dbType === 'postgres') {
-      // Migration: Add urgency and suggested_approach columns to commitments table
+      // Migration 1: Add urgency and suggested_approach columns to commitments table
       try {
         await pool.query(`
           ALTER TABLE commitments 
@@ -771,6 +771,20 @@ async function runMigrations() {
         dbLogger.info('✓ Added urgency and suggested_approach columns to commitments');
       } catch (err) {
         // Column might already exist, that's okay
+        if (!err.message.includes('already exists')) {
+          dbLogger.warn('Migration warning:', err.message);
+        }
+      }
+      
+      // Migration 2: Add task_type and priority columns for consolidation
+      try {
+        await pool.query(`
+          ALTER TABLE commitments 
+          ADD COLUMN IF NOT EXISTS task_type TEXT DEFAULT 'commitment',
+          ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium'
+        `);
+        dbLogger.info('✓ Added task_type and priority columns to commitments');
+      } catch (err) {
         if (!err.message.includes('already exists')) {
           dbLogger.warn('Migration warning:', err.message);
         }
@@ -787,29 +801,31 @@ async function runMigrations() {
       
       const hasUrgency = tableInfo.some(col => col.name === 'urgency');
       const hasSuggestedApproach = tableInfo.some(col => col.name === 'suggested_approach');
+      const hasTaskType = tableInfo.some(col => col.name === 'task_type');
+      const hasPriority = tableInfo.some(col => col.name === 'priority');
       
-      if (!hasUrgency || !hasSuggestedApproach) {
+      const columnsToAdd = [];
+      if (!hasUrgency) columnsToAdd.push({ name: 'urgency', type: 'TEXT' });
+      if (!hasSuggestedApproach) columnsToAdd.push({ name: 'suggested_approach', type: 'TEXT' });
+      if (!hasTaskType) columnsToAdd.push({ name: 'task_type', type: 'TEXT', default: "'commitment'" });
+      if (!hasPriority) columnsToAdd.push({ name: 'priority', type: 'TEXT', default: "'medium'" });
+      
+      if (columnsToAdd.length > 0) {
         dbLogger.info('Adding missing columns to commitments table...');
         
         // SQLite doesn't support ADD COLUMN IF NOT EXISTS or multiple columns at once
-        if (!hasUrgency) {
+        for (const col of columnsToAdd) {
+          const alterQuery = col.default 
+            ? `ALTER TABLE commitments ADD COLUMN ${col.name} ${col.type} DEFAULT ${col.default}`
+            : `ALTER TABLE commitments ADD COLUMN ${col.name} ${col.type}`;
+            
           await new Promise((resolve, reject) => {
-            db.run('ALTER TABLE commitments ADD COLUMN urgency TEXT', (err) => {
+            db.run(alterQuery, (err) => {
               if (err && !err.message.includes('duplicate column')) reject(err);
               else resolve();
             });
           });
-          dbLogger.info('✓ Added urgency column');
-        }
-        
-        if (!hasSuggestedApproach) {
-          await new Promise((resolve, reject) => {
-            db.run('ALTER TABLE commitments ADD COLUMN suggested_approach TEXT', (err) => {
-              if (err && !err.message.includes('duplicate column')) reject(err);
-              else resolve();
-            });
-          });
-          dbLogger.info('✓ Added suggested_approach column');
+          dbLogger.info(`✓ Added ${col.name} column`);
         }
       }
     }
