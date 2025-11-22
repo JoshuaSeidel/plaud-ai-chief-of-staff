@@ -244,7 +244,8 @@ function Dashboard({ setActiveTab }) {
         {brief && !loading && (
           <div className="brief-content" style={{ 
             lineHeight: '1.6',
-            color: '#e5e5e7'
+            color: '#e5e5e7',
+            overflowX: 'auto'
           }}>
             <ReactMarkdown
               components={{
@@ -256,7 +257,36 @@ function Dashboard({ setActiveTab }) {
                 ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
                 ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
                 li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
-                p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />
+                p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
+                table: ({node, ...props}) => <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  marginTop: '1rem',
+                  marginBottom: '1rem',
+                  backgroundColor: '#18181b',
+                  border: '1px solid #3f3f46'
+                }} {...props} />,
+                thead: ({node, ...props}) => <thead style={{
+                  backgroundColor: '#27272a',
+                  borderBottom: '2px solid #60a5fa'
+                }} {...props} />,
+                tbody: ({node, ...props}) => <tbody {...props} />,
+                tr: ({node, ...props}) => <tr style={{
+                  borderBottom: '1px solid #3f3f46'
+                }} {...props} />,
+                th: ({node, ...props}) => <th style={{
+                  padding: '0.75rem',
+                  textAlign: 'left',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem'
+                }} {...props} />,
+                td: ({node, ...props}) => <td style={{
+                  padding: '0.75rem',
+                  color: '#e5e5e7',
+                  fontSize: '0.9rem',
+                  verticalAlign: 'top'
+                }} {...props} />
               }}
             >
               {brief}

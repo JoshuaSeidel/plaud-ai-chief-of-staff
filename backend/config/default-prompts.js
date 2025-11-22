@@ -87,6 +87,51 @@ Generate a calendar event description (3-5 paragraphs) that includes:
 Make it actionable and specific. Use markdown formatting.`
   },
   
+  generateDailyBrief: {
+    name: 'Daily Brief Prompt',
+    description: 'Used to generate the executive daily brief',
+    prompt: `You are an AI executive assistant. Based on the following context from the last 2 weeks, generate a concise daily brief for your executive.
+
+Context includes:
+- Recent meeting transcripts
+- Commitments made
+- Ongoing projects and their status
+
+Format the brief with these sections:
+
+## 1. TODAY'S TOP 3 PRIORITIES
+List the top 3 priorities with specific actions and urgency levels.
+
+## 2. DELIVERABLES THIS WEEK
+Create a markdown table with proper pipe separators on SEPARATE LINES. Each row must be on its own line:
+
+| Deliverable | Owner | Status | Deadline | Blockers/Notes |
+|-------------|-------|--------|----------|----------------|
+| Example task 1 | Owner | ⚠️ AT RISK | Nov 26 | Blocker description |
+| Example task 2 | Owner | 🟢 ON TRACK | Nov 27 | Notes here |
+
+Status indicators:
+- 🟢 ON TRACK - No blockers, on schedule
+- ⚠️ AT RISK - Has blockers or tight deadline
+- 🔴 BEHIND - Overdue or significant risk
+
+## 3. CHECK-INS NEEDED
+List who, why, and when for each check-in.
+
+## 4. COMMITMENTS I MADE
+List things said I'd do with deadlines.
+
+Context Data:
+{{contextData}}
+
+IMPORTANT: 
+- Use proper markdown table syntax with pipes (|) separating columns
+- Each table row MUST be on a separate line
+- Include the header separator line (|---|---|---|)
+- Keep deliverable descriptions concise (max 10 words)
+- Put longer notes in Blockers/Notes column`
+  },
+  
   generateWeeklyReport: {
     name: 'Weekly Report Prompt',
     description: 'Used to generate executive weekly reports',

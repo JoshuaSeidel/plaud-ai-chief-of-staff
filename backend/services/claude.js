@@ -126,18 +126,38 @@ Context includes:
 - Ongoing projects and their status
 
 Format the brief with these sections:
-1. **TODAY'S TOP 3 PRIORITIES** (with specific actions and urgency levels)
-2. **DELIVERABLES THIS WEEK** - Format as a table with columns:
-   | Deliverable | Owner | Status | Deadline | Blockers/Notes |
-   | ----------- | ----- | ------ | -------- | -------------- |
-   - Use status: 🟢 ON TRACK | ⚠️ AT RISK | 🔴 BEHIND
-3. **CHECK-INS NEEDED** (who, why, and when)
-4. **COMMITMENTS I MADE** (things said I'd do, with deadlines)
+
+## 1. TODAY'S TOP 3 PRIORITIES
+List the top 3 priorities with specific actions and urgency levels.
+
+## 2. DELIVERABLES THIS WEEK
+Create a markdown table with proper pipe separators on SEPARATE LINES. Each row must be on its own line:
+
+| Deliverable | Owner | Status | Deadline | Blockers/Notes |
+|-------------|-------|--------|----------|----------------|
+| OKR bullet points & 2-month action plan | Josh | ⚠️ AT RISK | Nov 26 | Need to prioritize which OKRs to tackle first |
+| FedRAMP compliance documentation review | Morelli | 🟢 ON TRACK | Nov 27 | Document generated; needs validation |
+
+Status indicators:
+- 🟢 ON TRACK - No blockers, on schedule
+- ⚠️ AT RISK - Has blockers or tight deadline
+- 🔴 BEHIND - Overdue or significant risk
+
+## 3. CHECK-INS NEEDED
+List who, why, and when for each check-in.
+
+## 4. COMMITMENTS I MADE
+List things said I'd do with deadlines.
 
 Context Data:
 ${JSON.stringify(contextData, null, 2)}
 
-Generate a clear, actionable brief in markdown format with proper table formatting for deliverables.`;
+IMPORTANT: 
+- Use proper markdown table syntax with pipes (|) separating columns
+- Each table row MUST be on a separate line
+- Include the header separator line (|---|---|---|)
+- Keep deliverable descriptions concise (max 10 words)
+- Put longer notes in Blockers/Notes column`;
 
   try {
     const anthropic = await getAnthropicClient();
