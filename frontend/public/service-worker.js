@@ -94,27 +94,43 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   console.log('[Service Worker] Push received:', event);
   
-  const options = {
-    body: event.data ? event.data.text() : 'New notification',
+  let notificationData = {
+    title: 'AI Chief of Staff',
+    body: 'New notification',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
+    tag: 'ai-chief-of-staff'
+  };
+  
+  // Parse the JSON payload from the server
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      notificationData = {
+        title: payload.title || 'AI Chief of Staff',
+        body: payload.body || 'New notification',
+        icon: payload.icon || '/icon-192.png',
+        badge: payload.badge || '/icon-192.png',
+        tag: payload.tag || 'ai-chief-of-staff',
+        data: payload.data || {}
+      };
+    } catch (e) {
+      console.error('[Service Worker] Failed to parse notification data:', e);
+    }
+  }
+  
+  const options = {
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
     vibrate: [200, 100, 200],
-    tag: 'ai-chief-of-staff',
+    tag: notificationData.tag,
     requireInteraction: false,
-    actions: [
-      {
-        action: 'open',
-        title: 'View'
-      },
-      {
-        action: 'close',
-        title: 'Dismiss'
-      }
-    ]
+    data: notificationData.data
   };
 
   event.waitUntil(
-    self.registration.showNotification('AI Chief of Staff', options)
+    self.registration.showNotification(notificationData.title, options)
   );
 });
 
@@ -124,11 +140,26 @@ self.addEventListener('notificationclick', (event) => {
   
   event.notification.close();
 
-  if (event.action === 'open' || !event.action) {
-    event.waitUntil(
-      clients.openWindow('/')
-    );
-  }
+  // Get the URL from notification data, or default to home
+  const urlToOpen = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Check if app is already open
+        for (let i = 0; i < clientList.length; i++) {
+          const client = clientList[i];
+          if (client.url.includes(self.registration.scope) && 'focus' in client) {
+            // Navigate to the URL and focus
+            return client.focus().then(() => client.navigate(urlToOpen));
+          }
+        }
+        // No existing window, open new one
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+  );
 });
 
 // Background sync for offline task creation

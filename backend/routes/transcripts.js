@@ -320,7 +320,7 @@ router.get('/', async (req, res) => {
   try {
     const db = getDb();
     const rows = await db.all(
-      'SELECT id, filename, upload_date, processed, source FROM transcripts ORDER BY upload_date DESC LIMIT ?',
+      'SELECT id, filename, upload_date, processed, source, processing_status, processing_progress FROM transcripts ORDER BY upload_date DESC LIMIT ?',
       [limit]
     );
     
@@ -463,7 +463,39 @@ router.post('/:id/reprocess', async (req, res) => {
       return res.status(404).json({ error: 'Transcript not found' });
     }
     
+    // Set status to processing immediately
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ? WHERE id = ?', ['processing', 0, id]);
+    
     logger.info(`Reprocessing transcript: ${transcript.filename}`);
+    
+    // Return immediately - process in background
+    res.json({ 
+      success: true,
+      message: 'Transcript reprocessing started',
+      status: 'processing'
+    });
+    
+    // Process in background
+    processTranscriptAsync(id, transcript, db).catch(err => {
+      logger.error(`Background processing error for transcript ${id}:`, err);
+    });
+    
+  } catch (err) {
+    logger.error(`Error starting reprocess for transcript ${id}:`, err);
+    res.status(500).json({ 
+      error: 'Error starting reprocess',
+      message: err.message
+    });
+  }
+});
+
+/**
+ * Process transcript in background
+ */
+async function processTranscriptAsync(id, transcript, db) {
+  try {
+    // Update progress: Deleting old data
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [10, id]);
     
     // Delete existing commitments and context for this transcript
     // Get existing calendar event IDs before deleting
@@ -486,52 +518,35 @@ router.post('/:id/reprocess', async (req, res) => {
     await db.run('DELETE FROM context WHERE transcript_id = ?', [id]);
     logger.info(`Cleared existing tasks and context for transcript ${id}`);
     
-    // Extract commitments using Claude
-    try {
-      const extracted = await extractCommitments(transcript.content);
-      logger.info('Commitments extracted successfully', {
-        commitments: extracted.commitments?.length || 0,
-        actionItems: extracted.actionItems?.length || 0
-      });
-      
-      // Save commitments and create calendar events
-      const taskStats = await saveAllTasksWithCalendar(db, id, extracted);
-      
-      // Mark transcript as processed
-      await db.run('UPDATE transcripts SET processed = ? WHERE id = ?', [true, id]);
-      
-      res.json({ 
-        success: true,
-        message: 'Transcript reprocessed successfully',
-        extracted: {
-          commitments: extracted.commitments?.length || 0,
-          actions: extracted.actionItems?.length || 0,
-          followUps: extracted.followUps?.length || 0,
-          risks: extracted.risks?.length || 0
-        },
-        taskStats
-      });
-      
-    } catch (extractError) {
-      logger.error('Error extracting commitments:', extractError);
-      
-      // Still mark as processed even if extraction fails
-      await db.run('UPDATE transcripts SET processed = ? WHERE id = ?', [true, id]);
-      
-      res.json({
-        success: false,
-        message: 'Transcript saved but commitment extraction failed. Please check your Anthropic API key configuration.',
-        error: extractError.message
-      });
-    }
+    // Update progress: Extracting with AI
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [30, id]);
     
-  } catch (err) {
-    logger.error(`Error reprocessing transcript ${id}:`, err);
-    res.status(500).json({ 
-      error: 'Error reprocessing transcript',
-      message: err.message
+    // Extract commitments using Claude
+    const extracted = await extractCommitments(transcript.content);
+    logger.info('Commitments extracted successfully', {
+      commitments: extracted.commitments?.length || 0,
+      actionItems: extracted.actionItems?.length || 0
     });
+    
+    // Update progress: Saving tasks
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [70, id]);
+    
+    // Save commitments and create calendar events
+    const taskStats = await saveAllTasksWithCalendar(db, id, extracted);
+    
+    // Update progress: Complete
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ?', 
+      ['completed', 100, true, id]);
+    
+    logger.info(`Transcript ${id} reprocessing completed successfully`, taskStats);
+    
+  } catch (error) {
+    logger.error(`Error in background processing for transcript ${id}:`, error);
+    
+    // Mark as failed
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ?', 
+      ['failed', 0, true, id]);
   }
-});
+}
 
 module.exports = router;

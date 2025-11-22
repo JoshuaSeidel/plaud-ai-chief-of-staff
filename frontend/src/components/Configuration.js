@@ -28,11 +28,79 @@ function Configuration() {
   const [message, setMessage] = useState(null);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [checkingGoogle, setCheckingGoogle] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [prompts, setPrompts] = useState([]);
+  const [loadingPrompts, setLoadingPrompts] = useState(true);
+  const [editingPrompt, setEditingPrompt] = useState(null);
 
   useEffect(() => {
     loadConfig();
     checkGoogleCalendarStatus();
+    loadPrompts();
+    
+    // Check notification permission on load
+    if (typeof Notification !== 'undefined') {
+      setNotificationsEnabled(Notification.permission === 'granted');
+    }
   }, []);
+  
+  const loadPrompts = async () => {
+    try {
+      setLoadingPrompts(true);
+      const response = await fetch('/api/prompts');
+      if (response.ok) {
+        const data = await response.json();
+        setPrompts(data);
+      }
+    } catch (error) {
+      console.error('Error loading prompts:', error);
+    } finally {
+      setLoadingPrompts(false);
+    }
+  };
+  
+  const updatePrompt = async (key, newPrompt) => {
+    try {
+      const response = await fetch(`/api/prompts/${key}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: newPrompt })
+      });
+      
+      if (response.ok) {
+        alert('✅ Prompt updated successfully!');
+        setEditingPrompt(null);
+        loadPrompts();
+      } else {
+        alert('❌ Failed to update prompt');
+      }
+    } catch (error) {
+      console.error('Error updating prompt:', error);
+      alert('❌ Error updating prompt');
+    }
+  };
+  
+  const resetPrompt = async (key) => {
+    if (!window.confirm('Reset this prompt to default? Your custom changes will be lost.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/prompts/${key}/reset`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        alert('✅ Prompt reset to default!');
+        loadPrompts();
+      } else {
+        alert('❌ Failed to reset prompt');
+      }
+    } catch (error) {
+      console.error('Error resetting prompt:', error);
+      alert('❌ Error resetting prompt');
+    }
+  };
 
   const loadConfig = async () => {
     try {
@@ -643,6 +711,7 @@ function Configuration() {
               } else {
                 Notification.requestPermission().then(async (permission) => {
                   if (permission === 'granted') {
+                    setNotificationsEnabled(true); // Update state immediately
                     try {
                       const registration = await navigator.serviceWorker.ready;
                       const response = await fetch('/api/notifications/vapid-public-key');
@@ -684,7 +753,7 @@ function Configuration() {
           }}
           style={{ marginBottom: '1rem' }}
         >
-          {typeof Notification !== 'undefined' && Notification.permission === 'granted' ? '✅ Notifications Enabled' : '🔔 Enable Notifications'}
+          {notificationsEnabled ? '✅ Notifications Enabled' : '🔔 Enable Notifications'}
         </button>
 
         <button 
@@ -724,46 +793,141 @@ function Configuration() {
       <div className="card">
         <h2>🤖 AI Prompts</h2>
         <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
-          Customize how AI extracts tasks, generates descriptions, and creates reports.
+          Customize how AI extracts tasks, generates descriptions, and creates reports. Changes take effect immediately.
         </p>
         
-        <a 
-          href="#config"
-          onClick={(e) => {
-            e.preventDefault();
-            window.open('/api/prompts', '_blank');
-          }}
-          style={{ 
-            display: 'inline-block',
-            padding: '0.75rem 1.5rem',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: '8px',
-            marginBottom: '1rem'
-          }}
-        >
-          📝 View & Edit Prompts API
-        </a>
-
-        <div style={{ 
-          marginTop: '1rem', 
-          padding: '1rem', 
-          backgroundColor: '#18181b', 
-          borderRadius: '8px',
-          border: '1px solid #3f3f46' 
-        }}>
-          <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Available Prompts</h3>
-          <ul style={{ color: '#a1a1aa', fontSize: '0.9rem', lineHeight: '1.8', paddingLeft: '1.5rem' }}>
-            <li><strong>Task Extraction:</strong> Extracts commitments, actions, follow-ups, risks</li>
-            <li><strong>Calendar Event Description:</strong> Generates detailed event descriptions</li>
-            <li><strong>Weekly Report:</strong> Creates executive summaries</li>
-          </ul>
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '1rem' }}>
-            Use <code style={{ backgroundColor: '#3f3f46', padding: '0.2rem 0.4rem', borderRadius: '3px' }}>GET/PUT /api/prompts/:key</code> to view and edit.
-            Changes take effect immediately (no restart needed).
-          </p>
-        </div>
+        {loadingPrompts ? (
+          <p style={{ color: '#a1a1aa' }}>Loading prompts...</p>
+        ) : (
+          prompts.map((prompt) => (
+            <details 
+              key={prompt.key}
+              style={{ 
+                marginBottom: '1rem',
+                padding: '1rem',
+                backgroundColor: '#18181b',
+                borderRadius: '8px',
+                border: '1px solid #3f3f46'
+              }}
+            >
+              <summary style={{ 
+                cursor: 'pointer', 
+                fontWeight: 'bold',
+                padding: '0.5rem',
+                color: '#fff',
+                fontSize: '1rem'
+              }}>
+                {prompt.name}
+              </summary>
+              
+              <div style={{ marginTop: '1rem' }}>
+                <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                  {prompt.description}
+                </p>
+                
+                {editingPrompt === prompt.key ? (
+                  <div>
+                    <textarea
+                      value={prompt.prompt}
+                      onChange={(e) => {
+                        const newPrompts = prompts.map(p => 
+                          p.key === prompt.key ? { ...p, prompt: e.target.value } : p
+                        );
+                        setPrompts(newPrompts);
+                      }}
+                      style={{
+                        width: '100%',
+                        minHeight: '300px',
+                        padding: '1rem',
+                        backgroundColor: '#09090b',
+                        color: '#fff',
+                        border: '1px solid #3f3f46',
+                        borderRadius: '8px',
+                        fontFamily: 'monospace',
+                        fontSize: '0.9rem',
+                        marginBottom: '1rem'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        onClick={() => updatePrompt(prompt.key, prompt.prompt)}
+                        style={{ 
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#22c55e',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✅ Save
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setEditingPrompt(null);
+                          loadPrompts(); // Reload to discard changes
+                        }}
+                        style={{ 
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#6b7280',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ❌ Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <pre style={{
+                      backgroundColor: '#09090b',
+                      padding: '1rem',
+                      borderRadius: '8px',
+                      overflow: 'auto',
+                      maxHeight: '200px',
+                      fontSize: '0.85rem',
+                      color: '#a1a1aa',
+                      marginBottom: '1rem'
+                    }}>
+                      {prompt.prompt}
+                    </pre>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        onClick={() => setEditingPrompt(prompt.key)}
+                        style={{ 
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button 
+                        onClick={() => resetPrompt(prompt.key)}
+                        style={{ 
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        🔄 Reset to Default
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </details>
+          ))
+        )}
       </div>
 
       <div className="card">
