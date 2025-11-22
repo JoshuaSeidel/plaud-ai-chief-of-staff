@@ -685,14 +685,35 @@ class DatabaseWrapper {
       }
       
       return {
-        run: (...params) => {
-          operations.push([...params]);
+        run: async (...params) => {
+          // For prepared statements, we need to execute immediately and return the result
+          // This is necessary for getting the inserted ID
+          
+          // Add RETURNING clause if not present and this is an INSERT
+          let execQuery = pgQuery;
+          if (execQuery.trim().toUpperCase().startsWith('INSERT') && !execQuery.toUpperCase().includes('RETURNING')) {
+            const tableMatch = execQuery.match(/INSERT INTO\s+(\w+)/i);
+            const tableName = tableMatch ? tableMatch[1] : null;
+            
+            if (tableName === 'config') {
+              execQuery += ' RETURNING key';
+            } else {
+              execQuery += ' RETURNING id';
+            }
+          }
+          
+          const result = await pool.query(execQuery, params);
+          operations.push({ params, result });
+          
+          // Return in a format compatible with both SQLite and the calling code
+          return {
+            lastID: result.rows && result.rows.length > 0 ? result.rows[0].id : null,
+            changes: result.rowCount || 0,
+            rows: result.rows
+          };
         },
         finalize: async (callback) => {
           try {
-            for (const params of operations) {
-              await pool.query(pgQuery, params);
-            }
             dbLogger.info(`Batch operation completed: ${operations.length} queries executed`);
             if (callback) callback(null);
           } catch (err) {
