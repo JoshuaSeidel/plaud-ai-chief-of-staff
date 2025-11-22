@@ -421,7 +421,7 @@ function Configuration() {
             ) : (
               <div>
                 <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
-                  Connect your Google Calendar to automatically create events for commitments with deadlines.
+                  Connect your Google Calendar to automatically create events for tasks with deadlines.
                   One-click setup with OAuth.
                 </p>
                 
@@ -772,13 +772,13 @@ function Configuration() {
           <strong>AI Chief of Staff</strong> - Your intelligent executive assistant
         </p>
         <p style={{ marginTop: '1rem', color: '#a1a1aa', lineHeight: '1.6' }}>
-          This application uses Claude AI to generate daily briefs, track commitments, 
+          This application uses Claude AI to generate daily briefs, track tasks, 
           and maintain context from your meetings and emails.
         </p>
         <ul style={{ marginTop: '1rem', color: '#a1a1aa', lineHeight: '1.8' }}>
           <li>Upload meeting transcripts to extract action items</li>
           <li>Generate AI-powered daily briefs in 10 seconds</li>
-          <li>Track commitments across a rolling 2-week window</li>
+          <li>Track all tasks across a rolling context window</li>
           <li>Create calendar blocks automatically</li>
         </ul>
       </div>

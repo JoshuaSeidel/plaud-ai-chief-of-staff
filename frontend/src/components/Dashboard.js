@@ -295,7 +295,7 @@ function Dashboard({ setActiveTab }) {
           <ul style={{ fontSize: '0.9rem', color: '#6e6e73', lineHeight: '1.6', paddingLeft: '1.5rem' }}>
             <li>Upload transcripts regularly to keep your context fresh</li>
             <li>Generate your brief each morning for daily priorities</li>
-            <li>Review commitments to stay on top of deadlines</li>
+            <li>Review tasks to stay on top of deadlines</li>
           </ul>
         </div>
       </div>
