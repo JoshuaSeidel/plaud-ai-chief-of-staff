@@ -9,8 +9,9 @@ COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
 
-# Generate app icons
-RUN npm run generate-icons || echo "Icon generation failed, using placeholders"
+# Note: Icons should be generated manually using create-icons.html in browser
+# or by running generate-icons.js locally with canvas installed
+# This keeps the Docker image lightweight without Python/build dependencies
 
 # Build React app
 RUN npm run build
