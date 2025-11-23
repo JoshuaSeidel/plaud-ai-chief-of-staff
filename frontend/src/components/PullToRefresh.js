@@ -6,7 +6,8 @@ import { usePullToRefresh } from '../utils/usePullToRefresh';
  * Shows visual feedback when user pulls down to refresh
  */
 export function PullToRefresh({ onRefresh, children, disabled = false, style = {} }) {
-  const { pullDistance, isRefreshing, pullProgress, elementRef } = usePullToRefresh(onRefresh, { disabled });
+  const threshold = 80;
+  const { pullDistance, isRefreshing, pullProgress, elementRef } = usePullToRefresh(onRefresh, { disabled, threshold });
 
   const indicatorStyle = {
     position: 'fixed',
@@ -19,10 +20,11 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
     alignItems: 'center',
     justifyContent: 'center',
     pointerEvents: 'none',
-    zIndex: 1000,
-    transition: pullDistance > 0 ? 'none' : 'transform 0.3s ease-out',
+    zIndex: 10000,
+    transition: pullDistance === 0 ? 'opacity 0.3s ease-out, transform 0.3s ease-out' : 'none',
     transform: `translateX(-50%) translateY(${Math.max(0, pullDistance - 60)}px)`,
-    opacity: pullProgress
+    opacity: pullDistance > 10 ? Math.min(pullProgress * 2, 1) : 0,
+    backgroundColor: pullDistance > threshold ? 'rgba(96, 165, 250, 0.1)' : 'transparent'
   };
 
   const spinnerStyle = {
@@ -35,7 +37,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
   };
 
   return (
-    <div ref={elementRef} style={style}>
+    <div ref={elementRef} style={{ ...style, minHeight: '100%' }}>
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -52,12 +54,19 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
               fontSize: '0.9rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              fontWeight: pullProgress >= 1 ? 'bold' : 'normal'
             }}>
-              <span style={{ transform: `rotate(${pullProgress * 180}deg)`, transition: 'transform 0.1s' }}>
+              <span style={{ 
+                transform: `rotate(${pullProgress * 180}deg)`, 
+                transition: 'transform 0.1s',
+                fontSize: '1.2rem'
+              }}>
                 ↓
               </span>
-              {pullProgress >= 1 ? 'Release to refresh' : 'Pull to refresh'}
+              <span>
+                {pullProgress >= 1 ? 'Release to refresh' : 'Pull to refresh'}
+              </span>
             </div>
           )}
         </div>
@@ -66,4 +75,3 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
     </div>
   );
 }
-

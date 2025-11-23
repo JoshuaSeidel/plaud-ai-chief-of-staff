@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
  * Custom hook for pull-to-refresh functionality
@@ -15,42 +15,70 @@ export function usePullToRefresh(onRefresh, options = {}) {
 
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const startY = useRef(0);
-  const currentY = useRef(0);
+  const pullDistanceRef = useRef(0);
+  const isRefreshingRef = useRef(false);
   const elementRef = useRef(null);
 
+  // Keep refs in sync with state
   useEffect(() => {
-    if (disabled) return;
+    pullDistanceRef.current = pullDistance;
+  }, [pullDistance]);
 
-    const element = elementRef.current || document.body;
+  useEffect(() => {
+    isRefreshingRef.current = isRefreshing;
+  }, [isRefreshing]);
+
+  const checkScrollTop = useCallback(() => {
+    // Check if we're at the top of the page
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    return scrollTop <= 5; // Allow small margin for rounding
+  }, []);
+
+  useEffect(() => {
+    if (disabled || !onRefresh) return;
+
     let touchStartY = 0;
     let isPulling = false;
-    let scrollTop = 0;
 
     const handleTouchStart = (e) => {
+      if (isRefreshingRef.current) return;
+      
       touchStartY = e.touches[0].clientY;
-      scrollTop = element.scrollTop || window.scrollY;
-      isPulling = false;
+      
+      // Only start if we're at the top
+      if (checkScrollTop()) {
+        isPulling = true;
+      }
     };
 
     const handleTouchMove = (e) => {
+      if (!isPulling || isRefreshingRef.current) return;
+      
       const touchY = e.touches[0].clientY;
       const deltaY = touchY - touchStartY;
 
-      // Only allow pull-to-refresh if at the top of the page
-      if (scrollTop <= 0 && deltaY > 0 && !isRefreshing) {
+      // Only allow pull-to-refresh if at the top and pulling down
+      if (deltaY > 0 && checkScrollTop()) {
         e.preventDefault();
-        isPulling = true;
+        e.stopPropagation();
         const distance = Math.min(deltaY / resistance, threshold * 1.5);
         setPullDistance(distance);
-        currentY.current = distance;
-      } else if (!isPulling) {
+      } else if (deltaY <= 0 || !checkScrollTop()) {
         setPullDistance(0);
+        isPulling = false;
       }
     };
 
     const handleTouchEnd = async () => {
-      if (isPulling && pullDistance >= threshold && !isRefreshing) {
+      if (!isPulling) {
+        setPullDistance(0);
+        isPulling = false;
+        return;
+      }
+
+      const currentDistance = pullDistanceRef.current;
+      
+      if (currentDistance >= threshold && !isRefreshingRef.current) {
         setIsRefreshing(true);
         setPullDistance(threshold);
         
@@ -63,22 +91,23 @@ export function usePullToRefresh(onRefresh, options = {}) {
           setPullDistance(0);
         }
       } else {
-        // Animate back to 0
         setPullDistance(0);
       }
+      
       isPulling = false;
     };
 
-    element.addEventListener('touchstart', handleTouchStart, { passive: false });
-    element.addEventListener('touchmove', handleTouchMove, { passive: false });
-    element.addEventListener('touchend', handleTouchEnd);
+    // Attach to document for better capture
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
-      element.removeEventListener('touchstart', handleTouchStart);
-      element.removeEventListener('touchmove', handleTouchMove);
-      element.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [pullDistance, threshold, resistance, isRefreshing, onRefresh, disabled]);
+  }, [threshold, resistance, onRefresh, disabled, checkScrollTop]);
 
   const pullProgress = Math.min(pullDistance / threshold, 1);
   const shouldTrigger = pullDistance >= threshold;
@@ -91,4 +120,3 @@ export function usePullToRefresh(onRefresh, options = {}) {
     elementRef
   };
 }
-
