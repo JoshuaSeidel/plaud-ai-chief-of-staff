@@ -1,7 +1,7 @@
 # All-in-One Dockerfile for Unraid
 # This builds both frontend and backend in a single container
 
-FROM node:18-alpine as frontend-build
+FROM node:20-alpine as frontend-build
 
 # Build frontend
 WORKDIR /app/frontend
@@ -25,7 +25,7 @@ ENV BUILD_DATE=$BUILD_DATE
 RUN npm run build
 
 # Final stage - Backend with built frontend
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
