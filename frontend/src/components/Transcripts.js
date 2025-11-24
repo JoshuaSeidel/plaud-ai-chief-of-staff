@@ -11,8 +11,10 @@ function Transcripts() {
   const [pasteData, setPasteData] = useState({
     filename: '',
     content: '',
-    source: 'manual'
+    source: 'manual',
+    meetingDate: ''
   });
+  const [fileMeetingDate, setFileMeetingDate] = useState('');
 
   useEffect(() => {
     loadTranscripts();
@@ -41,6 +43,9 @@ function Transcripts() {
 
     const formData = new FormData();
     formData.append('transcript', file);
+    if (fileMeetingDate) {
+      formData.append('meetingDate', fileMeetingDate);
+    }
 
     try {
       const response = await transcriptsAPI.upload(formData);
@@ -55,6 +60,7 @@ function Transcripts() {
       setSuccessMessage(message);
       loadTranscripts(); // Reload the list
       event.target.value = ''; // Clear the input
+      setFileMeetingDate(''); // Clear meeting date
       
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
@@ -87,7 +93,7 @@ function Transcripts() {
       }
       
       setSuccessMessage(message);
-      setPasteData({ filename: '', content: '', source: 'manual' });
+      setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
       setShowPasteForm(false);
       loadTranscripts();
       
@@ -245,6 +251,22 @@ function Transcripts() {
 
         {!showPasteForm ? (
           <>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                Meeting Date (Optional)
+              </label>
+              <input
+                type="date"
+                value={fileMeetingDate}
+                onChange={(e) => setFileMeetingDate(e.target.value)}
+                style={{ marginBottom: '1rem' }}
+                max={new Date().toISOString().split('T')[0]}
+              />
+              <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                Enter the date the meeting occurred (helps AI set accurate deadlines)
+              </p>
+            </div>
+            
             <div 
               className="file-upload" 
               onClick={() => document.getElementById('file-input').click()}
@@ -281,15 +303,29 @@ function Transcripts() {
             <h3 style={{ marginTop: 0 }}>Paste Transcript Text</h3>
             
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-              Filename *
+              Meeting Title *
             </label>
             <input
               type="text"
               value={pasteData.filename}
               onChange={(e) => setPasteData({ ...pasteData, filename: e.target.value })}
-              placeholder="e.g., Team Meeting 2024-01-15.txt"
+              placeholder="e.g., Team Standup - Q4 Planning"
               required
             />
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Meeting Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={pasteData.meetingDate}
+              onChange={(e) => setPasteData({ ...pasteData, meetingDate: e.target.value })}
+              max={new Date().toISOString().split('T')[0]}
+              style={{ marginBottom: '0.5rem' }}
+            />
+            <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+              Enter the date the meeting occurred (helps AI set accurate deadlines)
+            </p>
 
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
               Source
@@ -331,7 +367,7 @@ function Transcripts() {
                 className="secondary"
                 onClick={() => {
                   setShowPasteForm(false);
-                  setPasteData({ filename: '', content: '', source: 'manual' });
+                  setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
                 }}
               >
                 Cancel

@@ -190,10 +190,14 @@ router.post('/upload', (req, res) => {
       const content = fs.readFileSync(req.file.path, 'utf-8');
       logger.info(`Read file content: ${content.length} characters`);
 
+      // Get meeting date from form data (optional)
+      const meetingDate = req.body.meetingDate || req.body.meeting_date || null;
+      logger.info(`Meeting date: ${meetingDate || 'not provided'}`);
+
       // Save to database
       const result = await db.run(
-        'INSERT INTO transcripts (filename, content, source) VALUES (?, ?, ?)',
-        [req.file.originalname, content, 'upload']
+        'INSERT INTO transcripts (filename, content, source, meeting_date) VALUES (?, ?, ?, ?)',
+        [req.file.originalname, content, 'upload', meetingDate]
       );
 
       const transcriptId = result.lastID;
@@ -209,7 +213,7 @@ router.post('/upload', (req, res) => {
       try {
         // Extract commitments using Claude
         logger.info('Extracting commitments with Claude...');
-        const extracted = await extractCommitments(content);
+        const extracted = await extractCommitments(content, meetingDate);
         logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
 
         // Save all tasks (commitments, actions, follow-ups, risks) and create calendar events
@@ -250,22 +254,23 @@ router.post('/upload', (req, res) => {
  * Upload transcript text (manual paste)
  */
 router.post('/upload-text', async (req, res) => {
-  const { filename, content, source } = req.body;
+  const { filename, content, source, meetingDate, meeting_date } = req.body;
 
   if (!filename || !content) {
     logger.warn('Text upload attempted without filename or content');
     return res.status(400).json({ error: 'Filename and content are required' });
   }
 
-  logger.info(`Manual text upload: ${filename} (${content.length} characters)`);
+  const meetingDateValue = meetingDate || meeting_date || null;
+  logger.info(`Manual text upload: ${filename} (${content.length} characters), meeting date: ${meetingDateValue || 'not provided'}`);
 
   try {
     const db = getDb();
 
     // Save to database
     const result = await db.run(
-      'INSERT INTO transcripts (filename, content, source) VALUES (?, ?, ?)',
-      [filename, content, source || 'manual']
+      'INSERT INTO transcripts (filename, content, source, meeting_date) VALUES (?, ?, ?, ?)',
+      [filename, content, source || 'manual', meetingDateValue]
     );
 
     const transcriptId = result.lastID;
@@ -274,7 +279,7 @@ router.post('/upload-text', async (req, res) => {
     try {
       // Extract commitments using Claude
       logger.info('Extracting commitments with Claude...');
-      const extracted = await extractCommitments(content);
+      const extracted = await extractCommitments(content, meetingDateValue);
       logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
 
       // Save all tasks and create calendar events
@@ -521,11 +526,13 @@ async function processTranscriptAsync(id, transcript, db) {
     // Update progress: Extracting with AI
     await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [30, id]);
     
-    // Extract commitments using Claude
-    const extracted = await extractCommitments(transcript.content);
+    // Extract commitments using Claude (use meeting_date if available)
+    const meetingDate = transcript.meeting_date || null;
+    const extracted = await extractCommitments(transcript.content, meetingDate);
     logger.info('Commitments extracted successfully', {
       commitments: extracted.commitments?.length || 0,
-      actionItems: extracted.actionItems?.length || 0
+      actionItems: extracted.actionItems?.length || 0,
+      meetingDate
     });
     
     // Update progress: Saving tasks

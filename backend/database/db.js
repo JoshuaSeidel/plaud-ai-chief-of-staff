@@ -891,6 +891,19 @@ async function runMigrations() {
           dbLogger.warn('Migration warning:', err.message);
         }
       }
+      
+      // Migration 5: Add meeting_date to transcripts
+      try {
+        await pool.query(`
+          ALTER TABLE transcripts 
+          ADD COLUMN IF NOT EXISTS meeting_date DATE
+        `);
+        dbLogger.info('✓ Added meeting_date column to transcripts');
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          dbLogger.warn('Migration warning:', err.message);
+        }
+      }
     } else {
       // SQLite migrations
       // Check if columns exist
@@ -924,9 +937,11 @@ async function runMigrations() {
       
       const hasProcessingStatus = transcriptsTableInfo.some(col => col.name === 'processing_status');
       const hasProcessingProgress = transcriptsTableInfo.some(col => col.name === 'processing_progress');
+      const hasMeetingDate = transcriptsTableInfo.some(col => col.name === 'meeting_date');
       
       if (!hasProcessingStatus) columnsToAdd.push({ name: 'processing_status', type: 'TEXT', default: "'completed'", table: 'transcripts' });
       if (!hasProcessingProgress) columnsToAdd.push({ name: 'processing_progress', type: 'INTEGER', default: '100', table: 'transcripts' });
+      if (!hasMeetingDate) columnsToAdd.push({ name: 'meeting_date', type: 'DATE', table: 'transcripts' });
       
       if (columnsToAdd.length > 0) {
         dbLogger.info('Adding missing columns...');
