@@ -118,7 +118,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
     logger.info(`Saved ${extracted.followUps.length} follow-ups`);
   }
 
-  // Save risks
+  // Save risks (no calendar events for risks - they're informational only)
   if (extracted.risks && extracted.risks.length > 0) {
     for (const item of extracted.risks) {
       const result = await stmt.run(
@@ -133,20 +133,10 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         'pending'
       );
       
-      const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
-      
-      if (item.deadline && isGoogleConnected) {
-        try {
-          const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'risk' });
-          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
-          calendarEventsCreated++;
-        } catch (calError) {
-          logger.warn(`Failed to create calendar event: ${calError.message}`);
-        }
-      }
+      // Risks are not added to calendar - they're informational/awareness items only
     }
-    logger.info(`Saved ${extracted.risks.length} risks`);
+    logger.info(`Saved ${extracted.risks.length} risks (no calendar events for risks)`);
   }
   
   await stmt.finalize();
@@ -194,10 +184,10 @@ router.post('/upload', (req, res) => {
       const meetingDate = req.body.meetingDate || req.body.meeting_date || null;
       logger.info(`Meeting date: ${meetingDate || 'not provided'}`);
 
-      // Save to database
+      // Save to database with processing status
       const result = await db.run(
-        'INSERT INTO transcripts (filename, content, source, meeting_date) VALUES (?, ?, ?, ?)',
-        [req.file.originalname, content, 'upload', meetingDate]
+        'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress) VALUES (?, ?, ?, ?, ?, ?)',
+        [req.file.originalname, content, 'upload', meetingDate, 'processing', 0]
       );
 
       const transcriptId = result.lastID;
@@ -210,35 +200,19 @@ router.post('/upload', (req, res) => {
         logger.warn('Failed to clean up uploaded file:', cleanupErr);
       }
 
-      try {
-        // Extract commitments using Claude
-        logger.info('Extracting commitments with Claude...');
-        const extracted = await extractCommitments(content, meetingDate);
-        logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
+      // Return immediately - process in background
+      res.json({ 
+        success: true,
+        message: 'Transcript uploaded, processing in background',
+        transcriptId,
+        status: 'processing'
+      });
 
-        // Save all tasks (commitments, actions, follow-ups, risks) and create calendar events
-        const taskStats = await saveAllTasksWithCalendar(db, transcriptId, extracted);
-
-        res.json({
-          message: 'Transcript uploaded and processed successfully',
-          transcriptId,
-          extracted: {
-            commitments: extracted.commitments?.length || 0,
-            actions: extracted.actionItems?.length || 0,
-            followUps: extracted.followUps?.length || 0,
-            risks: extracted.risks?.length || 0
-          },
-          taskStats
-        });
-      } catch (extractError) {
-        logger.error('Error extracting commitments:', extractError);
-        res.json({
-          message: 'Transcript uploaded but extraction failed',
-          transcriptId,
-          warning: 'Could not extract commitments automatically',
-          error: extractError.message
-        });
-      }
+      // Process in background
+      const transcript = { id: transcriptId, filename: req.file.originalname, content, meeting_date: meetingDate };
+      processTranscriptAsync(transcriptId, transcript, db).catch(err => {
+        logger.error(`Background processing error for transcript ${transcriptId}:`, err);
+      });
     } catch (error) {
       logger.error('Error processing transcript:', error);
       res.status(500).json({ 
@@ -267,50 +241,33 @@ router.post('/upload-text', async (req, res) => {
   try {
     const db = getDb();
 
-    // Save to database
+    // Save to database with processing status
     const result = await db.run(
-      'INSERT INTO transcripts (filename, content, source, meeting_date) VALUES (?, ?, ?, ?)',
-      [filename, content, source || 'manual', meetingDateValue]
+      'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress) VALUES (?, ?, ?, ?, ?, ?)',
+      [filename, content, source || 'manual', meetingDateValue, 'processing', 0]
     );
 
     const transcriptId = result.lastID;
     logger.info(`Transcript saved with ID: ${transcriptId}`);
 
-    try {
-      // Extract commitments using Claude
-      logger.info('Extracting commitments with Claude...');
-      const extracted = await extractCommitments(content, meetingDateValue);
-      logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
+    // Return immediately - process in background
+    res.json({ 
+      success: true,
+      message: 'Transcript saved, processing in background',
+      transcriptId,
+      status: 'processing'
+    });
 
-      // Save all tasks and create calendar events
-      const taskStats = await saveAllTasksWithCalendar(db, transcriptId, extracted);
-
-      res.json({
-        message: 'Transcript saved and processed successfully',
-        transcriptId,
-        extracted: {
-          commitments: extracted.commitments?.length || 0,
-          actions: extracted.actionItems?.length || 0,
-          followUps: extracted.followUps?.length || 0,
-          risks: extracted.risks?.length || 0
-        },
-        taskStats
-      });
-    } catch (extractError) {
-      logger.error('Error extracting commitments:', extractError);
-      res.json({
-        message: 'Transcript saved but commitment extraction failed. Please configure your Anthropic API key in Settings.',
-        transcriptId,
-        warning: 'AI features require an Anthropic API key',
-        error: extractError.message
-      });
-    }
+    // Process in background
+    const transcript = { id: transcriptId, filename, content, meeting_date: meetingDateValue };
+    processTranscriptAsync(transcriptId, transcript, db).catch(err => {
+      logger.error(`Background processing error for transcript ${transcriptId}:`, err);
+    });
   } catch (error) {
-    logger.error('Error processing transcript:', error);
+    logger.error('Error processing text upload:', error);
     res.status(500).json({ 
-      error: 'Error processing transcript', 
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: 'Error processing text upload', 
+      message: error.message
     });
   }
 });

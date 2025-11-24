@@ -15,6 +15,8 @@ function Transcripts() {
     meetingDate: ''
   });
   const [fileMeetingDate, setFileMeetingDate] = useState('');
+  const [processingTranscriptId, setProcessingTranscriptId] = useState(null);
+  const [processingProgress, setProcessingProgress] = useState(0);
 
   useEffect(() => {
     loadTranscripts();
@@ -23,7 +25,19 @@ function Transcripts() {
   const loadTranscripts = async () => {
     try {
       const response = await transcriptsAPI.getAll();
-      setTranscripts(response.data);
+      const loadedTranscripts = response.data;
+      setTranscripts(loadedTranscripts);
+      
+      // Check if any transcripts are processing and start polling if needed
+      const processingTranscript = loadedTranscripts.find(t => 
+        t.processing_status === 'processing' && t.id !== processingTranscriptId
+      );
+      
+      if (processingTranscript && !processingTranscriptId) {
+        setProcessingTranscriptId(processingTranscript.id);
+        setProcessingProgress(processingTranscript.processing_progress || 0);
+        pollProcessingStatus(processingTranscript.id);
+      }
     } catch (err) {
       setError('Failed to load transcripts');
     }
@@ -31,6 +45,60 @@ function Transcripts() {
 
   const handleRefresh = async () => {
     await loadTranscripts();
+  };
+
+  // Poll for processing status
+  const pollProcessingStatus = async (transcriptId) => {
+    const maxAttempts = 120; // 2 minutes max (1 second intervals)
+    let attempts = 0;
+    
+    const poll = async () => {
+      try {
+        const response = await transcriptsAPI.getById(transcriptId);
+        const transcript = response.data;
+        
+        if (transcript.processing_status === 'completed') {
+          setProcessingTranscriptId(null);
+          setProcessingProgress(100);
+          setSuccessMessage(`✓ Processing complete: ${transcript.filename}`);
+          loadTranscripts();
+          setTimeout(() => {
+            setSuccessMessage(null);
+            setProcessingProgress(0);
+          }, 5000);
+          return;
+        } else if (transcript.processing_status === 'failed') {
+          setProcessingTranscriptId(null);
+          setProcessingProgress(0);
+          setError(`Processing failed for: ${transcript.filename}`);
+          loadTranscripts();
+          return;
+        } else if (transcript.processing_status === 'processing') {
+          setProcessingProgress(transcript.processing_progress || 0);
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(poll, 1000); // Poll every second
+          } else {
+            setProcessingTranscriptId(null);
+            setProcessingProgress(0);
+            setError('Processing is taking longer than expected. Check back later.');
+            loadTranscripts();
+          }
+        }
+      } catch (err) {
+        console.error('Error polling status:', err);
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 1000);
+        } else {
+          setProcessingTranscriptId(null);
+          setProcessingProgress(0);
+          setError('Unable to check processing status');
+        }
+      }
+    };
+    
+    poll();
   };
 
   const handleFileUpload = async (event) => {
@@ -51,21 +119,28 @@ function Transcripts() {
       const response = await transcriptsAPI.upload(formData);
       const data = response.data;
       
-      let message = `Successfully uploaded: ${file.name}`;
-      if (data.extracted) {
-        message += `\n✓ Extracted ${data.extracted.commitments?.length || 0} commitments`;
-        message += `\n✓ Extracted ${data.extracted.actionItems?.length || 0} action items`;
+      if (data.success && data.status === 'processing') {
+        // Processing in background
+        setSuccessMessage(`✓ Uploaded: ${file.name}\n⏳ Processing in background...`);
+        setProcessingTranscriptId(data.transcriptId);
+        setProcessingProgress(0);
+        loadTranscripts(); // Reload to show new transcript
+        event.target.value = ''; // Clear the input
+        setFileMeetingDate(''); // Clear meeting date
+        setUploading(false); // Allow user to continue
+        
+        // Start polling for status
+        setTimeout(() => pollProcessingStatus(data.transcriptId), 1000);
+      } else {
+        // Legacy response format (shouldn't happen with new backend)
+        setSuccessMessage(`Successfully uploaded: ${file.name}`);
+        loadTranscripts();
+        event.target.value = '';
+        setFileMeetingDate('');
+        setUploading(false);
       }
-      
-      setSuccessMessage(message);
-      loadTranscripts(); // Reload the list
-      event.target.value = ''; // Clear the input
-      setFileMeetingDate(''); // Clear meeting date
-      
-      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to upload transcript');
-    } finally {
       setUploading(false);
     }
   };
@@ -83,24 +158,34 @@ function Transcripts() {
     setSuccessMessage(null);
 
     try {
-      const response = await transcriptsAPI.uploadText(pasteData);
+      const response = await transcriptsAPI.uploadText({
+        ...pasteData,
+        meetingDate: pasteData.meetingDate || undefined
+      });
       const data = response.data;
       
-      let message = `Successfully saved: ${pasteData.filename}`;
-      if (data.extracted) {
-        message += `\n✓ Extracted ${data.extracted.commitments?.length || 0} commitments`;
-        message += `\n✓ Extracted ${data.extracted.actionItems?.length || 0} action items`;
+      if (data.success && data.status === 'processing') {
+        // Processing in background
+        setSuccessMessage(`✓ Saved: ${pasteData.filename}\n⏳ Processing in background...`);
+        setProcessingTranscriptId(data.transcriptId);
+        setProcessingProgress(0);
+        setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
+        setShowPasteForm(false);
+        loadTranscripts(); // Reload to show new transcript
+        setUploading(false); // Allow user to continue
+        
+        // Start polling for status
+        setTimeout(() => pollProcessingStatus(data.transcriptId), 1000);
+      } else {
+        // Legacy response format (shouldn't happen with new backend)
+        setSuccessMessage(`Successfully saved: ${pasteData.filename}`);
+        setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
+        setShowPasteForm(false);
+        loadTranscripts();
+        setUploading(false);
       }
-      
-      setSuccessMessage(message);
-      setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
-      setShowPasteForm(false);
-      loadTranscripts();
-      
-      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save transcript');
-    } finally {
       setUploading(false);
     }
   };
@@ -246,6 +331,43 @@ function Transcripts() {
             whiteSpace: 'pre-line'
           }}>
             {successMessage}
+          </div>
+        )}
+
+        {processingTranscriptId && (
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '1px solid #3f3f46',
+            padding: '1rem', 
+            borderRadius: '8px', 
+            marginBottom: '1rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ color: '#60a5fa', fontSize: '0.9rem', fontWeight: '500' }}>
+                ⏳ Processing transcript...
+              </span>
+              <span style={{ color: '#a1a1aa', fontSize: '0.85rem' }}>
+                {processingProgress}%
+              </span>
+            </div>
+            <div style={{
+              width: '100%',
+              height: '8px',
+              backgroundColor: '#27272a',
+              borderRadius: '4px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${processingProgress}%`,
+                height: '100%',
+                backgroundColor: '#60a5fa',
+                transition: 'width 0.3s ease',
+                borderRadius: '4px'
+              }} />
+            </div>
+            <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '0.5rem', marginBottom: 0 }}>
+              This may take 30-60 seconds. You can continue using the app.
+            </p>
           </div>
         )}
 
@@ -396,54 +518,89 @@ function Transcripts() {
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Filename</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Upload Date</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left' }}>Source</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
                   <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {transcripts.map((transcript) => (
-                  <tr key={transcript.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
-                    <td style={{ padding: '0.75rem' }}>{transcript.filename}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      {new Date(transcript.upload_date).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span style={{ 
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.85rem',
-                        backgroundColor: '#18181b',
-                        color: '#a1a1aa'
-                      }}>
-                        {transcript.source}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                      <button
-                        className="secondary"
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
-                        onClick={() => handleViewTranscript(transcript.id)}
-                      >
-                        View
-                      </button>
-                      <button
-                        className="secondary"
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
-                        onClick={() => handleReprocess(transcript.id, transcript.filename)}
-                        disabled={uploading}
-                        title="Re-extract commitments and action items"
-                      >
-                        🔄 Reprocess
-                      </button>
-                      <button
-                        className="secondary"
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                        onClick={() => handleDelete(transcript.id)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {transcripts.map((transcript) => {
+                  const isProcessing = transcript.processing_status === 'processing';
+                  const isFailed = transcript.processing_status === 'failed';
+                  const isCompleted = transcript.processing_status === 'completed' || !transcript.processing_status;
+                  
+                  return (
+                    <tr key={transcript.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                      <td style={{ padding: '0.75rem' }}>{transcript.filename}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        {new Date(transcript.upload_date).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <span style={{ 
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem',
+                          backgroundColor: '#18181b',
+                          color: '#a1a1aa'
+                        }}>
+                          {transcript.source}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        {isProcessing ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ color: '#60a5fa', fontSize: '0.85rem' }}>⏳ Processing</span>
+                            <div style={{
+                              width: '60px',
+                              height: '4px',
+                              backgroundColor: '#27272a',
+                              borderRadius: '2px',
+                              overflow: 'hidden'
+                            }}>
+                              <div style={{
+                                width: `${transcript.processing_progress || 0}%`,
+                                height: '100%',
+                                backgroundColor: '#60a5fa',
+                                transition: 'width 0.3s ease'
+                              }} />
+                            </div>
+                            <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>
+                              {transcript.processing_progress || 0}%
+                            </span>
+                          </div>
+                        ) : isFailed ? (
+                          <span style={{ color: '#ef4444', fontSize: '0.85rem' }}>❌ Failed</span>
+                        ) : (
+                          <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓ Complete</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                        <button
+                          className="secondary"
+                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                          onClick={() => handleViewTranscript(transcript.id)}
+                        >
+                          View
+                        </button>
+                        <button
+                          className="secondary"
+                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                          onClick={() => handleReprocess(transcript.id, transcript.filename)}
+                          disabled={uploading || isProcessing}
+                          title="Re-extract commitments and action items"
+                        >
+                          🔄 Reprocess
+                        </button>
+                        <button
+                          className="secondary"
+                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                          onClick={() => handleDelete(transcript.id)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
