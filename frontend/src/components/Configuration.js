@@ -624,7 +624,7 @@ function Configuration() {
             type="text"
             value={config.userNames}
             onChange={(e) => handleChange('userNames', e.target.value)}
-            placeholder="Josh, Joshua, Josh Seidel"
+            placeholder="John Smith"
             style={{
               width: '100%',
               padding: '0.75rem',
@@ -640,36 +640,39 @@ function Configuration() {
           </p>
         </div>
 
-        <div style={{ marginBottom: '2rem' }}>
-          <h3>Plaud Integration</h3>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            Plaud API Key (Optional)
-          </label>
-          <input
-            type="password"
-            value={config.plaudApiKey}
-            onChange={(e) => handleChange('plaudApiKey', e.target.value)}
-            placeholder="Your Plaud API key"
-          />
-          {config.plaudApiKey.includes('•') && (
-            <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
-              ✓ API key is configured (change to update)
+        {/* Plaud Integration - Hidden until implemented */}
+        {false && (
+          <div style={{ marginBottom: '2rem' }}>
+            <h3>Plaud Integration</h3>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Plaud API Key (Optional)
+            </label>
+            <input
+              type="password"
+              value={config.plaudApiKey}
+              onChange={(e) => handleChange('plaudApiKey', e.target.value)}
+              placeholder="Your Plaud API key"
+            />
+            {config.plaudApiKey.includes('•') && (
+              <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
+                ✓ API key is configured (change to update)
+              </p>
+            )}
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Plaud API URL
+            </label>
+            <input
+              type="url"
+              value={config.plaudApiUrl}
+              onChange={(e) => handleChange('plaudApiUrl', e.target.value)}
+              placeholder="https://api.plaud.ai"
+            />
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
+              Configure to automatically pull transcripts from Plaud
             </p>
-          )}
-          
-          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            Plaud API URL
-          </label>
-          <input
-            type="url"
-            value={config.plaudApiUrl}
-            onChange={(e) => handleChange('plaudApiUrl', e.target.value)}
-            placeholder="https://api.plaud.ai"
-          />
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
-            Configure to automatically pull transcripts from Plaud
-          </p>
-        </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>📅 Calendar Integration</h3>
