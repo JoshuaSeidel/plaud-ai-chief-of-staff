@@ -52,9 +52,19 @@ function VersionInfo() {
   }
 
   return (
-    <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
+    <div style={{ 
+      marginTop: '0', 
+      marginBottom: '1rem',
+      padding: '1rem', 
+      backgroundColor: '#18181b', 
+      borderRadius: '8px', 
+      border: '1px solid #3f3f46' 
+    }}>
+      <p style={{ color: '#e5e5e7', fontSize: '1rem', marginBottom: '0.75rem', fontWeight: '500' }}>
+        Application Version
+      </p>
       <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-        <strong style={{ color: '#e5e5e7' }}>Version:</strong> {version.version || 'Unknown'}
+        <strong style={{ color: '#e5e5e7' }}>Version:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.version || 'Unknown'}</span>
       </p>
       {version.commitHash && version.commitHash !== 'unknown' && (
         <p style={{ color: '#a1a1aa', fontSize: '0.85rem', fontFamily: 'monospace', marginTop: '0.25rem' }}>
@@ -1067,14 +1077,14 @@ function Configuration() {
 
       <div className="card">
         <h2>About</h2>
-        <p>
+        <VersionInfo />
+        <p style={{ marginTop: '1rem' }}>
           <strong>AI Chief of Staff</strong> - Your intelligent executive assistant
         </p>
         <p style={{ marginTop: '1rem', color: '#a1a1aa', lineHeight: '1.6' }}>
           This application uses Claude AI to generate daily briefs, track tasks, 
           and maintain context from your meetings and emails.
         </p>
-        <VersionInfo />
         <ul style={{ marginTop: '1rem', color: '#a1a1aa', lineHeight: '1.8' }}>
           <li>Upload meeting transcripts to extract action items</li>
           <li>Generate AI-powered daily briefs in 10 seconds</li>
