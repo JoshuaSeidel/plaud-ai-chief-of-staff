@@ -39,6 +39,15 @@ function Commitments() {
     }
   };
 
+  const confirmTask = async (id, confirmed) => {
+    try {
+      await commitmentsAPI.confirm(id, confirmed);
+      loadCommitments();
+    } catch (err) {
+      setError('Failed to confirm/reject task');
+    }
+  };
+
   const isOverdue = (commitment) => {
     if (!commitment.deadline || commitment.status === 'completed') return false;
     return new Date(commitment.deadline) < new Date();
@@ -90,6 +99,28 @@ function Commitments() {
     const completed = commitments.filter(c => c.status === 'completed');
     
     return { overdue, pending, completed };
+  };
+
+  const groupByConfirmation = () => {
+    // Apply current filters first
+    let filtered = commitments;
+    if (filter === 'overdue') {
+      filtered = commitments.filter(c => isOverdue(c));
+    } else if (filter === 'pending') {
+      filtered = commitments.filter(c => c.status === 'pending' && !isOverdue(c));
+    } else if (filter === 'completed') {
+      filtered = commitments.filter(c => c.status === 'completed');
+    }
+    
+    // Apply type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(c => (c.task_type || 'commitment') === typeFilter);
+    }
+    
+    const needsConfirmation = filtered.filter(c => c.needs_confirmation === 1 || c.needs_confirmation === true);
+    const confirmed = filtered.filter(c => !c.needs_confirmation || c.needs_confirmation === 0 || c.needs_confirmation === false);
+    
+    return { needsConfirmation, confirmed };
   };
 
   const groupByType = () => {
@@ -285,6 +316,83 @@ function Commitments() {
       </div>
 
       {/* Overdue Commitments */}
+      {/* Confirmation Section */}
+      {(() => {
+        const confirmationGroup = groupByConfirmation();
+        return confirmationGroup.needsConfirmation.length > 0 && (
+          <div className="card" style={{ border: '2px solid #f59e0b', marginBottom: '1.5rem' }}>
+            <h3 style={{ color: '#f59e0b', marginBottom: '1rem' }}>🔔 Tasks Needing Confirmation</h3>
+            <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              These tasks have unclear assignees. Confirm if they're yours, or reject to remove them.
+            </p>
+            {confirmationGroup.needsConfirmation.map(commitment => (
+              <div
+                key={commitment.id}
+                style={{
+                  backgroundColor: '#2a1f0a',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  border: '1px solid #f59e0b40'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <div style={{ flex: 1 }}>
+                    {renderTaskTypeBadge(commitment.task_type)}
+                  </div>
+                </div>
+                <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fbbf24' }}>
+                  {commitment.description}
+                </p>
+                <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                  <div>👤 Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
+                  {commitment.deadline && (
+                    <div>📅 Deadline: {formatDate(commitment.deadline)}</div>
+                  )}
+                  {commitment.suggested_approach && (
+                    <div style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
+                      💡 {commitment.suggested_approach}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => confirmTask(commitment.id, true)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      flex: 1
+                    }}
+                  >
+                    ✅ Confirm (It's Mine)
+                  </button>
+                  <button
+                    onClick={() => confirmTask(commitment.id, false)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      flex: 1
+                    }}
+                  >
+                    ❌ Reject (Not Mine)
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {grouped.overdue.length > 0 && (filter === 'all' || filter === 'overdue') && (
         <div className="card">
           <h3 style={{ color: '#ff3b30', marginBottom: '1rem' }}>⚠️ Overdue Commitments</h3>

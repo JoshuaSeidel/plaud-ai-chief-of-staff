@@ -58,6 +58,7 @@ export const tasksAPI = {
   update: (id, data) => api.put(`/commitments/${id}`, data),
   delete: (id) => api.delete(`/commitments/${id}`),
   getOverdue: () => api.get('/commitments/status/overdue'),
+  confirm: (id, confirmed) => api.post(`/commitments/${id}/confirm`, { confirmed }),
 };
 
 // Keep old name for backwards compatibility

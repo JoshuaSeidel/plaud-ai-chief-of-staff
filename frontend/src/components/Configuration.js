@@ -14,6 +14,7 @@ function Configuration() {
     googleClientSecret: '',
     googleRedirectUri: '',
     googleCalendarId: '',
+    userNames: '',
     dbType: 'sqlite',
     postgresHost: '',
     postgresPort: '5432',
@@ -148,6 +149,7 @@ function Configuration() {
         googleClientSecret: appData.googleClientSecret ? '••••••••' : '',
         googleRedirectUri: appData.googleRedirectUri || '',
         googleCalendarId: appData.googleCalendarId || '',
+        userNames: appData.userNames || '',
         dbType: actualDbType,
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
@@ -264,6 +266,9 @@ function Configuration() {
       }
       if (config.googleCalendarId) {
         appUpdates.googleCalendarId = config.googleCalendarId;
+      }
+      if (config.userNames) {
+        appUpdates.userNames = config.userNames;
       }
       
       // System configuration (stored in /app/data/config.json)
@@ -396,6 +401,28 @@ function Configuration() {
             <option value="6144">6144 - Long meetings</option>
             <option value="8192">8192 - Very long meetings (max)</option>
           </select>
+          
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+            Your Name(s) (Comma-separated)
+          </label>
+          <input
+            type="text"
+            value={config.userNames}
+            onChange={(e) => handleChange('userNames', e.target.value)}
+            placeholder="Josh, Joshua, Josh Seidel"
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #d2d2d7',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              marginBottom: '1rem'
+            }}
+          />
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+            Enter your name(s) as they appear in meeting transcripts. Tasks assigned to you will be automatically added. Others will require confirmation.
+          </p>
           <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
             Maximum tokens for AI responses. Higher = longer/complete responses but more cost.
           </p>

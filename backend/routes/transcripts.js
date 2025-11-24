@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../database/db');
+const { getDb, getDbType } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
 const googleCalendar = require('../services/google-calendar');
 const fs = require('fs');
@@ -15,33 +15,71 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   const isGoogleConnected = await googleCalendar.isConnected();
   logger.info(`Google Calendar connected: ${isGoogleConnected}`);
 
+  // Get user names from config
+  let userNames = [];
+  try {
+    const userNamesConfig = await db.get('SELECT value FROM config WHERE key = ?', ['userNames']);
+    if (userNamesConfig && userNamesConfig.value) {
+      userNames = userNamesConfig.value.split(',').map(name => name.trim()).filter(Boolean);
+      logger.info(`User names configured: ${userNames.join(', ')}`);
+    }
+  } catch (err) {
+    logger.warn('Could not retrieve user names from config:', err.message);
+  }
+
+  // Helper function to check if assignee matches user
+  const isAssignedToUser = (assignee) => {
+    if (!assignee || !userNames.length) return false;
+    const assigneeLower = assignee.toLowerCase().trim();
+    return userNames.some(name => name.toLowerCase() === assigneeLower);
+  };
+
+  // Helper function to check if assignee needs confirmation
+  const needsConfirmation = (assignee) => {
+    if (!assignee) return true; // No assignee = needs confirmation
+    const assigneeLower = assignee.toLowerCase().trim();
+    if (assigneeLower === 'tbd' || assigneeLower === 'unknown' || assigneeLower === '') return true;
+    if (userNames.length === 0) return false; // No user names configured = don't require confirmation
+    return !isAssignedToUser(assignee); // Not assigned to user = needs confirmation
+  };
+
+  // Get database type for boolean handling
+  const dbType = getDbType();
+  const getBooleanValue = (value) => dbType === 'postgres' ? value : (value ? 1 : 0);
+
   let totalSaved = 0;
   let calendarEventsCreated = 0;
   
-  // Prepare statement for all task types (without calendar_event_id initially)
+  // Prepare statement for all task types (with needs_confirmation)
   const stmt = db.prepare(
-    'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status, needs_confirmation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   // Save commitments
   if (extracted.commitments && extracted.commitments.length > 0) {
     for (const item of extracted.commitments) {
+      const assignee = item.assignee || null;
+      const requiresConfirmation = needsConfirmation(assignee);
+      const isUserTask = isAssignedToUser(assignee);
+      
       const result = await stmt.run(
         transcriptId,
         item.description,
-        item.assignee || null,
+        assignee,
         item.deadline || null,
         item.urgency || 'medium',
         item.suggested_approach || null,
         'commitment',
         item.urgency || 'medium',
-        'pending'
+        'pending',
+        getBooleanValue(requiresConfirmation) // needs_confirmation
       );
       
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      if (item.deadline && isGoogleConnected) {
+      // Only create calendar events for tasks clearly assigned to the user
+      if (item.deadline && isGoogleConnected && isUserTask && !requiresConfirmation) {
         try {
           const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
           // Store the calendar event ID
@@ -58,22 +96,28 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   // Save action items
   if (extracted.actionItems && extracted.actionItems.length > 0) {
     for (const item of extracted.actionItems) {
+      const assignee = item.assignee || null;
+      const requiresConfirmation = needsConfirmation(assignee);
+      const isUserTask = isAssignedToUser(assignee);
+      
       const result = await stmt.run(
         transcriptId,
         item.description,
-        item.assignee || null,
+        assignee,
         item.deadline || null,
         item.priority || 'medium',
         item.suggested_approach || null,
         'action',
         item.priority || 'medium',
-        'pending'
+        'pending',
+        getBooleanValue(requiresConfirmation)
       );
       
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      if (item.deadline && isGoogleConnected) {
+      // Only create calendar events for tasks clearly assigned to the user
+      if (item.deadline && isGoogleConnected && isUserTask && !requiresConfirmation) {
         try {
           const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' });
           await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
@@ -90,22 +134,28 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   if (extracted.followUps && extracted.followUps.length > 0) {
     for (const item of extracted.followUps) {
       const description = item.with ? `Follow up with ${item.with}: ${item.description}` : item.description;
+      const assignee = item.with || null;
+      const requiresConfirmation = needsConfirmation(assignee);
+      const isUserTask = isAssignedToUser(assignee);
+      
       const result = await stmt.run(
         transcriptId,
         description,
-        item.with || null,
+        assignee,
         item.deadline || null,
         item.priority || 'medium',
         null,
         'follow-up',
         item.priority || 'medium',
-        'pending'
+        'pending',
+        getBooleanValue(requiresConfirmation)
       );
       
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      if (item.deadline && isGoogleConnected) {
+      // Only create calendar events for tasks clearly assigned to the user
+      if (item.deadline && isGoogleConnected && isUserTask && !requiresConfirmation) {
         try {
           const event = await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
           await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
@@ -121,6 +171,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   // Save risks (no calendar events for risks - they're informational only)
   if (extracted.risks && extracted.risks.length > 0) {
     for (const item of extracted.risks) {
+      // Risks don't have assignees, so they don't need confirmation
       const result = await stmt.run(
         transcriptId,
         item.description,
@@ -130,7 +181,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         item.mitigation || null,
         'risk',
         item.impact || 'high',
-        'pending'
+        'pending',
+        getBooleanValue(false) // needs_confirmation = false for risks
       );
       
       totalSaved++;

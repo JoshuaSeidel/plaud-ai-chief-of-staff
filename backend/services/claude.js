@@ -213,9 +213,27 @@ async function extractCommitments(transcriptText, meetingDate = null) {
   const today = new Date().toISOString().split('T')[0];
   const dateContext = meetingDate ? `This meeting occurred on: ${meetingDate}` : `Today's date: ${today}`;
 
+  // Get user names from config
+  const db = getDb();
+  let userNames = [];
+  try {
+    const userNamesConfig = await db.get('SELECT value FROM config WHERE key = ?', ['userNames']);
+    if (userNamesConfig && userNamesConfig.value) {
+      // Parse comma-separated names
+      userNames = userNamesConfig.value.split(',').map(name => name.trim()).filter(Boolean);
+      logger.info(`User names configured: ${userNames.join(', ')}`);
+    }
+  } catch (err) {
+    logger.warn('Could not retrieve user names from config:', err.message);
+  }
+
+  const userNamesContext = userNames.length > 0 
+    ? `\n\nIMPORTANT - USER FILTERING:\nThe user's name(s) are: ${userNames.join(', ')}\n- Only extract tasks where the assignee clearly matches one of these names\n- If assignee is unclear, ambiguous, or doesn't match, set assignee to "TBD" or "Unknown"\n- If assignee is clearly someone else (not in the list), set assignee to that person's name (don't filter it out, but mark it)\n- Tasks assigned to the user (${userNames.join(' or ')}) should have the exact name match\n`
+    : '';
+
   const prompt = `Analyze this meeting transcript and extract actionable items - both explicitly stated AND implied by the discussion.
 
-${dateContext}
+${dateContext}${userNamesContext}
 
 Look for:
 - EXPLICIT commitments: "I will...", "I'll...", "We'll...", "Let me..."
@@ -227,6 +245,7 @@ Look for:
   * If no timeline: meeting date + 7-14 days (default to 1 week for most tasks)
   * Research/investigation: meeting date + 10 days
 - ALL items should have deadlines - never use null for deadline
+- For assignee field: Use exact name if clear, "TBD" if ambiguous, or the actual person's name if clearly someone else
 
 Transcript:
 ${transcriptText}

@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../database/db');
+const { getDb, getDbType } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
+const googleCalendar = require('../services/google-calendar');
 
 const logger = createModuleLogger('COMMITMENTS');
 
@@ -82,6 +83,27 @@ router.put('/:id', async (req, res) => {
   try {
     const db = getDb();
     
+    // Get current task data if we're changing status to completed
+    let task = null;
+    let shouldDeleteCalendarEvent = false;
+    
+    if (status === 'completed') {
+      task = await db.get('SELECT calendar_event_id, deadline FROM commitments WHERE id = ?', [id]);
+      
+      if (task && task.calendar_event_id) {
+        // Check if event time is in the past
+        const deadline = task.deadline ? new Date(task.deadline) : null;
+        const now = new Date();
+        
+        // Only delete if event is in the future
+        if (!deadline || deadline > now) {
+          shouldDeleteCalendarEvent = true;
+        } else {
+          logger.info(`Keeping calendar event ${task.calendar_event_id} - event time is in the past`);
+        }
+      }
+    }
+    
     // Build update query dynamically based on provided fields
     const updates = [];
     const params = [];
@@ -94,6 +116,11 @@ router.put('/:id', async (req, res) => {
       if (status === 'completed') {
         updates.push('completed_date = ?');
         params.push(new Date().toISOString());
+        
+        // Clear calendar_event_id if we're deleting the event
+        if (shouldDeleteCalendarEvent) {
+          updates.push('calendar_event_id = NULL');
+        }
       } else {
         // Clear completed_date if reopening
         updates.push('completed_date = NULL');
@@ -127,6 +154,19 @@ router.put('/:id', async (req, res) => {
     if (result.changes === 0) {
       logger.warn(`Commitment not found: ${id}`);
       return res.status(404).json({ error: 'Commitment not found' });
+    }
+    
+    // Delete calendar event if needed (after updating database)
+    if (shouldDeleteCalendarEvent && task && task.calendar_event_id) {
+      try {
+        const isConnected = await googleCalendar.isConnected();
+        if (isConnected) {
+          await googleCalendar.deleteEvent(task.calendar_event_id);
+          logger.info(`Deleted calendar event ${task.calendar_event_id} for completed task ${id}`);
+        }
+      } catch (calError) {
+        logger.warn(`Failed to delete calendar event: ${calError.message}`);
+      }
     }
     
     logger.info(`Commitment ${id} updated successfully`);
@@ -191,6 +231,74 @@ router.get('/status/overdue', async (req, res) => {
     logger.error('Error fetching overdue commitments:', err);
     res.status(500).json({ 
       error: 'Error fetching overdue commitments',
+      message: err.message
+    });
+  }
+});
+
+/**
+ * Confirm or reject a task (for tasks needing confirmation)
+ */
+router.post('/:id/confirm', async (req, res) => {
+  const id = req.params.id;
+  const { confirmed } = req.body; // true to confirm, false to reject
+  
+  logger.info(`${confirmed ? 'Confirming' : 'Rejecting'} task ${id}`);
+  
+  try {
+    const db = getDb();
+    
+    if (confirmed) {
+      // Confirm the task - remove needs_confirmation flag
+      const task = await db.get('SELECT * FROM commitments WHERE id = ?', [id]);
+      
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+      
+      // Update task to remove needs_confirmation
+      const dbType = getDbType();
+      const falseValue = dbType === 'postgres' ? false : 0;
+      await db.run(
+        'UPDATE commitments SET needs_confirmation = ? WHERE id = ?',
+        [falseValue, id]
+      );
+      
+      // If task has a deadline and Google Calendar is connected, create calendar event
+      if (task.deadline) {
+        try {
+          const isConnected = await googleCalendar.isConnected();
+          if (isConnected && !task.calendar_event_id) {
+            const event = await googleCalendar.createEventFromCommitment({
+              ...task,
+              task_type: task.task_type || 'commitment'
+            });
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, id]);
+            logger.info(`Created calendar event ${event.id} for confirmed task ${id}`);
+          }
+        } catch (calError) {
+          logger.warn(`Failed to create calendar event for confirmed task: ${calError.message}`);
+        }
+      }
+      
+      logger.info(`Task ${id} confirmed successfully`);
+      res.json({ message: 'Task confirmed successfully' });
+    } else {
+      // Reject the task - delete it
+      const result = await db.run('DELETE FROM commitments WHERE id = ?', [id]);
+      
+      if (result.changes === 0) {
+        logger.warn(`Task not found: ${id}`);
+        return res.status(404).json({ error: 'Task not found' });
+      }
+      
+      logger.info(`Task ${id} rejected and deleted`);
+      res.json({ message: 'Task rejected and removed' });
+    }
+  } catch (err) {
+    logger.error(`Error ${confirmed ? 'confirming' : 'rejecting'} task ${id}:`, err);
+    res.status(500).json({ 
+      error: `Error ${confirmed ? 'confirming' : 'rejecting'} task`,
       message: err.message
     });
   }
