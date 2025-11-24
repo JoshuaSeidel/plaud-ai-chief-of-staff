@@ -6,30 +6,58 @@ import { PullToRefresh } from './PullToRefresh';
 function VersionInfo() {
   const [version, setVersion] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetch('/api/config/version')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         setVersion(data);
         setLoading(false);
       })
       .catch(err => {
         console.error('Failed to fetch version:', err);
+        setError(err.message);
         setLoading(false);
       });
   }, []);
 
-  if (loading) return <p style={{ marginTop: '1rem', color: '#6e6e73', fontSize: '0.85rem' }}>Loading version...</p>;
-  if (!version) return null;
+  if (loading) {
+    return (
+      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
+        <p style={{ color: '#6e6e73', fontSize: '0.85rem' }}>Loading version...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
+        <p style={{ color: '#ef4444', fontSize: '0.85rem' }}>Failed to load version: {error}</p>
+      </div>
+    );
+  }
+
+  if (!version) {
+    return (
+      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
+        <p style={{ color: '#6e6e73', fontSize: '0.85rem' }}>Version information not available</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
       <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
         <strong style={{ color: '#e5e5e7' }}>Version:</strong> {version.version || 'Unknown'}
       </p>
-      {version.commitHash && (
-        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', fontFamily: 'monospace' }}>
+      {version.commitHash && version.commitHash !== 'unknown' && (
+        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', fontFamily: 'monospace', marginTop: '0.25rem' }}>
           <strong style={{ color: '#e5e5e7' }}>Commit:</strong> <code style={{ color: '#60a5fa' }}>{version.commitHash}</code>
         </p>
       )}
