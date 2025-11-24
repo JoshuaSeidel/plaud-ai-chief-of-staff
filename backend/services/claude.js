@@ -131,16 +131,25 @@ Format the brief with these sections:
 List the top 3 priorities with specific actions and urgency levels.
 
 ## 2. DELIVERABLES THIS WEEK
-Create a markdown table with proper pipe separators on SEPARATE LINES. Each row must be on its own line:
+CRITICAL: You MUST create a properly formatted markdown table. Use this EXACT format:
 
 | Deliverable | Owner | Status | Deadline | Blockers/Notes |
 |-------------|-------|--------|----------|----------------|
 | OKR bullet points & 2-month action plan | Josh | ⚠️ AT RISK | Nov 26 | Need to prioritize which OKRs to tackle first |
 | FedRAMP compliance documentation review | Morelli | 🟢 ON TRACK | Nov 27 | Document generated; needs validation |
 
+REQUIREMENTS:
+- Every row MUST start and end with a pipe character (|)
+- Every cell MUST be separated by a pipe (|)
+- The header separator row MUST use dashes: |-------------|-------|--------|----------|----------------|
+- Each row MUST be on its own separate line (no line breaks within a row)
+- Status column MUST use: 🟢 ON TRACK, ⚠️ AT RISK, or 🔴 BEHIND
+- Keep deliverable descriptions to 10 words or less
+- Put detailed information in the Blockers/Notes column
+
 Status indicators:
 - 🟢 ON TRACK - No blockers, on schedule
-- ⚠️ AT RISK - Has blockers or tight deadline
+- ⚠️ AT RISK - Has blockers or tight deadline  
 - 🔴 BEHIND - Overdue or significant risk
 
 ## 3. CHECK-INS NEEDED

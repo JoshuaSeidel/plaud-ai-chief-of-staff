@@ -162,29 +162,81 @@ function Dashboard({ setActiveTab }) {
     }
   };
 
-  // Parse deliverables table from brief
+  // Parse deliverables table from brief - robust parser for markdown tables
   const parseDeliverablesTable = (briefText) => {
     if (!briefText) return null;
     
-    // Find the deliverables section
-    const deliverablesMatch = briefText.match(/##\s*2\.\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##|$)/i);
+    // Find the deliverables section - be flexible with section numbering
+    const deliverablesMatch = briefText.match(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i);
     if (!deliverablesMatch) return null;
     
     const deliverablesSection = deliverablesMatch[0];
     
-    // Try to extract table rows
-    const tableMatch = deliverablesSection.match(/\|(.+)\|/g);
+    // Try multiple patterns to find the table
+    // Pattern 1: Standard markdown table with pipes
+    let tableMatch = deliverablesSection.match(/\|(.+?)\|/g);
+    
+    if (!tableMatch || tableMatch.length < 2) {
+      // Pattern 2: Try without pipes (plain text table)
+      // Look for lines that look like table rows
+      const lines = deliverablesSection.split('\n').filter(line => line.trim());
+      tableMatch = lines.filter(line => {
+        const trimmed = line.trim();
+        // Check if it looks like a table row (has multiple words separated by spaces/tabs)
+        return trimmed.includes('|') || (trimmed.split(/\s{2,}|\t/).length >= 3);
+      });
+    }
+    
     if (!tableMatch || tableMatch.length < 2) return null;
     
-    // Parse header
-    const headerRow = tableMatch[0].split('|').map(cell => cell.trim()).filter(cell => cell);
-    if (headerRow.length < 5) return null;
+    // Parse header - find the first row that looks like headers
+    let headerRow = null;
+    let headerIndex = 0;
     
-    // Parse data rows (skip header and separator)
-    const dataRows = tableMatch.slice(2).map(row => {
+    for (let i = 0; i < tableMatch.length; i++) {
+      const row = tableMatch[i];
+      const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell && !cell.match(/^[-:]+$/));
+      
+      // Check if this looks like a header (contains words like "Deliverable", "Owner", "Status", etc.)
+      const headerKeywords = ['deliverable', 'owner', 'status', 'deadline', 'blocker', 'note'];
+      const hasHeaderKeywords = cells.some(cell => 
+        headerKeywords.some(keyword => cell.toLowerCase().includes(keyword))
+      );
+      
+      if (hasHeaderKeywords && cells.length >= 4) {
+        headerRow = cells;
+        headerIndex = i;
+        break;
+      }
+    }
+    
+    // If no header found, use first row
+    if (!headerRow && tableMatch.length > 0) {
+      headerRow = tableMatch[0].split('|').map(cell => cell.trim()).filter(cell => cell && !cell.match(/^[-:]+$/));
+    }
+    
+    if (!headerRow || headerRow.length < 4) return null;
+    
+    // Skip separator row (usually dashes) and parse data rows
+    const dataRows = [];
+    for (let i = headerIndex + 1; i < tableMatch.length; i++) {
+      const row = tableMatch[i];
+      // Skip separator rows
+      if (row.match(/^[\s|]*[-:|\s]+[\s|]*$/)) continue;
+      
       const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell);
-      return cells.length >= 5 ? cells : null;
-    }).filter(row => row !== null);
+      
+      // Only include rows that have at least 3 cells (deliverable, owner, status minimum)
+      if (cells.length >= 3) {
+        // Pad cells to match header length
+        while (cells.length < headerRow.length) {
+          cells.push('');
+        }
+        dataRows.push(cells.slice(0, headerRow.length));
+      }
+    }
+    
+    if (dataRows.length === 0) return null;
     
     return { headerRow, dataRows };
   };
@@ -282,10 +334,10 @@ function Dashboard({ setActiveTab }) {
             color: '#e5e5e7',
             overflowX: 'auto'
           }}>
-            {deliverablesData ? (
+            {deliverablesData && deliverablesData.dataRows.length > 0 ? (
               <>
                 {/* Render brief with deliverables section replaced */}
-                {brief.split(/##\s*2\.\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##|$)/i).map((section, index) => {
+                {brief.split(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i).map((section, index) => {
                   if (index === 0) {
                     return (
                       <ReactMarkdown key={index}
@@ -308,27 +360,37 @@ function Dashboard({ setActiveTab }) {
                     return (
                       <div key={index}>
                         <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}}>2. DELIVERABLES THIS WEEK</h2>
-                        <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem' }}>
+                        <div style={{ 
+                          overflowX: 'auto', 
+                          marginTop: '1rem', 
+                          marginBottom: '1rem',
+                          WebkitOverflowScrolling: 'touch'
+                        }}>
                           <table style={{
                             width: '100%',
                             borderCollapse: 'collapse',
                             backgroundColor: '#18181b',
                             border: '1px solid #3f3f46',
-                            minWidth: '600px'
+                            minWidth: '700px',
+                            tableLayout: 'auto'
                           }}>
                             <thead style={{
                               backgroundColor: '#27272a',
-                              borderBottom: '2px solid #60a5fa'
+                              borderBottom: '2px solid #60a5fa',
+                              position: 'sticky',
+                              top: 0,
+                              zIndex: 10
                             }}>
                               <tr>
                                 {deliverablesData.headerRow.map((header, i) => (
                                   <th key={i} style={{
-                                    padding: '0.75rem',
+                                    padding: '0.875rem 1rem',
                                     textAlign: 'left',
                                     color: '#fff',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.9rem',
-                                    whiteSpace: 'nowrap'
+                                    fontWeight: '600',
+                                    fontSize: '0.875rem',
+                                    whiteSpace: 'nowrap',
+                                    borderRight: i < deliverablesData.headerRow.length - 1 ? '1px solid #3f3f46' : 'none'
                                   }}>
                                     {header}
                                   </th>
@@ -336,23 +398,50 @@ function Dashboard({ setActiveTab }) {
                               </tr>
                             </thead>
                             <tbody>
-                              {deliverablesData.dataRows.map((row, rowIndex) => (
-                                <tr key={rowIndex} style={{
-                                  borderBottom: '1px solid #3f3f46'
-                                }}>
-                                  {row.map((cell, cellIndex) => (
-                                    <td key={cellIndex} style={{
-                                      padding: '0.75rem',
-                                      color: '#e5e5e7',
-                                      fontSize: '0.9rem',
-                                      verticalAlign: 'top',
-                                      wordBreak: 'break-word'
-                                    }}>
-                                      {cell}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
+                              {deliverablesData.dataRows.map((row, rowIndex) => {
+                                // Find status column index
+                                const statusIndex = deliverablesData.headerRow.findIndex(h => 
+                                  h.toLowerCase().includes('status')
+                                );
+                                const status = statusIndex >= 0 ? row[statusIndex] : '';
+                                
+                                // Determine row background based on status
+                                const isAtRisk = status && (status.includes('AT RISK') || status.includes('⚠️'));
+                                const isOnTrack = status && (status.includes('ON TRACK') || status.includes('🟢'));
+                                const isBehind = status && (status.includes('BEHIND') || status.includes('🔴'));
+                                
+                                return (
+                                  <tr key={rowIndex} style={{
+                                    borderBottom: '1px solid #3f3f46',
+                                    backgroundColor: isAtRisk ? 'rgba(251, 191, 36, 0.05)' : 
+                                                     isBehind ? 'rgba(239, 68, 68, 0.05)' :
+                                                     isOnTrack ? 'rgba(34, 197, 94, 0.05)' : 'transparent'
+                                  }}>
+                                    {row.map((cell, cellIndex) => {
+                                      const isStatusCell = cellIndex === statusIndex;
+                                      const isDeliverableCell = deliverablesData.headerRow[cellIndex]?.toLowerCase().includes('deliverable');
+                                      
+                                      return (
+                                        <td key={cellIndex} style={{
+                                          padding: '0.875rem 1rem',
+                                          color: isStatusCell ? 
+                                            (isAtRisk ? '#fbbf24' : isBehind ? '#ef4444' : isOnTrack ? '#22c55e' : '#e5e5e7') :
+                                            '#e5e5e7',
+                                          fontSize: '0.875rem',
+                                          verticalAlign: 'top',
+                                          wordBreak: 'break-word',
+                                          lineHeight: '1.5',
+                                          borderRight: cellIndex < row.length - 1 ? '1px solid #3f3f46' : 'none',
+                                          fontWeight: isStatusCell ? '500' : 'normal',
+                                          maxWidth: isDeliverableCell ? '300px' : 'auto'
+                                        }}>
+                                          {cell}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -389,34 +478,44 @@ function Dashboard({ setActiveTab }) {
                   ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
                   li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
                   p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
-                  table: ({node, ...props}) => <table style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    marginTop: '1rem',
-                    marginBottom: '1rem',
-                    backgroundColor: '#18181b',
-                    border: '1px solid #3f3f46'
-                  }} {...props} />,
+                  table: ({node, ...props}) => (
+                    <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem', WebkitOverflowScrolling: 'touch' }}>
+                      <table style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        backgroundColor: '#18181b',
+                        border: '1px solid #3f3f46',
+                        minWidth: '700px',
+                        tableLayout: 'auto'
+                      }} {...props} />
+                    </div>
+                  ),
                   thead: ({node, ...props}) => <thead style={{
                     backgroundColor: '#27272a',
-                    borderBottom: '2px solid #60a5fa'
+                    borderBottom: '2px solid #60a5fa',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10
                   }} {...props} />,
                   tbody: ({node, ...props}) => <tbody {...props} />,
                   tr: ({node, ...props}) => <tr style={{
                     borderBottom: '1px solid #3f3f46'
                   }} {...props} />,
                   th: ({node, ...props}) => <th style={{
-                    padding: '0.75rem',
+                    padding: '0.875rem 1rem',
                     textAlign: 'left',
                     color: '#fff',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem'
+                    fontWeight: '600',
+                    fontSize: '0.875rem',
+                    whiteSpace: 'nowrap'
                   }} {...props} />,
                   td: ({node, ...props}) => <td style={{
-                    padding: '0.75rem',
+                    padding: '0.875rem 1rem',
                     color: '#e5e5e7',
-                    fontSize: '0.9rem',
-                    verticalAlign: 'top'
+                    fontSize: '0.875rem',
+                    verticalAlign: 'top',
+                    wordBreak: 'break-word',
+                    lineHeight: '1.5'
                   }} {...props} />
                 }}
               >
