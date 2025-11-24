@@ -9,6 +9,14 @@ COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
 
+# Get version and commit hash for build-time injection
+ARG VERSION=1.0.0
+ARG COMMIT_HASH=unknown
+ARG BUILD_DATE
+ENV VERSION=$VERSION
+ENV COMMIT_HASH=$COMMIT_HASH
+ENV BUILD_DATE=$BUILD_DATE
+
 # Note: Icons should be generated manually using create-icons.html in browser
 # or by running generate-icons.js locally with canvas installed
 # This keeps the Docker image lightweight without Python/build dependencies
@@ -27,6 +35,14 @@ RUN npm install --production
 
 # Copy backend files
 COPY backend/ ./
+
+# Get version and commit hash from build args
+ARG VERSION=1.0.0
+ARG COMMIT_HASH=unknown
+ARG BUILD_DATE
+ENV VERSION=$VERSION
+ENV COMMIT_HASH=$COMMIT_HASH
+ENV BUILD_DATE=$BUILD_DATE
 
 # Copy built frontend to backend's public directory
 RUN mkdir -p /app/public

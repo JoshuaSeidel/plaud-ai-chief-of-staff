@@ -3,6 +3,9 @@ const router = express.Router();
 const { getDb, getDbType, migrateToPostgres } = require('../database/db');
 const configManager = require('../config/manager');
 const { createModuleLogger } = require('../utils/logger');
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const logger = createModuleLogger('CONFIG');
 
@@ -216,6 +219,65 @@ router.get('/:key', async (req, res) => {
   } catch (err) {
     logger.error(`Error fetching config key: ${req.params.key}`, err);
     res.status(500).json({ error: 'Error fetching configuration', message: err.message });
+  }
+});
+
+/**
+ * Get version information (commit hash, build date, etc.)
+ */
+router.get('/version', (req, res) => {
+  try {
+    let commitHash = null;
+    let version = '1.0.0';
+    let buildDate = null;
+    
+    // Priority 1: Environment variables (set during Docker build)
+    version = process.env.VERSION || version;
+    commitHash = process.env.COMMIT_HASH || null;
+    buildDate = process.env.BUILD_DATE || null;
+    
+    // Priority 2: Try to get commit hash from git (for local development)
+    if (!commitHash) {
+      try {
+        commitHash = execSync('git rev-parse --short HEAD', { 
+          cwd: path.join(__dirname, '..', '..'),
+          encoding: 'utf8',
+          timeout: 2000
+        }).trim();
+      } catch (gitError) {
+        // Git not available or not in a git repo
+      }
+    }
+    
+    // Priority 3: Try to get version from backend package.json
+    if (version === '1.0.0') {
+      try {
+        const packagePath = path.join(__dirname, '..', 'package.json');
+        if (fs.existsSync(packagePath)) {
+          const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+          version = packageJson.version || version;
+        }
+      } catch (pkgError) {
+        // Ignore
+      }
+    }
+    
+    // Build date fallback
+    if (!buildDate) {
+      buildDate = new Date().toISOString();
+    }
+    
+    res.json({
+      version,
+      commitHash: commitHash || 'unknown',
+      buildDate
+    });
+  } catch (err) {
+    logger.error('Error fetching version info', err);
+    res.status(500).json({ 
+      error: 'Error fetching version information',
+      message: err.message 
+    });
   }
 });
 

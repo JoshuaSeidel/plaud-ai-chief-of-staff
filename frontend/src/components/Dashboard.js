@@ -166,38 +166,54 @@ function Dashboard({ setActiveTab }) {
   const parseDeliverablesTable = (briefText) => {
     if (!briefText) return null;
     
-    // Find the deliverables section - be flexible with section numbering
+    // Find the deliverables section - be flexible with section numbering and formatting
     const deliverablesMatch = briefText.match(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i);
     if (!deliverablesMatch) return null;
     
     const deliverablesSection = deliverablesMatch[0];
     
-    // Try multiple patterns to find the table
-    // Pattern 1: Standard markdown table with pipes
-    let tableMatch = deliverablesSection.match(/\|(.+?)\|/g);
+    // Split into lines and find table rows
+    const lines = deliverablesSection.split('\n').map(line => line.trim()).filter(line => line);
     
-    if (!tableMatch || tableMatch.length < 2) {
-      // Pattern 2: Try without pipes (plain text table)
-      // Look for lines that look like table rows
-      const lines = deliverablesSection.split('\n').filter(line => line.trim());
-      tableMatch = lines.filter(line => {
-        const trimmed = line.trim();
-        // Check if it looks like a table row (has multiple words separated by spaces/tabs)
-        return trimmed.includes('|') || (trimmed.split(/\s{2,}|\t/).length >= 3);
+    // Find all lines that contain pipe characters (markdown table rows)
+    const tableLines = lines.filter(line => line.includes('|') && line.split('|').length >= 3);
+    
+    if (tableLines.length < 2) {
+      // Try to find table without pipes (spaced columns)
+      const spacedTableLines = lines.filter(line => {
+        // Check if line has multiple columns separated by 2+ spaces
+        const parts = line.split(/\s{2,}/);
+        return parts.length >= 3 && line.length > 20;
       });
+      
+      if (spacedTableLines.length >= 2) {
+        // Parse spaced table
+        const headerLine = spacedTableLines[0];
+        const headerRow = headerLine.split(/\s{2,}/).map(h => h.trim());
+        const dataRows = spacedTableLines.slice(1).map(line => 
+          line.split(/\s{2,}/).map(cell => cell.trim())
+        );
+        
+        if (headerRow.length >= 4 && dataRows.length > 0) {
+          return { headerRow, dataRows };
+        }
+      }
+      return null;
     }
     
-    if (!tableMatch || tableMatch.length < 2) return null;
-    
-    // Parse header - find the first row that looks like headers
+    // Parse markdown table with pipes
     let headerRow = null;
-    let headerIndex = 0;
+    let headerIndex = -1;
     
-    for (let i = 0; i < tableMatch.length; i++) {
-      const row = tableMatch[i];
-      const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell && !cell.match(/^[-:]+$/));
+    // Find header row (contains keywords like "Deliverable", "Owner", "Status")
+    for (let i = 0; i < tableLines.length; i++) {
+      const line = tableLines[i];
+      const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
       
-      // Check if this looks like a header (contains words like "Deliverable", "Owner", "Status", etc.)
+      // Skip separator rows (all dashes)
+      if (line.match(/^[\s|]*[-:|\s]+[\s|]*$/)) continue;
+      
+      // Check if this looks like a header
       const headerKeywords = ['deliverable', 'owner', 'status', 'deadline', 'blocker', 'note'];
       const hasHeaderKeywords = cells.some(cell => 
         headerKeywords.some(keyword => cell.toLowerCase().includes(keyword))
@@ -210,29 +226,41 @@ function Dashboard({ setActiveTab }) {
       }
     }
     
-    // If no header found, use first row
-    if (!headerRow && tableMatch.length > 0) {
-      headerRow = tableMatch[0].split('|').map(cell => cell.trim()).filter(cell => cell && !cell.match(/^[-:]+$/));
+    // If no header found with keywords, use first non-separator row
+    if (!headerRow) {
+      for (let i = 0; i < tableLines.length; i++) {
+        const line = tableLines[i];
+        if (line.match(/^[\s|]*[-:|\s]+[\s|]*$/)) continue;
+        
+        const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+        if (cells.length >= 4) {
+          headerRow = cells;
+          headerIndex = i;
+          break;
+        }
+      }
     }
     
     if (!headerRow || headerRow.length < 4) return null;
     
-    // Skip separator row (usually dashes) and parse data rows
+    // Parse data rows (skip separator row after header)
     const dataRows = [];
-    for (let i = headerIndex + 1; i < tableMatch.length; i++) {
-      const row = tableMatch[i];
+    for (let i = headerIndex + 1; i < tableLines.length; i++) {
+      const line = tableLines[i];
+      
       // Skip separator rows
-      if (row.match(/^[\s|]*[-:|\s]+[\s|]*$/)) continue;
+      if (line.match(/^[\s|]*[-:|\s]+[\s|]*$/)) continue;
       
-      const cells = row.split('|').map(cell => cell.trim()).filter(cell => cell);
+      const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
       
-      // Only include rows that have at least 3 cells (deliverable, owner, status minimum)
+      // Only include rows that have at least 3 cells
       if (cells.length >= 3) {
-        // Pad cells to match header length
-        while (cells.length < headerRow.length) {
-          cells.push('');
+        // Pad or trim cells to match header length
+        const paddedCells = [...cells];
+        while (paddedCells.length < headerRow.length) {
+          paddedCells.push('');
         }
-        dataRows.push(cells.slice(0, headerRow.length));
+        dataRows.push(paddedCells.slice(0, headerRow.length));
       }
     }
     
@@ -338,6 +366,10 @@ function Dashboard({ setActiveTab }) {
               <>
                 {/* Render brief with deliverables section replaced */}
                 {brief.split(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i).map((section, index) => {
+                  // If parsing failed, fall back to markdown rendering
+                  if (!deliverablesData || deliverablesData.dataRows.length === 0) {
+                    return null;
+                  }
                   if (index === 0) {
                     return (
                       <ReactMarkdown key={index}
@@ -445,8 +477,129 @@ function Dashboard({ setActiveTab }) {
                             </tbody>
                           </table>
                         </div>
-                        <ReactMarkdown
-                          components={{
+                        {/* Render rest of brief after deliverables section */}
+                        {brief.split(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i)[1] && (
+                          <ReactMarkdown
+                            components={{
+                              h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                              h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                              h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                              strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
+                              em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
+                              ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                              ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                              li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
+                              p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
+                              table: ({node, ...props}) => (
+                                <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem' }}>
+                                  <table style={{
+                                    width: '100%',
+                                    borderCollapse: 'collapse',
+                                    backgroundColor: '#18181b',
+                                    border: '1px solid #3f3f46',
+                                    minWidth: '600px'
+                                  }} {...props} />
+                                </div>
+                              ),
+                              thead: ({node, ...props}) => <thead style={{ backgroundColor: '#27272a', borderBottom: '2px solid #60a5fa' }} {...props} />,
+                              tbody: ({node, ...props}) => <tbody {...props} />,
+                              tr: ({node, ...props}) => <tr style={{ borderBottom: '1px solid #3f3f46' }} {...props} />,
+                              th: ({node, ...props}) => (
+                                <th style={{
+                                  padding: '0.875rem 1rem',
+                                  textAlign: 'left',
+                                  color: '#fff',
+                                  fontWeight: '600',
+                                  fontSize: '0.875rem',
+                                  whiteSpace: 'nowrap',
+                                  borderRight: '1px solid #3f3f46'
+                                }} {...props} />
+                              ),
+                              td: ({node, ...props}) => (
+                                <td style={{
+                                  padding: '0.875rem 1rem',
+                                  color: '#e5e5e7',
+                                  fontSize: '0.875rem',
+                                  verticalAlign: 'top',
+                                  wordBreak: 'break-word',
+                                  lineHeight: '1.5',
+                                  borderRight: '1px solid #3f3f46'
+                                }} {...props} />
+                              )
+                            }}
+                          >
+                            {brief.split(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i)[1]}
+                          </ReactMarkdown>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </>
+            ) : (
+              // Fallback: Render entire brief with markdown (if table parsing failed)
+              <ReactMarkdown
+                components={{
+                  h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                  strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
+                  em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
+                  ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                  li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
+                  p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
+                  table: ({node, ...props}) => (
+                    <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem' }}>
+                      <table style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        backgroundColor: '#18181b',
+                        border: '1px solid #3f3f46',
+                        minWidth: '600px'
+                      }} {...props} />
+                    </div>
+                  ),
+                  thead: ({node, ...props}) => <thead style={{ backgroundColor: '#27272a', borderBottom: '2px solid #60a5fa' }} {...props} />,
+                  tbody: ({node, ...props}) => <tbody {...props} />,
+                  tr: ({node, ...props}) => <tr style={{ borderBottom: '1px solid #3f3f46' }} {...props} />,
+                  th: ({node, ...props}) => (
+                    <th style={{
+                      padding: '0.875rem 1rem',
+                      textAlign: 'left',
+                      color: '#fff',
+                      fontWeight: '600',
+                      fontSize: '0.875rem',
+                      whiteSpace: 'nowrap',
+                      borderRight: '1px solid #3f3f46'
+                    }} {...props} />
+                  ),
+                  td: ({node, ...props}) => (
+                    <td style={{
+                      padding: '0.875rem 1rem',
+                      color: '#e5e5e7',
+                      fontSize: '0.875rem',
+                      verticalAlign: 'top',
+                      wordBreak: 'break-word',
+                      lineHeight: '1.5',
+                      borderRight: '1px solid #3f3f46'
+                    }} {...props} />
+                  )
+                }}
+              >
+                {brief}
+              </ReactMarkdown>
+            )}
+          </div>
+        )}
+      </div>
+      </div>
+    </PullToRefresh>
+  );
+}
+
+export default Dashboard;
                             h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
                             h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
                             h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,

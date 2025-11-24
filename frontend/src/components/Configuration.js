@@ -2,6 +2,46 @@ import React, { useState, useEffect } from 'react';
 import { configAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
+// Version info component
+function VersionInfo() {
+  const [version, setVersion] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/config/version')
+      .then(res => res.json())
+      .then(data => {
+        setVersion(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch version:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <p style={{ marginTop: '1rem', color: '#6e6e73', fontSize: '0.85rem' }}>Loading version...</p>;
+  if (!version) return null;
+
+  return (
+    <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
+      <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+        <strong style={{ color: '#e5e5e7' }}>Version:</strong> {version.version || 'Unknown'}
+      </p>
+      {version.commitHash && (
+        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', fontFamily: 'monospace' }}>
+          <strong style={{ color: '#e5e5e7' }}>Commit:</strong> <code style={{ color: '#60a5fa' }}>{version.commitHash}</code>
+        </p>
+      )}
+      {version.buildDate && (
+        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+          <strong style={{ color: '#e5e5e7' }}>Build Date:</strong> {new Date(version.buildDate).toLocaleString()}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Configuration() {
   const [config, setConfig] = useState({
     anthropicApiKey: '',
@@ -1006,6 +1046,7 @@ function Configuration() {
           This application uses Claude AI to generate daily briefs, track tasks, 
           and maintain context from your meetings and emails.
         </p>
+        <VersionInfo />
         <ul style={{ marginTop: '1rem', color: '#a1a1aa', lineHeight: '1.8' }}>
           <li>Upload meeting transcripts to extract action items</li>
           <li>Generate AI-powered daily briefs in 10 seconds</li>
