@@ -29,6 +29,16 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install Python3 and build tools needed for native modules (sqlite3)
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    && ln -sf python3 /usr/bin/python
+
+# Set Python environment variable for node-gyp
+ENV PYTHON=/usr/bin/python3
+
 # Install backend dependencies
 COPY backend/package*.json ./
 RUN npm install --production
