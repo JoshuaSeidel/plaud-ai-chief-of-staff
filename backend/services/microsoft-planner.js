@@ -4,6 +4,24 @@ const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('MICROSOFT-PLANNER');
 
+// Custom authentication provider for Microsoft Graph
+class CustomAuthProvider {
+  constructor(initialTokens, refreshCallback) {
+    this.tokens = initialTokens;
+    this.refreshCallback = refreshCallback;
+  }
+  
+  async getAccessToken() {
+    // Check if token is expired (expires_at is in seconds)
+    if (this.tokens.expires_at && Date.now() >= this.tokens.expires_at * 1000) {
+      if (this.refreshCallback) {
+        this.tokens = await this.refreshCallback(this.tokens.refresh_token);
+      }
+    }
+    return this.tokens.access_token;
+  }
+}
+
 /**
  * Get Microsoft OAuth2 client with credentials from database
  */
