@@ -32,11 +32,21 @@ router.get('/microsoft/auth', async (req, res) => {
  * Microsoft OAuth - Callback
  */
 router.get('/microsoft/callback', async (req, res) => {
-  const { code, error, state } = req.query;
+  const { code, error, error_description, state } = req.query;
   
   if (error) {
-    logger.error('OAuth callback error', error);
-    return res.redirect('/#config?error=microsoft_oauth_failed');
+    logger.error('OAuth callback error', { error, error_description });
+    
+    // Handle specific Azure AD errors
+    let errorParam = 'microsoft_oauth_failed';
+    if (error === 'access_denied') {
+      errorParam = 'microsoft_oauth_access_denied';
+    } else if (error_description && error_description.includes('AADSTS50020')) {
+      // User account doesn't exist in tenant - likely trying to use work account with personal app
+      errorParam = 'microsoft_oauth_wrong_account_type';
+    }
+    
+    return res.redirect(`/#config?error=${errorParam}&error_details=${encodeURIComponent(error_description || error)}`);
   }
   
   if (!code) {

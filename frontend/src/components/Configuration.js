@@ -137,6 +137,45 @@ function Configuration() {
     if (typeof Notification !== 'undefined') {
       setNotificationsEnabled(Notification.permission === 'granted');
     }
+    
+    // Check for URL parameters (success/error messages from OAuth redirects)
+    const hash = window.location.hash;
+    const hashParams = new URLSearchParams(hash.split('?')[1] || '');
+    const error = hashParams.get('error');
+    const success = hashParams.get('success');
+    const errorDetails = hashParams.get('error_details');
+    
+    if (success === 'microsoft_planner_connected') {
+      setMessage({ type: 'success', text: '✅ Microsoft Planner connected successfully!' });
+      checkMicrosoftPlannerStatus(); // Refresh connection status
+      // Clean up URL
+      const cleanHash = hash.split('?')[0];
+      window.history.replaceState({}, '', window.location.pathname + cleanHash);
+    } else if (error === 'microsoft_oauth_failed') {
+      setMessage({ type: 'error', text: '❌ Failed to connect Microsoft Planner. Please try again.' });
+      // Clean up URL
+      const cleanHash = hash.split('?')[0];
+      window.history.replaceState({}, '', window.location.pathname + cleanHash);
+    } else if (error === 'microsoft_oauth_access_denied') {
+      setMessage({ type: 'error', text: '❌ Microsoft Planner connection was cancelled. Please try again if you want to connect.' });
+      // Clean up URL
+      const cleanHash = hash.split('?')[0];
+      window.history.replaceState({}, '', window.location.pathname + cleanHash);
+    } else if (error === 'microsoft_oauth_wrong_account_type') {
+      const details = errorDetails ? decodeURIComponent(errorDetails) : '';
+      setMessage({ 
+        type: 'error', 
+        text: `❌ Account type mismatch. You're trying to sign in with a work/school account, but the app is configured for personal Microsoft accounts only. Please sign in with a personal Microsoft account (@outlook.com, @hotmail.com) or update your Azure app registration to support work accounts. ${details ? `Details: ${details.substring(0, 150)}` : ''}` 
+      });
+      // Clean up URL
+      const cleanHash = hash.split('?')[0];
+      window.history.replaceState({}, '', window.location.pathname + cleanHash);
+    } else if (error === 'microsoft_oauth_exchange_failed') {
+      setMessage({ type: 'error', text: '❌ Failed to complete Microsoft Planner connection. Please check your credentials and try again.' });
+      // Clean up URL
+      const cleanHash = hash.split('?')[0];
+      window.history.replaceState({}, '', window.location.pathname + cleanHash);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
