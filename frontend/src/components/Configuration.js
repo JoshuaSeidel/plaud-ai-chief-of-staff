@@ -1067,14 +1067,6 @@ function Configuration() {
                 >
                   {loadingTaskLists ? 'Loading...' : '🔄 Refresh Task Lists'}
                 </button>
-                                    }}
-                  >
-                    Disconnect
-                  </button>
-                </div>
-                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
-                  Tasks with deadlines will automatically create Microsoft To Do tasks. Tasks sync across all your devices.
-                </p>
               </div>
             ) : (
               <div>
