@@ -1002,6 +1002,14 @@ function Configuration() {
                       borderRadius: '6px',
                       cursor: 'pointer',
                       fontSize: '0.9rem'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                  Tasks with deadlines will automatically create Microsoft To Do tasks. Tasks sync across all your devices.
+                </p>
                 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
                   Task List (Optional)
