@@ -1063,8 +1063,7 @@ function Configuration() {
                         </li>
                         <li>Go to <strong>API permissions</strong> → Add:
                           <ul style={{ marginTop: '0.25rem', listStyleType: 'circle' }}>
-                            <li><code style={{ fontSize: '0.8rem' }}>Tasks.ReadWrite</code></li>
-                            <li><code style={{ fontSize: '0.8rem' }}>Planner.ReadWrite.All</code></li>
+                            <li><code style={{ fontSize: '0.8rem' }}>Tasks.ReadWrite</code> (Microsoft To Do)</li>
                             <li><code style={{ fontSize: '0.8rem' }}>User.Read</code></li>
                           </ul>
                         </li>

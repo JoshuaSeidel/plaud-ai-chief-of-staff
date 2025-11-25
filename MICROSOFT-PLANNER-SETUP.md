@@ -28,8 +28,7 @@ This guide will help you set up Microsoft Planner integration using your persona
 3. Select **Microsoft Graph**
 4. Select **Delegated permissions**
 5. Add the following permissions:
-   - `Tasks.ReadWrite` - Read and write user tasks
-   - `Planner.ReadWrite.All` - Read and write all plans (if using Planner)
+   - `Tasks.ReadWrite` - Read and write user tasks (Microsoft To Do)
    - `User.Read` - Read user profile
 6. Click **Add permissions**
 7. **Important**: Click **Grant admin consent** (if available) or consent when you connect

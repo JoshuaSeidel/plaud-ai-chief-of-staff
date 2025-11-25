@@ -61,9 +61,9 @@ async function getAuthUrl() {
   const { clientId, tenantId, redirectUri } = await getOAuthClient();
   
   // Microsoft OAuth2 authorization endpoint
+  // Using Microsoft To Do API, not Planner API
   const scopes = [
     'Tasks.ReadWrite',
-    'Planner.ReadWrite.All',
     'User.Read'
   ].join(' ');
   
@@ -96,7 +96,7 @@ async function getTokenFromCode(code) {
     code: code,
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
-    scope: 'Tasks.ReadWrite Planner.ReadWrite.All User.Read'
+    scope: 'Tasks.ReadWrite User.Read'
   });
   
   const response = await fetch(tokenUrl, {
@@ -184,7 +184,7 @@ async function refreshToken(refreshTokenValue) {
     client_secret: clientSecret,
     refresh_token: refreshTokenValue,
     grant_type: 'refresh_token',
-    scope: 'Tasks.ReadWrite Planner.ReadWrite.All User.Read'
+    scope: 'Tasks.ReadWrite User.Read'
   });
   
   const response = await fetch(tokenUrl, {
