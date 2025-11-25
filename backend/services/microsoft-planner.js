@@ -40,13 +40,13 @@ async function getOAuthClient() {
     redirectUri = redirectUriRow?.value || 'http://localhost:3001/api/planner/microsoft/callback';
   }
   
-  logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri}`);
+  logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri} (multi-tenant mode)`);
   
   // Check which credentials are missing and provide helpful error message
   const missing = [];
   if (!clientIdRow || !clientIdRow.value) missing.push('Client ID');
   if (!clientSecretRow || !clientSecretRow.value) missing.push('Client Secret');
-  if (!tenantIdRow || !tenantIdRow.value) missing.push('Tenant ID');
+  // Note: Tenant ID is optional for multi-tenant apps, but still recommended for logging
   
   if (missing.length > 0) {
     throw new Error(`Microsoft OAuth credentials not configured. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
@@ -55,7 +55,7 @@ async function getOAuthClient() {
   return {
     clientId: clientIdRow.value,
     clientSecret: clientSecretRow.value,
-    tenantId: tenantIdRow.value,
+    tenantId: tenantIdRow?.value || null, // Optional for multi-tenant, used only for logging
     redirectUri
   };
 }
