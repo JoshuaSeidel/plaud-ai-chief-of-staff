@@ -235,22 +235,40 @@ async function disconnect() {
 }
 
 /**
- * Get user's default task list (My Tasks)
+ * List all available task lists
  */
-async function getDefaultTaskList() {
+async function listTaskLists() {
   const client = await getGraphClient();
   
   // Get user's task lists
   const taskLists = await client.api('/me/todo/lists').get();
   
-  // Try to find "My Tasks" or use the first list
+  return taskLists.value || [];
+}
+
+/**
+ * Get configured task list ID or default to "My Tasks"
+ */
+async function getTaskListId() {
+  const db = getDb();
+  const listIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftTaskListId']);
+  
+  if (listIdRow && listIdRow.value) {
+    logger.info(`Using configured Microsoft To Do list ID: ${listIdRow.value}`);
+    return listIdRow.value;
+  }
+  
+  // Fallback: get default list
+  const client = await getGraphClient();
+  const taskLists = await client.api('/me/todo/lists').get();
   const defaultList = taskLists.value.find(list => list.displayName === 'My Tasks') || taskLists.value[0];
   
   if (!defaultList) {
     throw new Error('No task list found. Please create a task list in Microsoft To Do.');
   }
   
-  return defaultList;
+  logger.info(`Using default Microsoft To Do list: ${defaultList.displayName} (${defaultList.id})`);
+  return defaultList.id;
 }
 
 /**
@@ -267,8 +285,8 @@ async function createTask(taskData) {
     status = 'notStarted' // notStarted, inProgress, completed, waitingOnOthers, deferred
   } = taskData;
   
-  // Get default task list
-  const taskList = await getDefaultTaskList();
+  // Get configured task list ID
+  const taskListId = await getTaskListId();
   
   // Create task in Microsoft To Do
   const task = {
@@ -285,10 +303,10 @@ async function createTask(taskData) {
     status: status
   };
   
-  logger.info(`Creating Microsoft task: ${title}`);
+  logger.info(`Creating Microsoft task: ${title} in list ${taskListId}`);
   
   const createdTask = await client
-    .api(`/me/todo/lists/${taskList.id}/tasks`)
+    .api(`/me/todo/lists/${taskListId}/tasks`)
     .post(task);
   
   logger.info(`Microsoft task created: ${createdTask.id}`);
@@ -334,10 +352,10 @@ async function createTaskFromCommitment(commitment) {
  */
 async function listTasks(limit = 50) {
   const client = await getGraphClient();
-  const taskList = await getDefaultTaskList();
+  const taskListId = await getTaskListId();
   
   const tasks = await client
-    .api(`/me/todo/lists/${taskList.id}/tasks`)
+    .api(`/me/todo/lists/${taskListId}/tasks`)
     .top(limit)
     .get();
   
@@ -349,6 +367,8 @@ module.exports = {
   getTokenFromCode,
   isConnected,
   disconnect,
+  listTaskLists,
+  getTaskListId,
   createTask,
   createTaskFromCommitment,
   listTasks

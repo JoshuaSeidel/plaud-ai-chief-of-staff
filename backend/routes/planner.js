@@ -183,5 +183,21 @@ router.get('/microsoft/tasks', async (req, res) => {
   }
 });
 
+/**
+ * List available Microsoft To Do task lists
+ */
+router.get('/microsoft/lists', async (req, res) => {
+  try {
+    const lists = await microsoftPlanner.listTaskLists();
+    res.json({ lists });
+  } catch (error) {
+    logger.error('Error listing Microsoft task lists', error);
+    res.status(500).json({ 
+      error: 'Error listing task lists',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
 

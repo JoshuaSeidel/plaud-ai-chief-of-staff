@@ -101,6 +101,7 @@ function Configuration() {
     microsoftClientId: '',
     microsoftClientSecret: '',
     microsoftRedirectUri: '',
+    microsoftTaskListId: '',
     userNames: '',
     dbType: 'sqlite',
     postgresHost: '',
