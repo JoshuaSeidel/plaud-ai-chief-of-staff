@@ -686,3 +686,22 @@ table {
     padding-right: max(1rem, env(safe-area-inset-right));
   }
 }
+
+/* Additional mobile optimizations for components */
+@media (max-width: 768px) {
+  /* Grid layouts should stack on mobile */
+  div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Stats grids should be 2 columns max on mobile */
+  div[style*="gridTemplateColumns"][style*="repeat"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Better spacing for filter chips */
+  div[style*="display: flex"][style*="gap"] > button[style*="padding"] {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+  }
+}
