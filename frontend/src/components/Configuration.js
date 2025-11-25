@@ -126,11 +126,11 @@ function Configuration() {
   const [prompts, setPrompts] = useState([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
   const [editingPrompt, setEditingPrompt] = useState(null);
-    checkMicrosoftPlannerStatus();
 
   useEffect(() => {
     loadConfig();
     checkGoogleCalendarStatus();
+    checkMicrosoftPlannerStatus();
     loadPrompts();
     
     // Check notification permission on load
