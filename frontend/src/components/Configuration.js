@@ -121,6 +121,8 @@ function Configuration() {
   const [microsoftConnected, setMicrosoftConnected] = useState(false);
   const [checkingMicrosoft, setCheckingMicrosoft] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [microsoftTaskLists, setMicrosoftTaskLists] = useState([]);
+  const [loadingTaskLists, setLoadingTaskLists] = useState(false);
   const [prompts, setPrompts] = useState([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
   const [editingPrompt, setEditingPrompt] = useState(null);
@@ -252,6 +254,7 @@ function Configuration() {
         microsoftClientId: appData.microsoftClientId || '',
         microsoftClientSecret: appData.microsoftClientSecret ? '••••••••' : '',
         microsoftRedirectUri: appData.microsoftRedirectUri || '',
+        microsoftTaskListId: appData.microsoftTaskListId || '',
         dbType: actualDbType,
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
@@ -427,7 +430,12 @@ function Configuration() {
       } else if (!config.microsoftClientSecret && loadedFields.microsoftClientSecret) {
         appUpdates.microsoftClientSecret = '';
       }
-      if (config.microsoftRedirectUri) {
+      if (config.microsoftTaskListId) {
+        appUpdates.microsoftTaskListId = config.microsoftTaskListId;
+      } else if (!config.microsoftTaskListId && appData.microsoftTaskListId) {
+        appUpdates.microsoftTaskListId = '';
+      }
+            if (config.microsoftRedirectUri) {
         appUpdates.microsoftRedirectUri = config.microsoftRedirectUri;
       }
             }
@@ -974,7 +982,64 @@ function Configuration() {
                       borderRadius: '6px',
                       cursor: 'pointer',
                       fontSize: '0.9rem'
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  Task List (Optional)
+                </label>
+                {loadingTaskLists ? (
+                  <p style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>Loading task lists...</p>
+                ) : microsoftTaskLists.length > 0 ? (
+                  <select
+                    value={config.microsoftTaskListId || ''}
+                    onChange={(e) => handleChange('microsoftTaskListId', e.target.value)}
+                    style={{ 
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '1px solid #3f3f46',
+                      borderRadius: '8px',
+                      fontSize: '1rem',
+                      fontFamily: 'inherit',
+                      marginBottom: '1rem',
+                      backgroundColor: '#18181b',
+                      color: '#e5e5e7'
                     }}
+                  >
+                    <option value="">Default (My Tasks)</option>
+                    {microsoftTaskLists.map(list => (
+                      <option key={list.id} value={list.id}>
+                        {list.displayName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={config.microsoftTaskListId || ''}
+                    onChange={(e) => handleChange('microsoftTaskListId', e.target.value)}
+                    placeholder="Leave blank for default (My Tasks)"
+                    style={{ marginBottom: '1rem' }}
+                  />
+                )}
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
+                  Select which Microsoft To Do list to sync tasks to. Leave blank to use "My Tasks" (default).
+                </p>
+                <button
+                  onClick={loadMicrosoftTaskLists}
+                  disabled={loadingTaskLists}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#3f3f46',
+                    color: '#e5e5e7',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    marginBottom: '1rem'
+                  }}
+                >
+                  {loadingTaskLists ? 'Loading...' : '🔄 Refresh Task Lists'}
+                </button>
+                                    }}
                   >
                     Disconnect
                   </button>
