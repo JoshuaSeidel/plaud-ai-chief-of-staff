@@ -1,6 +1,9 @@
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'ai-chief-of-staff-v1';
+// Use build date or version for cache busting
+// This will be replaced during build with actual version
+const APP_VERSION = '{{APP_VERSION}}' || new Date().getTime().toString();
+const CACHE_NAME = `ai-chief-of-staff-${APP_VERSION}`;
 const urlsToCache = [
   '/',
   '/index.html',
@@ -8,6 +11,9 @@ const urlsToCache = [
   '/static/js/main.js',
   '/manifest.json'
 ];
+
+// Maximum cache age in milliseconds (1 hour)
+const MAX_CACHE_AGE = 60 * 60 * 1000;
 
 // Install event - cache assets
 self.addEventListener('install', (event) => {
@@ -24,9 +30,9 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and force update
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...');
+  console.log('[Service Worker] Activating...', CACHE_NAME);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -37,16 +43,31 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    })
+    .then(() => {
+      // Force all clients to use this service worker
+      return self.clients.claim();
+    })
+    .then(() => {
+      // Notify all clients about the update
+      return self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'SW_UPDATED',
+            version: APP_VERSION
+          });
+        });
+      });
+    })
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - network first with cache fallback, and cache validation
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
   
-  // Skip API requests (let them go to network)
+  // Skip API requests (let them go to network, no caching)
   if (event.request.url.includes('/api/')) {
     return;
   }
@@ -56,36 +77,80 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          // Clone the response
-          const responseToCache = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then((cache) => {
+  // For HTML files, always check network first (stale-while-revalidate)
+  if (event.request.url.endsWith('.html') || event.request.url.endsWith('/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          // Update cache with fresh response
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseToCache);
             });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // Network failed, try cache
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/index.html');
+          });
+        })
+    );
+    return;
+  }
 
-          return response;
-        }).catch(() => {
-          // Network failed, try to return cached version
-          return caches.match('/index.html');
-        });
+  // For other assets, use cache-first with network validation
+  event.respondWith(
+    caches.match(event.request)
+      .then((cachedResponse) => {
+        // Check if cached response is still fresh
+        if (cachedResponse) {
+          const cachedDate = cachedResponse.headers.get('date');
+          if (cachedDate) {
+            const cacheAge = Date.now() - new Date(cachedDate).getTime();
+            // If cache is fresh (< 1 hour), return it
+            if (cacheAge < MAX_CACHE_AGE) {
+              // Still check network in background for updates
+              fetch(event.request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                  const responseToCache = networkResponse.clone();
+                  caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, responseToCache);
+                  });
+                }
+              }).catch(() => {
+                // Network check failed, that's okay
+              });
+              return cachedResponse;
+            }
+          }
+        }
+
+        // Cache miss or stale - fetch from network
+        return fetch(event.request)
+          .then((networkResponse) => {
+            // Check if valid response
+            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+              return networkResponse;
+            }
+
+            // Clone the response
+            const responseToCache = networkResponse.clone();
+
+            // Update cache
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return networkResponse;
+          })
+          .catch(() => {
+            // Network failed, return cached version if available
+            return cachedResponse || caches.match('/index.html');
+          });
       })
   );
 });

@@ -52,7 +52,38 @@ app.use((req, res, next) => {
 });
 
 // Serve static frontend files (for all-in-one container)
-app.use(express.static(path.join(__dirname, 'public')));
+// Set cache headers: short cache for HTML, longer for assets
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: 0, // No cache for HTML files by default
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // HTML files - no cache (always check for updates)
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    // JavaScript and CSS - short cache (1 hour) with revalidation
+    else if (filePath.match(/\.(js|css)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    }
+    // Images and fonts - longer cache (1 day)
+    else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+    // Service worker - no cache (critical for updates)
+    else if (filePath.endsWith('service-worker.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    // Manifest - short cache
+    else if (filePath.endsWith('manifest.json')) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    }
+  }
+}));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({

@@ -24,7 +24,7 @@ ENV BUILD_DATE=$BUILD_DATE
 # or by running generate-icons.js locally with canvas installed
 # This keeps the Docker image lightweight without Python/build dependencies
 
-# Build React app
+# Build React app (prebuild script will inject version into service-worker.js)
 RUN npm run build
 
 # Final stage - Backend with built frontend

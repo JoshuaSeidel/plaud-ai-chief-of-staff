@@ -35,6 +35,14 @@ function registerValidSW(swUrl, config) {
     .then((registration) => {
       console.log('Service Worker registered:', registration);
       
+      // Check for updates every time
+      registration.update();
+      
+      // Check for updates periodically (every 5 minutes)
+      setInterval(() => {
+        registration.update();
+      }, 5 * 60 * 1000);
+      
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {
@@ -44,6 +52,10 @@ function registerValidSW(swUrl, config) {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
               console.log('New content is available; please refresh.');
+              // Force reload after a short delay to allow SW to activate
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
@@ -56,6 +68,17 @@ function registerValidSW(swUrl, config) {
           }
         };
       };
+      
+      // Listen for service worker messages
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SW_UPDATED') {
+          console.log('Service worker updated to version:', event.data.version);
+          // Optionally reload the page
+          if (confirm('A new version is available. Reload now?')) {
+            window.location.reload();
+          }
+        }
+      });
       
       // Request notification permission and subscribe to push
       if ('Notification' in window && Notification.permission === 'default') {
