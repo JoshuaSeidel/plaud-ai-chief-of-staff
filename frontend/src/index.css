@@ -871,6 +871,18 @@ table {
     min-width: 0;
   }
 
+  /* Quick Actions grid on mobile */
+  div[style*="gridTemplateColumns"][style*="repeat(auto-fit"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Quick action buttons on mobile */
+  .card button[style*="display: flex"][style*="alignItems: center"] {
+    width: 100%;
+    padding: 0.875rem !important;
+    font-size: 0.9375rem !important;
+  }
+
   /* Transcript list items mobile optimization */
   .transcripts .card > div {
     overflow-x: hidden;

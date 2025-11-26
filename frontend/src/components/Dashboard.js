@@ -264,6 +264,149 @@ function Dashboard({ setActiveTab }) {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="dashboard">
+      {/* Quick Actions Section */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h2 style={{ marginBottom: '1rem' }}>Quick Actions</h2>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '1rem' 
+        }}>
+          <button 
+            onClick={() => setActiveTab('tasks')}
+            style={{
+              padding: '1rem',
+              backgroundColor: '#3f3f46',
+              color: '#e4e4e7',
+              border: '1px solid #52525b',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              transition: 'all 0.2s',
+              textAlign: 'left'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#52525b';
+              e.currentTarget.style.borderColor = '#60a5fa';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3f3f46';
+              e.currentTarget.style.borderColor = '#52525b';
+            }}
+          >
+            <span style={{ fontSize: '1.5rem' }}>📋</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>View All Tasks</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Manage commitments & actions</div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('transcripts')}
+            style={{
+              padding: '1rem',
+              backgroundColor: '#3f3f46',
+              color: '#e4e4e7',
+              border: '1px solid #52525b',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              transition: 'all 0.2s',
+              textAlign: 'left'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#52525b';
+              e.currentTarget.style.borderColor = '#60a5fa';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3f3f46';
+              e.currentTarget.style.borderColor = '#52525b';
+            }}
+          >
+            <span style={{ fontSize: '1.5rem' }}>📝</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>Upload Transcript</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Add meeting notes</div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('calendar')}
+            style={{
+              padding: '1rem',
+              backgroundColor: '#3f3f46',
+              color: '#e4e4e7',
+              border: '1px solid #52525b',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              transition: 'all 0.2s',
+              textAlign: 'left'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#52525b';
+              e.currentTarget.style.borderColor = '#60a5fa';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3f3f46';
+              e.currentTarget.style.borderColor = '#52525b';
+            }}
+          >
+            <span style={{ fontSize: '1.5rem' }}>📅</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>View Calendar</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>See upcoming events</div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('config')}
+            style={{
+              padding: '1rem',
+              backgroundColor: '#3f3f46',
+              color: '#e4e4e7',
+              border: '1px solid #52525b',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              transition: 'all 0.2s',
+              textAlign: 'left'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#52525b';
+              e.currentTarget.style.borderColor = '#60a5fa';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3f3f46';
+              e.currentTarget.style.borderColor = '#52525b';
+            }}
+          >
+            <span style={{ fontSize: '1.5rem' }}>⚙️</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>Settings</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Configure app</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Daily Brief Section */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2>Morning Dashboard</h2>
