@@ -25,6 +25,7 @@ An intelligent executive assistant that automates personal productivity by inges
 - 📝 **Rich Descriptions**: AI-generated 3-5 paragraph event details
 - 🔔 **Smart Event Titles**: Task type emojis and descriptive titles
 - 🗑️ **Auto Cleanup**: Deletes old events when reprocessing transcripts
+- 📊 **Microsoft Planner**: Multi-tenant OAuth integration for enterprise task management
 
 ### AI Customization
 - 🎛️ **Editable Prompts**: Customize all AI prompts via UI
@@ -38,6 +39,8 @@ An intelligent executive assistant that automates personal productivity by inges
 - 🔔 **Push Notifications**: Task reminders and overdue alerts
 - 📲 **Background Sync**: Offline tasks sync when online
 - 🚀 **Fast Loading**: Service worker caching for instant load
+- 📐 **Mobile Optimized**: Responsive design with mobile-first approach
+- 🎨 **Safe Area Support**: Proper handling of device notches and status bars
 
 ### Notifications & Reminders
 - ⏰ **Task Reminders**: Notifications 24 hours before deadline
@@ -54,11 +57,12 @@ An intelligent executive assistant that automates personal productivity by inges
 
 ## Tech Stack
 
-- **Frontend**: React 18 with modern hooks
+- **Frontend**: React 18 with modern hooks, React Router, Axios, React Markdown
 - **Backend**: Node.js with Express
-- **Database**: SQLite for storing context
-- **AI**: Anthropic Claude API (claude-3-5-sonnet)
+- **Database**: SQLite (default) or PostgreSQL with unified interface
+- **AI**: Anthropic Claude API (claude-sonnet-4.5, claude-3-5-sonnet, claude-3-opus)
 - **Deployment**: Single all-in-one Docker container
+- **PWA**: Service worker with offline support and push notifications
 
 ## Prerequisites
 
@@ -146,6 +150,7 @@ After starting the container:
 ### Optional Configuration
 - **Plaud API**: For automatic transcript pulling
 - **Google Calendar**: OAuth integration for automatic event creation (recommended)
+- **Microsoft Planner**: Multi-tenant OAuth integration for enterprise task management
 - **iCloud Calendar**: Read-only calendar viewing (alternative to Google Calendar)
 - **Database**: Switch from SQLite to PostgreSQL
 - **Push Notifications**: Enable task reminders and alerts
@@ -243,7 +248,11 @@ All configuration is done through the web UI Configuration tab:
 
 ### AI Configuration
 - **Anthropic API Key** (Required): Get from https://console.anthropic.com/
-- **Claude Model**: Choose from Claude Sonnet 4.5 (latest), Sonnet 4, 3.5 Sonnet, or 3 Opus
+- **Claude Model**: Choose from:
+  - Claude Sonnet 4.5 (latest, recommended)
+  - Claude Sonnet 4
+  - Claude 3.5 Sonnet
+  - Claude 3 Opus
 
 ### Integrations (Optional)
 
@@ -287,6 +296,34 @@ If running in Docker, you can also set:
 GOOGLE_REDIRECT_URI=http://YOUR-IP:3001/api/calendar/google/callback
 ```
 
+#### Microsoft Planner Integration
+
+Enterprise task management integration with Microsoft Planner:
+
+1. **Get Microsoft OAuth Credentials:**
+   - Go to [Azure Portal](https://portal.azure.com/)
+   - Create a new App Registration or select an existing one
+   - Configure multi-tenant OAuth (supports both personal and work accounts)
+   - Add redirect URI: `http://YOUR-IP:3001/api/planner/microsoft/callback`
+   - Copy the **Application (client) ID** and **Client Secret**
+
+2. **Configure in the App:**
+   - Open the Configuration tab
+   - Scroll to "Microsoft Planner Integration"
+   - Paste your **Client ID** and **Client Secret**
+   - Click **Save Configuration**
+   - Click **Connect Microsoft Planner** button
+   - Authorize the app in the Microsoft OAuth flow
+   - ✅ Done! Tasks can now sync with Microsoft Planner
+
+📖 See detailed setup guide: [MICROSOFT-PLANNER-SETUP.md](MICROSOFT-PLANNER-SETUP.md)
+
+**Features:**
+- Multi-tenant OAuth support (personal and work Microsoft accounts)
+- Sync tasks with Microsoft Planner
+- View Planner tasks in the app
+- One-click disconnect in settings
+
 #### Plaud API Integration
 - **Plaud API**: Automatic transcript pulling from Plaud
 - **iCloud Calendar**: Calendar integration for event context
@@ -309,9 +346,12 @@ GOOGLE_REDIRECT_URI=http://YOUR-IP:3001/api/calendar/google/callback
    - Enter your Anthropic API key (required)
    - Select Claude model (default: Claude Sonnet 4.5)
    - Configure optional integrations:
+     - Google Calendar OAuth for automatic event creation
+     - Microsoft Planner OAuth for enterprise task management
      - Plaud API for automatic transcript pulling
      - iCloud Calendar for calendar integration
      - PostgreSQL if you don't want to use SQLite
+     - Push notifications (VAPID keys) for task reminders
    - Click Save Configuration
 
 3. **Upload Transcripts**:
@@ -642,6 +682,17 @@ rm /mnt/user/appdata/ai-chief-of-staff/config.json
 docker start ai-chief-of-staff
 ```
 
+## Recent Updates
+
+### v1.0.0
+- ✅ **Mobile Optimizations** - Complete responsive redesign with mobile-first approach
+- ✅ **Dashboard Enhancements** - Improved desktop layout with better section organization
+- ✅ **Microsoft Planner Integration** - Multi-tenant OAuth support for enterprise users
+- ✅ **Status Bar Fixes** - Proper safe area handling for mobile devices with notches
+- ✅ **Code Quality** - ESLint enforcement with zero warnings policy
+- ✅ **PWA Improvements** - Enhanced caching and offline support
+- ✅ **Navigation** - Mobile-optimized hamburger menu and responsive navigation
+
 ## Roadmap
 
 - [x] Email forwarding webhook for automatic email ingestion
@@ -649,7 +700,9 @@ docker start ai-chief-of-staff
 - [x] Weekly report generator
 - [x] Pattern detection across meetings
 - [x] Risk flagging for unaddressed items
-- [ ] Mobile app
+- [x] Microsoft Planner integration
+- [x] Mobile-responsive design
+- [ ] Mobile app (native)
 - [ ] Slack integration
 - [ ] Teams integration for automatic transcript pulling
 
