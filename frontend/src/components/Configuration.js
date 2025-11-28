@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { configAPI } from '../services/api';
+import { configAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 // Version info component
@@ -141,9 +141,12 @@ function Configuration() {
   const [prompts, setPrompts] = useState([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
   const [editingPrompt, setEditingPrompt] = useState(null);
+  const [servicesHealth, setServicesHealth] = useState(null);
+  const [showServicesHealth, setShowServicesHealth] = useState(false);
 
   useEffect(() => {
     loadConfig();
+    loadServicesHealth();
     checkGoogleCalendarStatus();
     checkMicrosoftPlannerStatus();
     checkJiraStatus();
@@ -201,6 +204,16 @@ function Configuration() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  
+  const loadServicesHealth = async () => {
+    try {
+      const response = await intelligenceAPI.checkHealth();
+      setServicesHealth(response.data);
+    } catch (err) {
+      console.log('Microservices health check unavailable');
+      setServicesHealth(null);
+    }
+  };
   
   const loadPrompts = async () => {
     try {
@@ -1857,6 +1870,87 @@ function Configuration() {
               </div>
             </details>
           ))
+        )}
+      </div>
+
+      <div className="card">
+        <h2>AI Services Status</h2>
+        {servicesHealth ? (
+          <div style={{ 
+            border: '1px solid #52525b', 
+            borderRadius: '8px', 
+            overflow: 'hidden',
+            marginTop: '1rem'
+          }}>
+            <button
+              onClick={() => setShowServicesHealth(!showServicesHealth)}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                backgroundColor: '#3f3f46',
+                color: '#e4e4e7',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}
+            >
+              <span>
+                🤖 Microservices Health 
+                <span style={{ 
+                  marginLeft: '0.5rem', 
+                  fontSize: '0.8rem',
+                  color: servicesHealth.status === 'healthy' ? '#34c759' : '#ff9500'
+                }}>
+                  {servicesHealth.status === 'healthy' ? '✓ All Healthy' : '⚠ Degraded'}
+                </span>
+              </span>
+              <span>{showServicesHealth ? '▼' : '▶'}</span>
+            </button>
+            
+            {showServicesHealth && (
+              <div style={{ 
+                padding: '1rem', 
+                backgroundColor: '#27272a',
+                fontSize: '0.85rem'
+              }}>
+                {Object.entries(servicesHealth.services || {}).map(([name, service]) => (
+                  <div key={name} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    padding: '0.5rem 0',
+                    borderBottom: '1px solid #3f3f46'
+                  }}>
+                    <span style={{ color: '#a1a1aa' }}>
+                      {name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </span>
+                    <span style={{ 
+                      color: service.status === 'healthy' ? '#34c759' : '#ff3b30',
+                      fontWeight: '500'
+                    }}>
+                      {service.status === 'healthy' ? '✓ Online' : '✗ Offline'}
+                    </span>
+                  </div>
+                ))}
+                <div style={{ 
+                  marginTop: '0.75rem', 
+                  paddingTop: '0.75rem', 
+                  borderTop: '1px solid #52525b',
+                  color: '#71717a',
+                  fontSize: '0.75rem'
+                }}>
+                  Microservices provide AI-powered task analysis, voice transcription, pattern recognition, and context management.
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p style={{ color: '#a1a1aa', marginTop: '1rem' }}>
+            Microservices health information unavailable. Services may not be running.
+          </p>
         )}
       </div>
 

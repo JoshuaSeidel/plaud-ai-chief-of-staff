@@ -7,7 +7,8 @@ services:
   # ============================================================================
   # FRONTEND - React Application
   # ============================================================================
-  frontend:
+  aicos-frontend:
+    container_name: aicos-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -16,7 +17,7 @@ services:
     environment:
       - REACT_APP_API_URL=http://localhost:3001
     depends_on:
-      - backend
+      - aicos-backend
     networks:
       - aicos-network
     volumes:
@@ -26,7 +27,8 @@ services:
   # ============================================================================
   # BACKEND - Node.js/Express API Gateway
   # ============================================================================
-  backend:
+  aicos-backend:
+    container_name: aicos-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -34,18 +36,18 @@ services:
       - "3001:3001"
     environment:
       # Database
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/aicos
+      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - DB_TYPE=postgres
       
       # Cache
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://aicos-redis:6379
       
       # Microservices
-      - AI_INTELLIGENCE_URL=http://ai-intelligence:8001
-      - PATTERN_RECOGNITION_URL=http://pattern-recognition:8002
-      - NL_PARSER_URL=http://nl-parser:8003
-      - VOICE_PROCESSOR_URL=http://voice-processor:8004
-      - CONTEXT_SERVICE_URL=http://context-service:8005
+      - AI_INTELLIGENCE_URL=http://aicos-ai-intelligence:8001
+      - PATTERN_RECOGNITION_URL=http://aicos-pattern-recognition:8002
+      - NL_PARSER_URL=http://aicos-nl-parser:8003
+      - VOICE_PROCESSOR_URL=http://aicos-voice-processor:8004
+      - CONTEXT_SERVICE_URL=http://aicos-context-service:8005
       
       # External APIs
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -55,8 +57,8 @@ services:
       - NODE_ENV=development
       - LOG_LEVEL=info
     depends_on:
-      - postgres
-      - redis
+      - aicos-postgres
+      - aicos-redis
     networks:
       - aicos-network
     volumes:
@@ -74,7 +76,8 @@ services:
   # ============================================================================
 
   # AI Intelligence Service - Task analysis with Claude
-  ai-intelligence:
+  aicos-ai-intelligence:
+    container_name: aicos-ai-intelligence
     build:
       context: ./services/ai-intelligence
       dockerfile: Dockerfile
@@ -82,10 +85,10 @@ services:
       - "8001:8001"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://aicos-redis:6379
       - LOG_LEVEL=info
     depends_on:
-      - redis
+      - aicos-redis
     networks:
       - aicos-network
     deploy:
@@ -104,19 +107,20 @@ services:
       retries: 3
 
   # Pattern Recognition Service - ML-based insights
-  pattern-recognition:
+  aicos-pattern-recognition:
+    container_name: aicos-pattern-recognition
     build:
       context: ./services/pattern-recognition
       dockerfile: Dockerfile
     ports:
       - "8002:8002"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/aicos
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - REDIS_URL=redis://aicos-redis:6379
       - LOG_LEVEL=info
     depends_on:
-      - postgres
-      - redis
+      - aicos-postgres
+      - aicos-redis
     networks:
       - aicos-network
     deploy:
@@ -138,7 +142,8 @@ services:
       retries: 3
 
   # Natural Language Parser - Task extraction
-  nl-parser:
+  aicos-nl-parser:
+    container_name: aicos-nl-parser
     build:
       context: ./services/nl-parser
       dockerfile: Dockerfile
@@ -146,10 +151,10 @@ services:
       - "8003:8003"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://aicos-redis:6379
       - LOG_LEVEL=info
     depends_on:
-      - redis
+      - aicos-redis
     networks:
       - aicos-network
     deploy:
@@ -168,7 +173,8 @@ services:
       retries: 3
 
   # Voice Processor - Whisper transcription
-  voice-processor:
+  aicos-voice-processor:
+    container_name: aicos-voice-processor
     build:
       context: ./services/voice-processor
       dockerfile: Dockerfile
@@ -176,10 +182,10 @@ services:
       - "8004:8004"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://aicos-redis:6379
       - LOG_LEVEL=info
     depends_on:
-      - redis
+      - aicos-redis
     networks:
       - aicos-network
     deploy:
@@ -202,19 +208,20 @@ services:
       retries: 3
 
   # Context Service - High-performance context retrieval (Go)
-  context-service:
+  aicos-context-service:
+    container_name: aicos-context-service
     build:
       context: ./services/context-service
       dockerfile: Dockerfile
     ports:
       - "8005:8005"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/aicos
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - REDIS_URL=redis://aicos-redis:6379
       - LOG_LEVEL=info
     depends_on:
-      - postgres
-      - redis
+      - aicos-postgres
+      - aicos-redis
     networks:
       - aicos-network
     deploy:
@@ -237,7 +244,8 @@ services:
   # ============================================================================
 
   # PostgreSQL Database
-  postgres:
+  aicos-postgres:
+    container_name: aicos-postgres
     image: postgres:15-alpine
     ports:
       - "5432:5432"
@@ -259,7 +267,8 @@ services:
       retries: 5
 
   # Redis Cache & Queue
-  redis:
+  aicos-redis:
+    container_name: aicos-redis
     image: redis:7-alpine
     ports:
       - "6379:6379"

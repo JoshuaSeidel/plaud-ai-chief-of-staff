@@ -1,27 +1,73 @@
 /**
  * Task Intelligence API Routes
  * 
- * Endpoints for AI-powered task analysis:
- * - POST /estimate-effort - Get effort estimation
- * - POST /classify-energy - Classify energy level
- * - GET /clusters - Get task clusters
- * - POST /clusters - Create clusters
- * - POST /suggest-sequence - Get optimal task order
- * - POST /check-capacity - Check for overload
- * - POST /analyze - Full task analysis
+ * Proxy endpoints for microservices-based AI task analysis.
+ * All requests are forwarded to specialized microservices running on internal Docker network.
+ * 
+ * Microservices:
+ * - ai-intelligence (port 8001): Effort estimation, energy classification, task clustering
+ * - pattern-recognition (port 8002): Behavioral insights, pattern analysis
+ * - nl-parser (port 8003): Natural language task parsing
+ * - voice-processor (port 8004): Audio transcription
+ * - context-service (port 8005): Fast context retrieval
  */
 
 const express = require('express');
 const router = express.Router();
-const { getDb, getDbType } = require('../database/db');
+const axios = require('axios');
+const multer = require('multer');
+const FormData = require('form-data');
 const { createModuleLogger } = require('../utils/logger');
-const taskIntelligence = require('../services/task-intelligence');
 
 const logger = createModuleLogger('INTELLIGENCE-API');
 
+// Microservice URLs (internal Docker network)
+const AI_INTELLIGENCE_URL = process.env.AI_INTELLIGENCE_URL || 'http://aicos-ai-intelligence:8001';
+const PATTERN_RECOGNITION_URL = process.env.PATTERN_RECOGNITION_URL || 'http://aicos-pattern-recognition:8002';
+const NL_PARSER_URL = process.env.NL_PARSER_URL || 'http://aicos-nl-parser:8003';
+const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'http://aicos-voice-processor:8004';
+const CONTEXT_SERVICE_URL = process.env.CONTEXT_SERVICE_URL || 'http://aicos-context-service:8005';
+
+// Timeout for microservice calls
+const MICROSERVICE_TIMEOUT = 30000;
+
+/**
+ * Helper function to call microservices with error handling
+ */
+async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = null, params = null) {
+  try {
+    const config = {
+      method,
+      url: `${serviceUrl}${endpoint}`,
+      timeout: MICROSERVICE_TIMEOUT,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+
+    if (data) config.data = data;
+    if (params) config.params = params;
+
+    const response = await axios(config);
+    return response.data;
+  } catch (error) {
+    // Log error but provide graceful fallback
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      logger.warn(`Microservice ${serviceUrl} unavailable: ${error.message}`);
+      throw new Error(`Microservice unavailable - please try again later`);
+    } else if (error.response) {
+      logger.error(`Microservice error (${error.response.status}):`, error.response.data);
+      throw new Error(error.response.data.detail || error.response.data.error || 'Microservice error');
+    } else {
+      logger.error('Microservice call failed:', error.message);
+      throw error;
+    }
+  }
+}
+
 /**
  * POST /api/intelligence/estimate-effort
- * Get AI effort estimation for a task
+ * Get AI effort estimation for a task (proxies to ai-intelligence service)
  */
 router.post('/estimate-effort', async (req, res) => {
   try {
@@ -33,9 +79,14 @@ router.post('/estimate-effort', async (req, res) => {
 
     logger.info(`Estimating effort for: "${description.substring(0, 50)}..."`);
 
-    const estimation = await taskIntelligence.estimateTaskEffort(description, context || '');
+    const result = await callMicroservice(
+      AI_INTELLIGENCE_URL,
+      '/estimate-effort',
+      'POST',
+      { description, context: context || '' }
+    );
 
-    res.json(estimation);
+    res.json(result);
 
   } catch (err) {
     logger.error('Error estimating effort:', err);
@@ -48,7 +99,7 @@ router.post('/estimate-effort', async (req, res) => {
 
 /**
  * POST /api/intelligence/classify-energy
- * Classify task by energy level required
+ * Classify task by energy level required (proxies to ai-intelligence service)
  */
 router.post('/classify-energy', async (req, res) => {
   try {
@@ -60,12 +111,14 @@ router.post('/classify-energy', async (req, res) => {
 
     logger.info(`Classifying energy level for: "${description.substring(0, 50)}..."`);
 
-    const energyLevel = await taskIntelligence.classifyEnergyLevel(description);
+    const result = await callMicroservice(
+      AI_INTELLIGENCE_URL,
+      '/classify-energy',
+      'POST',
+      { description }
+    );
 
-    res.json({ 
-      energy_level: energyLevel,
-      description: getEnergyLevelDescription(energyLevel)
-    });
+    res.json(result);
 
   } catch (err) {
     logger.error('Error classifying energy:', err);
@@ -77,272 +130,385 @@ router.post('/classify-energy', async (req, res) => {
 });
 
 /**
- * GET /api/intelligence/clusters
- * Get all task clusters
+ * POST /api/intelligence/cluster-tasks
+ * Cluster related tasks together (proxies to ai-intelligence service)
  */
-router.get('/clusters', async (req, res) => {
+router.post('/cluster-tasks', async (req, res) => {
   try {
-    const { status } = req.query;
+    const { tasks } = req.body;
 
-    const db = getDb();
-    let query = 'SELECT * FROM task_clusters';
-    const params = [];
-
-    if (status) {
-      query += ' WHERE status = ?';
-      params.push(status);
+    if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({ error: 'Tasks array is required' });
     }
 
-    query += ' ORDER BY last_updated DESC';
+    logger.info(`Clustering ${tasks.length} tasks`);
 
-    const clusters = await db.all(query, params);
+    const result = await callMicroservice(
+      AI_INTELLIGENCE_URL,
+      '/cluster-tasks',
+      'POST',
+      { tasks }
+    );
 
-    // Parse JSON fields
-    for (const cluster of clusters) {
-      if (cluster.keywords) {
-        try {
-          cluster.keywords = JSON.parse(cluster.keywords);
-        } catch (e) {
-          cluster.keywords = [];
-        }
+    res.json(result);
+
+  } catch (err) {
+    logger.error('Error clustering tasks:', err);
+    res.status(500).json({ 
+      error: 'Failed to cluster tasks',
+      message: err.message 
+    });
+  }
+});
+
+/**
+ * POST /api/intelligence/parse-task
+ * Parse natural language task input (proxies to nl-parser service)
+ */
+router.post('/parse-task', async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'Task text is required' });
+    }
+
+    logger.info(`Parsing task: "${text.substring(0, 50)}..."`);
+
+    const result = await callMicroservice(
+      NL_PARSER_URL,
+      '/parse',
+      'POST',
+      { text }
+    );
+
+    res.json(result);
+
+  } catch (err) {
+    logger.error('Error parsing task:', err);
+    res.status(500).json({ 
+      error: 'Failed to parse task',
+      message: err.message 
+    });
+  }
+});
+
+/**
+ * POST /api/intelligence/analyze-patterns
+ * Analyze user behavioral patterns (proxies to pattern-recognition service)
+ */
+router.post('/analyze-patterns', async (req, res) => {
+  try {
+    const { user_id, time_range } = req.body;
+
+    logger.info(`Analyzing patterns for user ${user_id || 'default'}`);
+
+    const result = await callMicroservice(
+      PATTERN_RECOGNITION_URL,
+      '/analyze-patterns',
+      'POST',
+      { user_id, time_range }
+    );
+
+    res.json(result);
+
+  } catch (err) {
+    logger.error('Error analyzing patterns:', err);
+    res.status(500).json({ 
+      error: 'Failed to analyze patterns',
+      message: err.message 
+    });
+  }
+});
+
+/**
+ * GET /api/intelligence/insights
+ * Get personalized insights (proxies to pattern-recognition service)
+ */
+router.get('/insights', async (req, res) => {
+  try {
+    const { user_id } = req.query;
+
+    logger.info(`Getting insights for user ${user_id || 'default'}`);
+
+    const result = await callMicroservice(
+      PATTERN_RECOGNITION_URL,
+      '/insights',
+      'GET',
+      null,
+      { user_id }
+    );
+
+    res.json(result);
+
+  } catch (err) {
+    logger.error('Error getting insights:', err);
+    res.status(500).json({ 
+      error: 'Failed to get insights',
+      message: err.message 
+    });
+  }
+});
+
+
+
+/**
+ * POST /api/intelligence/extract-dates
+ * Extract deadline and date information from text (proxies to nl-parser service)
+ */
+router.post('/extract-dates', async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    logger.info(`Extracting dates from: "${text.substring(0, 50)}..."`);
+
+    const result = await callMicroservice(
+      NL_PARSER_URL,
+      '/extract-dates',
+      'POST',
+      { text }
+    );
+
+    res.json(result);
+
+  } catch (err) {
+    logger.error('Error extracting dates:', err);
+    res.status(500).json({ 
+      error: 'Failed to extract dates',
+      message: err.message 
+    });
+  }
+});
+
+/**
+ * POST /api/intelligence/predict-completion
+ * Predict task completion time based on patterns (proxies to pattern-recognition service)
+ */
+router.post('/predict-completion', async (req, res) => {
+  try {
+    const { task_description, user_id } = req.body;
+
+    if (!task_description) {
+      return res.status(400).json({ error: 'Task description is required' });
+    }
+
+    logger.info(`Predicting completion for: "${task_description.substring(0, 50)}..."`);
+
+    const result = await callMicroservice(
+      PATTERN_RECOGNITION_URL,
+      '/predict-completion',
+      'POST',
+      { task_description, user_id }
+    );
+
+    res.json(result);
+
+  } catch (err) {
+    logger.error('Error predicting completion:', err);
+    res.status(500).json({ 
+      error: 'Failed to predict completion',
+      message: err.message 
+    });
+  }
+});
+
+/**
+ * POST /api/intelligence/transcribe
+ * Transcribe audio file to text (proxies to voice-processor service)
+ */
+router.post('/transcribe', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Audio file is required' });
+    }
+
+    const { language, temperature } = req.body;
+
+    logger.info(`Transcribing audio: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)}MB)`);
+
+    // Create form data for microservice
+    const formData = new FormData();
+    formData.append('file', req.file.buffer, {
+      filename: req.file.originalname,
+      contentType: req.file.mimetype
+    });
+    if (language) formData.append('language', language);
+    if (temperature) formData.append('temperature', temperature);
+
+    const result = await axios.post(
+      `${VOICE_PROCESSOR_URL}/transcribe`,
+      formData,
+      {
+        headers: formData.getHeaders(),
+        timeout: MICROSERVICE_TIMEOUT,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
       }
-    }
-
-    // Get task counts for each cluster
-    for (const cluster of clusters) {
-      const tasks = await db.all(
-        `SELECT c.*, ti.energy_level, ti.estimated_hours
-         FROM commitments c
-         JOIN task_intelligence ti ON c.id = ti.commitment_id
-         WHERE ti.cluster_id = ?`,
-        [cluster.id]
-      );
-
-      cluster.tasks = tasks;
-      cluster.task_count = tasks.length;
-      cluster.completed_count = tasks.filter(t => t.status === 'completed').length;
-      cluster.total_hours = tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
-    }
-
-    logger.info(`Returning ${clusters.length} clusters`);
-    res.json(clusters);
-
-  } catch (err) {
-    logger.error('Error fetching clusters:', err);
-    res.status(500).json({ 
-      error: 'Failed to fetch clusters',
-      message: err.message 
-    });
-  }
-});
-
-/**
- * POST /api/intelligence/clusters
- * Create task clusters from existing tasks
- */
-router.post('/clusters', async (req, res) => {
-  try {
-    const { task_ids } = req.body;
-
-    if (!task_ids || !Array.isArray(task_ids) || task_ids.length === 0) {
-      return res.status(400).json({ error: 'task_ids array is required' });
-    }
-
-    logger.info(`Creating clusters from ${task_ids.length} tasks`);
-
-    // Get tasks from database
-    const db = getDb();
-    const placeholders = task_ids.map(() => '?').join(',');
-    const tasks = await db.all(
-      `SELECT * FROM commitments WHERE id IN (${placeholders})`,
-      task_ids
     );
 
-    if (tasks.length === 0) {
-      return res.status(404).json({ error: 'No tasks found' });
-    }
-
-    // Perform clustering
-    const clusters = await taskIntelligence.clusterRelatedTasks(tasks);
-
-    res.json({
-      message: `Created ${clusters.length} clusters`,
-      clusters
-    });
+    res.json(result.data);
 
   } catch (err) {
-    logger.error('Error creating clusters:', err);
+    logger.error('Error transcribing audio:', err);
     res.status(500).json({ 
-      error: 'Failed to create clusters',
+      error: 'Failed to transcribe audio',
       message: err.message 
     });
   }
 });
 
 /**
- * POST /api/intelligence/suggest-sequence
- * Get optimal task ordering
+ * GET /api/intelligence/supported-formats
+ * Get list of supported audio formats (proxies to voice-processor service)
  */
-router.post('/suggest-sequence', async (req, res) => {
+router.get('/supported-formats', async (req, res) => {
   try {
-    const { task_ids } = req.body;
-
-    if (!task_ids || !Array.isArray(task_ids) || task_ids.length === 0) {
-      return res.status(400).json({ error: 'task_ids array is required' });
-    }
-
-    logger.info(`Suggesting sequence for ${task_ids.length} tasks`);
-
-    // Get tasks with intelligence data
-    const db = getDb();
-    const placeholders = task_ids.map(() => '?').join(',');
-    const tasks = await db.all(
-      `SELECT c.*, ti.energy_level, ti.estimated_hours, ti.optimal_time_of_day
-       FROM commitments c
-       LEFT JOIN task_intelligence ti ON c.id = ti.commitment_id
-       WHERE c.id IN (${placeholders})`,
-      task_ids
+    const result = await callMicroservice(
+      VOICE_PROCESSOR_URL,
+      '/supported-formats',
+      'GET'
     );
 
-    if (tasks.length === 0) {
-      return res.status(404).json({ error: 'No tasks found' });
-    }
-
-    // Get suggested sequence
-    const sequence = await taskIntelligence.suggestOptimalSequence(tasks);
-
-    res.json({
-      sequence,
-      task_count: tasks.length
-    });
+    res.json(result);
 
   } catch (err) {
-    logger.error('Error suggesting sequence:', err);
+    logger.error('Error getting supported formats:', err);
     res.status(500).json({ 
-      error: 'Failed to suggest sequence',
+      error: 'Failed to get supported formats',
       message: err.message 
     });
   }
 });
 
 /**
- * POST /api/intelligence/check-capacity
- * Check if user is over-committed
+ * GET /api/intelligence/context
+ * Get context entries with filtering (proxies to context-service)
  */
-router.post('/check-capacity', async (req, res) => {
+router.get('/context', async (req, res) => {
   try {
-    const { task_ids, available_hours } = req.body;
+    const { category, source, limit, active_only } = req.query;
 
-    if (!task_ids || !Array.isArray(task_ids)) {
-      return res.status(400).json({ error: 'task_ids array is required' });
-    }
+    logger.info(`Getting context: category=${category}, source=${source}, limit=${limit}`);
 
-    if (!available_hours || available_hours <= 0) {
-      return res.status(400).json({ error: 'available_hours must be positive number' });
-    }
-
-    logger.info(`Checking capacity: ${task_ids.length} tasks, ${available_hours} hours`);
-
-    // Get tasks with intelligence data
-    const db = getDb();
-    const placeholders = task_ids.map(() => '?').join(',');
-    const tasks = await db.all(
-      `SELECT c.*, ti.estimated_hours
-       FROM commitments c
-       LEFT JOIN task_intelligence ti ON c.id = ti.commitment_id
-       WHERE c.id IN (${placeholders})`,
-      task_ids
+    const result = await callMicroservice(
+      CONTEXT_SERVICE_URL,
+      '/context',
+      'GET',
+      null,
+      { category, source, limit, active_only }
     );
 
-    // Check capacity
-    const capacityAnalysis = await taskIntelligence.checkCapacity(tasks, available_hours);
-
-    res.json(capacityAnalysis);
+    res.json(result);
 
   } catch (err) {
-    logger.error('Error checking capacity:', err);
+    logger.error('Error getting context:', err);
     res.status(500).json({ 
-      error: 'Failed to check capacity',
+      error: 'Failed to get context',
       message: err.message 
     });
   }
 });
 
 /**
- * POST /api/intelligence/analyze
- * Full task analysis (effort + energy + store intelligence)
+ * GET /api/intelligence/context/rolling
+ * Get 2-week rolling context window (proxies to context-service)
  */
-router.post('/analyze', async (req, res) => {
+router.get('/context/rolling', async (req, res) => {
   try {
-    const { task_id, description, context } = req.body;
+    logger.info('Getting rolling 2-week context window');
 
-    if (!task_id) {
-      return res.status(400).json({ error: 'task_id is required' });
-    }
-
-    if (!description) {
-      return res.status(400).json({ error: 'description is required' });
-    }
-
-    logger.info(`Full analysis for task ${task_id}`);
-
-    const intelligence = await taskIntelligence.analyzeAndStoreTaskIntelligence(
-      task_id,
-      description,
-      context || ''
+    const result = await callMicroservice(
+      CONTEXT_SERVICE_URL,
+      '/context/rolling',
+      'GET'
     );
 
-    res.json(intelligence);
+    res.json(result);
 
   } catch (err) {
-    logger.error('Error analyzing task:', err);
+    logger.error('Error getting rolling context:', err);
     res.status(500).json({ 
-      error: 'Failed to analyze task',
+      error: 'Failed to get rolling context',
       message: err.message 
     });
   }
 });
 
 /**
- * GET /api/intelligence/task/:id
- * Get intelligence data for a specific task
+ * POST /api/intelligence/context/search
+ * Search context entries (proxies to context-service)
  */
-router.get('/task/:id', async (req, res) => {
+router.post('/context/search', async (req, res) => {
   try {
-    const taskId = req.params.id;
+    const { query, category, limit } = req.body;
 
-    logger.info(`Getting intelligence for task ${taskId}`);
-
-    const intelligence = await taskIntelligence.getTaskIntelligence(taskId);
-
-    if (!intelligence) {
-      return res.status(404).json({ error: 'No intelligence data found for this task' });
+    if (!query) {
+      return res.status(400).json({ error: 'Search query is required' });
     }
 
-    res.json(intelligence);
+    logger.info(`Searching context for: "${query}"`);
+
+    const result = await callMicroservice(
+      CONTEXT_SERVICE_URL,
+      '/context/search',
+      'POST',
+      { query, category, limit }
+    );
+
+    res.json(result);
 
   } catch (err) {
-    logger.error('Error getting task intelligence:', err);
+    logger.error('Error searching context:', err);
     res.status(500).json({ 
-      error: 'Failed to get task intelligence',
+      error: 'Failed to search context',
       message: err.message 
     });
   }
 });
 
 /**
- * Helper function to get energy level description
+ * GET /api/intelligence/health
+ * Check health of all microservices
  */
-function getEnergyLevelDescription(level) {
-  const descriptions = {
-    deep_work: 'High cognitive load, requires focus and minimal interruptions',
-    focused: 'Medium concentration required',
-    administrative: 'Low cognitive load, routine work',
-    collaborative: 'Social energy, meetings and discussions',
-    creative: 'Creative and divergent thinking'
+router.get('/health', async (req, res) => {
+  const services = {
+    'ai-intelligence': AI_INTELLIGENCE_URL,
+    'pattern-recognition': PATTERN_RECOGNITION_URL,
+    'nl-parser': NL_PARSER_URL,
+    'voice-processor': VOICE_PROCESSOR_URL,
+    'context-service': CONTEXT_SERVICE_URL
   };
 
-  return descriptions[level] || 'Unknown energy level';
-}
+  const healthStatus = {
+    status: 'healthy',
+    services: {}
+  };
+
+  // Check each service
+  for (const [name, url] of Object.entries(services)) {
+    try {
+      const response = await axios.get(`${url}/health`, { timeout: 5000 });
+      healthStatus.services[name] = {
+        status: 'healthy',
+        url,
+        ...response.data
+      };
+    } catch (error) {
+      healthStatus.services[name] = {
+        status: 'unhealthy',
+        url,
+        error: error.message
+      };
+      healthStatus.status = 'degraded';
+    }
+  }
+
+  const statusCode = healthStatus.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(healthStatus);
+});
 
 module.exports = router;

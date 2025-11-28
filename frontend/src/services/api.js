@@ -65,4 +65,54 @@ export const tasksAPI = {
 // Keep old name for backwards compatibility
 export const commitmentsAPI = tasksAPI;
 
+// Intelligence API (AI-powered task analysis microservices)
+export const intelligenceAPI = {
+  // AI Intelligence Service (Claude-powered)
+  estimateEffort: (description, context = '') => 
+    api.post('/intelligence/estimate-effort', { description, context }),
+  classifyEnergy: (description) => 
+    api.post('/intelligence/classify-energy', { description }),
+  clusterTasks: (tasks) => 
+    api.post('/intelligence/cluster-tasks', { tasks }),
+  
+  // NL Parser Service (spaCy)
+  parseTask: (text) => 
+    api.post('/intelligence/parse-task', { text }),
+  extractDates: (text) => 
+    api.post('/intelligence/extract-dates', { text }),
+  
+  // Pattern Recognition Service (ML)
+  analyzePatterns: (user_id, time_range) => 
+    api.post('/intelligence/analyze-patterns', { user_id, time_range }),
+  getInsights: (user_id) => 
+    api.get('/intelligence/insights', { params: { user_id } }),
+  predictCompletion: (task_description, user_id) => 
+    api.post('/intelligence/predict-completion', { task_description, user_id }),
+  
+  // Voice Processor Service (Whisper)
+  transcribe: (audioFile, language = null, temperature = null) => {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    if (language) formData.append('language', language);
+    if (temperature) formData.append('temperature', temperature);
+    return api.post('/intelligence/transcribe', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getSupportedFormats: () => 
+    api.get('/intelligence/supported-formats'),
+  
+  // Context Service (Go)
+  getContext: (category = null, source = null, limit = null, active_only = null) => 
+    api.get('/intelligence/context', { params: { category, source, limit, active_only } }),
+  getRollingContext: () => 
+    api.get('/intelligence/context/rolling'),
+  searchContext: (query, category = null, limit = null) => 
+    api.post('/intelligence/context/search', { query, category, limit }),
+  
+  // Health check
+  checkHealth: () => 
+    api.get('/intelligence/health'),
+};
+
 export default api;
