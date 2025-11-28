@@ -2,7 +2,7 @@
 
 // Use build date or version for cache busting
 // This will be replaced during build with actual version
-const APP_VERSION = '1.0.0-unknown-1764176917247' || new Date().getTime().toString();
+const APP_VERSION = '1764335178091-unknown-1764335178095' || new Date().getTime().toString();
 const CACHE_NAME = `ai-chief-of-staff-${APP_VERSION}`;
 const urlsToCache = [
   '/',
