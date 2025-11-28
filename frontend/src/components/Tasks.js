@@ -196,26 +196,26 @@ function Commitments() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>📋 Tasks</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {microsoftConnected && (
-              <button 
-                onClick={handleSyncToMicrosoft} 
-                disabled={syncingMicrosoft || loading}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: syncingMicrosoft ? '#6e6e73' : '#0078d4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: syncingMicrosoft ? 'not-allowed' : 'pointer',
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                {syncingMicrosoft ? '⏳ Syncing...' : '📋 Sync to Microsoft Planner'}
-              </button>
-            )}
+            <button 
+              onClick={handleSyncToMicrosoft} 
+              disabled={syncingMicrosoft || loading || !microsoftConnected}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: !microsoftConnected ? '#52525b' : (syncingMicrosoft ? '#6e6e73' : '#0078d4'),
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: (!microsoftConnected || syncingMicrosoft) ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                opacity: !microsoftConnected ? 0.6 : 1
+              }}
+              title={!microsoftConnected ? 'Connect Microsoft Planner in Settings to enable sync' : 'Sync tasks to Microsoft Planner'}
+            >
+              {syncingMicrosoft ? '⏳ Syncing...' : '📋 Sync to Microsoft Planner'}
+            </button>
             <button onClick={loadCommitments} disabled={loading} className="secondary">
               {loading ? 'Loading...' : '🔄 Refresh'}
             </button>
@@ -394,14 +394,14 @@ function Commitments() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     {renderTaskTypeBadge(commitment.task_type)}
                   </div>
                 </div>
-                <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fbbf24' }}>
+                <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fbbf24', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                   {commitment.description}
                 </p>
-                <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                   <div>👤 Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
                   {commitment.deadline && (
                     <div>📅 Deadline: {formatDate(commitment.deadline)}</div>
@@ -412,7 +412,7 @@ function Commitments() {
                     </div>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <button
                     onClick={() => confirmTask(commitment.id, true)}
                     style={{ 
@@ -423,7 +423,8 @@ function Commitments() {
                       border: 'none',
                       borderRadius: '6px',
                       cursor: 'pointer',
-                      flex: 1
+                      flex: 1,
+                      minWidth: '120px'
                     }}
                   >
                     ✅ Confirm (It's Mine)
@@ -438,7 +439,8 @@ function Commitments() {
                       border: 'none',
                       borderRadius: '6px',
                       cursor: 'pointer',
-                      flex: 1
+                      flex: 1,
+                      minWidth: '120px'
                     }}
                   >
                     ❌ Reject (Not Mine)
@@ -464,25 +466,27 @@ function Commitments() {
                 border: '2px solid #ff3b30'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div style={{ flex: 1 }}>
+              <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ marginBottom: '0.5rem' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
                   </div>
-                  <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fca5a5' }}>
+                  <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fca5a5', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
                   </p>
-                  <div style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#a1a1aa', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.assignee && <span>👤 {commitment.assignee} • </span>}
                     <span>📅 Due: {formatDate(commitment.deadline)}</span>
                   </div>
                 </div>
                 <button
                   onClick={() => updateStatus(commitment.id, 'completed')}
+                  className="task-card-button"
                   style={{ 
                     padding: '0.5rem 1rem', 
                     fontSize: '0.85rem',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}
                 >
                   Mark Complete
@@ -508,26 +512,27 @@ function Commitments() {
                 border: '1px solid #3f3f46'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div style={{ flex: 1 }}>
+              <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ marginBottom: '0.5rem' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
                   </div>
-                  <p style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
+                  <p style={{ fontSize: '1rem', marginBottom: '0.5rem', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
                   </p>
-                  <div style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#a1a1aa', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.assignee && <span>👤 {commitment.assignee} • </span>}
                     <span>📅 {formatDate(commitment.deadline)}</span>
                   </div>
                 </div>
                 <button
                   onClick={() => updateStatus(commitment.id, 'completed')}
-                  className="secondary"
+                  className="secondary task-card-button"
                   style={{ 
                     padding: '0.5rem 1rem', 
                     fontSize: '0.85rem',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}
                 >
                   Mark Complete
@@ -554,26 +559,27 @@ function Commitments() {
                 opacity: 0.7
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div style={{ flex: 1 }}>
+              <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ marginBottom: '0.5rem' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
                   </div>
-                  <p style={{ fontSize: '1rem', marginBottom: '0.5rem', textDecoration: 'line-through' }}>
+                  <p style={{ fontSize: '1rem', marginBottom: '0.5rem', textDecoration: 'line-through', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
                   </p>
-                  <div style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#a1a1aa', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.assignee && <span>👤 {commitment.assignee} • </span>}
                     <span>✓ Completed: {formatDate(commitment.completed_date)}</span>
                   </div>
                 </div>
                 <button
                   onClick={() => updateStatus(commitment.id, 'pending')}
-                  className="secondary"
+                  className="secondary task-card-button"
                   style={{ 
                     padding: '0.5rem 1rem', 
                     fontSize: '0.85rem',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}
                 >
                   Reopen

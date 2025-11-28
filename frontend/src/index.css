@@ -977,4 +977,49 @@ table {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
+
+  /* Task card mobile fixes - ensure text is visible and buttons are properly sized */
+  .task-card-layout {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Task card content container - allow text to shrink and wrap */
+  .task-card-content {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Task card buttons - constrain size on mobile */
+  .task-card-button {
+    width: 100% !important;
+    padding: 0.625rem 0.875rem !important;
+    font-size: 0.875rem !important;
+    white-space: normal !important;
+    min-height: 44px !important;
+  }
+
+  /* Task description text - ensure it's visible and wraps */
+  .task-card-content p {
+    font-size: 0.9375rem !important;
+    line-height: 1.5 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+  }
+
+  /* Task badge - ensure it doesn't overflow */
+  .task-card-content span[style*="display: inline-block"] {
+    font-size: 0.7rem !important;
+    padding: 0.2rem 0.4rem !important;
+    max-width: 100% !important;
+    word-wrap: break-word !important;
+  }
+
+  /* Task metadata - ensure it wraps properly */
+  .task-card-content > div[style*="fontSize: 0.85rem"] {
+    font-size: 0.8rem !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
 }
