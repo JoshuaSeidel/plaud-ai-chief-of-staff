@@ -3,6 +3,8 @@ const router = express.Router();
 const { getDb, getDbType } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 const googleCalendar = require('../services/google-calendar');
+const microsoftPlanner = require('../services/microsoft-planner');
+const jira = require('../services/jira');
 
 const logger = createModuleLogger('COMMITMENTS');
 
@@ -231,6 +233,152 @@ router.get('/status/overdue', async (req, res) => {
     logger.error('Error fetching overdue commitments:', err);
     res.status(500).json({ 
       error: 'Error fetching overdue commitments',
+      message: err.message
+    });
+  }
+});
+
+/**
+ * Create a new task manually (not from transcript)
+ */
+router.post('/', async (req, res) => {
+  const { description, task_type, assignee, deadline, priority, urgency, suggested_approach } = req.body;
+  
+  if (!description) {
+    return res.status(400).json({ error: 'Description is required' });
+  }
+  
+  const taskType = task_type || 'commitment';
+  const validTaskTypes = ['commitment', 'action', 'follow-up', 'risk'];
+  if (!validTaskTypes.includes(taskType)) {
+    return res.status(400).json({ error: `Invalid task_type. Must be one of: ${validTaskTypes.join(', ')}` });
+  }
+  
+  logger.info(`Creating manual task: ${taskType} - ${description.substring(0, 50)}...`);
+  
+  try {
+    const db = getDb();
+    const dbType = getDbType();
+    
+    // Helper function to get boolean value for database
+    const getBooleanValue = (val) => {
+      if (dbType === 'postgres') {
+        return val === true || val === 'true' || val === 1 || val === '1';
+      } else {
+        return val === true || val === 'true' || val === 1 || val === '1' ? 1 : 0;
+      }
+    };
+    
+    // Helper function to check if assignee needs confirmation
+    const needsConfirmation = (assigneeName) => {
+      if (!assigneeName) return false;
+      const config = require('../config/manager').loadConfig();
+      const userNames = (config.userNames || '').split(',').map(n => n.trim().toLowerCase());
+      return !userNames.includes(assigneeName.toLowerCase());
+    };
+    
+    // Helper function to check if assigned to user
+    const isAssignedToUser = (assigneeName) => {
+      if (!assigneeName) return false;
+      const config = require('../config/manager').loadConfig();
+      const userNames = (config.userNames || '').split(',').map(n => n.trim().toLowerCase());
+      return userNames.includes(assigneeName.toLowerCase());
+    };
+    
+    const requiresConfirmation = needsConfirmation(assignee);
+    const isUserTask = isAssignedToUser(assignee);
+    
+    // Determine priority/urgency based on task type
+    let finalPriority = priority || urgency || 'medium';
+    if (taskType === 'risk') {
+      finalPriority = priority || urgency || 'high'; // Risks default to high
+    }
+    
+    // Insert task into database (transcript_id is null for manual tasks)
+    const result = await db.run(
+      'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status, needs_confirmation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        null, // transcript_id = null for manual tasks
+        description,
+        assignee || null,
+        deadline || null,
+        finalPriority,
+        suggested_approach || null,
+        taskType,
+        finalPriority,
+        'pending',
+        getBooleanValue(requiresConfirmation)
+      ]
+    );
+    
+    const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
+    logger.info(`Created manual task ${insertedId} of type ${taskType}`);
+    
+    const taskData = {
+      id: insertedId,
+      description,
+      assignee: assignee || null,
+      deadline: deadline || null,
+      task_type: taskType,
+      priority: finalPriority,
+      urgency: finalPriority,
+      suggested_approach: suggested_approach || null
+    };
+    
+    // Create calendar event if applicable (only for user tasks with deadlines, not risks)
+    if (taskType !== 'risk' && deadline && isUserTask && !requiresConfirmation) {
+      const isGoogleConnected = await googleCalendar.isConnected();
+      if (isGoogleConnected) {
+        try {
+          const event = await googleCalendar.createEventFromCommitment(taskData);
+          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+          logger.info(`Created calendar event ${event.id} for manual task ${insertedId}`);
+        } catch (calError) {
+          logger.warn(`Failed to create calendar event: ${calError.message}`);
+        }
+      }
+    }
+    
+    // Create Microsoft Planner task if applicable (not for risks)
+    if (taskType !== 'risk') {
+      const isMicrosoftConnected = await microsoftPlanner.isConnected();
+      if (isMicrosoftConnected && deadline && isUserTask && !requiresConfirmation) {
+        try {
+          const microsoftTask = await microsoftPlanner.createTaskFromCommitment(taskData);
+          await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+          logger.info(`Created Microsoft task ${microsoftTask.id} for manual task ${insertedId}`);
+        } catch (msError) {
+          logger.warn(`Failed to create Microsoft task: ${msError.message}`);
+        }
+      }
+    }
+    
+    // Create Jira issue if applicable (not for risks)
+    if (taskType !== 'risk') {
+      const isJiraConnected = await jira.isConnected();
+      if (isJiraConnected) {
+        try {
+          const jiraIssue = await jira.createIssueFromCommitment(taskData);
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          logger.info(`Created Jira issue ${jiraIssue.key} for manual task ${insertedId}`);
+        } catch (jiraError) {
+          logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
+        }
+      }
+    }
+    
+    // Fetch the created task to return
+    const createdTask = await db.get('SELECT * FROM commitments WHERE id = ?', [insertedId]);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Task created successfully',
+      task: createdTask
+    });
+  } catch (err) {
+    logger.error('Error creating manual task:', err);
+    res.status(500).json({ 
+      error: 'Error creating task',
       message: err.message
     });
   }

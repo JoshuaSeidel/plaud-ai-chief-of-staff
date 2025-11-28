@@ -13,6 +13,15 @@ function Commitments() {
   const [hasFailedSyncs, setHasFailedSyncs] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, completed, overdue
   const [typeFilter, setTypeFilter] = useState('all'); // all, commitment, action, follow-up, risk
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newTask, setNewTask] = useState({
+    description: '',
+    task_type: 'commitment',
+    assignee: '',
+    deadline: '',
+    priority: 'medium'
+  });
 
   useEffect(() => {
     loadCommitments();
@@ -145,6 +154,46 @@ function Commitments() {
       alert(`❌ Error syncing: ${err.message}`);
     } finally {
       setSyncingJira(false);
+    }
+  };
+
+  const handleCreateTask = async () => {
+    if (!newTask.description.trim()) {
+      alert('Please enter a description');
+      return;
+    }
+    
+    setCreating(true);
+    try {
+      const taskData = {
+        description: newTask.description.trim(),
+        task_type: newTask.task_type,
+        assignee: newTask.assignee.trim() || null,
+        deadline: newTask.deadline || null,
+        priority: newTask.priority,
+        urgency: newTask.priority
+      };
+      
+      const response = await commitmentsAPI.create(taskData);
+      
+      if (response.data.success) {
+        setShowCreateModal(false);
+        setNewTask({
+          description: '',
+          task_type: 'commitment',
+          assignee: '',
+          deadline: '',
+          priority: 'medium'
+        });
+        await loadCommitments();
+        alert('✅ Task created successfully!');
+      } else {
+        alert(`❌ Failed to create task: ${response.data.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`❌ Error creating task: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -290,6 +339,24 @@ function Commitments() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>📋 Tasks</h2>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              title="Create a new task"
+            >
+              ➕ Create Task
+            </button>
             {microsoftConnected && (
               <button 
                 onClick={handleSyncToMicrosoft} 
@@ -735,8 +802,188 @@ function Commitments() {
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
             <p>No commitments found.</p>
             <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
-              Upload transcripts to automatically extract commitments.
+              Upload transcripts to automatically extract commitments, or create a task manually.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Create Task Modal */}
+      {showCreateModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }} onClick={() => !creating && setShowCreateModal(false)}>
+          <div className="card" style={{
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            backgroundColor: '#27272a',
+            border: '1px solid #3f3f46'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginBottom: '1.5rem' }}>Create New Task</h2>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e5e5e7', fontSize: '0.9rem' }}>
+                Task Type *
+              </label>
+              <select
+                value={newTask.task_type}
+                onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#18181b',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '6px',
+                  color: '#e5e5e7',
+                  fontSize: '1rem'
+                }}
+                disabled={creating}
+              >
+                <option value="commitment">📋 Commitment</option>
+                <option value="action">⚡ Action Item</option>
+                <option value="follow-up">🔄 Follow-up</option>
+                <option value="risk">⚠️ Risk</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e5e5e7', fontSize: '0.9rem' }}>
+                Description *
+              </label>
+              <textarea
+                value={newTask.description}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                placeholder="Enter task description..."
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#18181b',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '6px',
+                  color: '#e5e5e7',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  resize: 'vertical'
+                }}
+                disabled={creating}
+              />
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e5e5e7', fontSize: '0.9rem' }}>
+                Assignee (optional)
+              </label>
+              <input
+                type="text"
+                value={newTask.assignee}
+                onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value })}
+                placeholder="Enter assignee name"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#18181b',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '6px',
+                  color: '#e5e5e7',
+                  fontSize: '1rem'
+                }}
+                disabled={creating}
+              />
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e5e5e7', fontSize: '0.9rem' }}>
+                Deadline (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={newTask.deadline}
+                onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#18181b',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '6px',
+                  color: '#e5e5e7',
+                  fontSize: '1rem'
+                }}
+                disabled={creating}
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e5e5e7', fontSize: '0.9rem' }}>
+                Priority
+              </label>
+              <select
+                value={newTask.priority}
+                onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#18181b',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '6px',
+                  color: '#e5e5e7',
+                  fontSize: '1rem'
+                }}
+                disabled={creating}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="highest">Highest</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewTask({
+                    description: '',
+                    task_type: 'commitment',
+                    assignee: '',
+                    deadline: '',
+                    priority: 'medium'
+                  });
+                }}
+                disabled={creating}
+                className="secondary"
+                style={{ padding: '0.75rem 1.5rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTask}
+                disabled={creating || !newTask.description.trim()}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: creating ? '#6e6e73' : '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: creating || !newTask.description.trim() ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                {creating ? 'Creating...' : 'Create Task'}
+              </button>
+            </div>
           </div>
         </div>
       )}

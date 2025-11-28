@@ -55,6 +55,7 @@ export const calendarAPI = {
 export const tasksAPI = {
   getAll: (status = 'all') => api.get(`/commitments?status=${status}`),
   getById: (id) => api.get(`/commitments/${id}`),
+  create: (data) => api.post('/commitments', data),
   update: (id, data) => api.put(`/commitments/${id}`, data),
   delete: (id) => api.delete(`/commitments/${id}`),
   getOverdue: () => api.get('/commitments/status/overdue'),
