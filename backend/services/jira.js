@@ -395,6 +395,7 @@ module.exports = {
   getIssueTypes,
   createIssue,
   createIssueFromCommitment,
+  closeIssue,
   getIssue,
   listIssues
 };
