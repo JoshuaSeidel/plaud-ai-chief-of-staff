@@ -131,10 +131,12 @@ router.post('/microsoft/sync', async (req, res) => {
     const db = getDb();
     
     // Get all pending tasks that don't have a Microsoft task ID
+    // Exclude risks - they're informational only and don't need actions
     const tasks = await db.all(
       `SELECT * FROM commitments 
        WHERE status != 'completed' 
        AND (microsoft_task_id IS NULL OR microsoft_task_id = '')
+       AND (task_type IS NULL OR task_type != 'risk')
        ORDER BY created_date DESC`
     );
     
@@ -323,11 +325,12 @@ router.post('/jira/sync', async (req, res) => {
     const db = getDb();
     
     // Get all pending tasks that don't have a Jira issue key
-    // Include all task types: commitments, actions, follow-ups, risks
+    // Exclude risks - they're informational only and don't need actions
     const tasks = await db.all(
       `SELECT * FROM commitments 
        WHERE status != 'completed' 
        AND (jira_task_id IS NULL OR jira_task_id = '')
+       AND (task_type IS NULL OR task_type != 'risk')
        ORDER BY created_date DESC`
     );
     
@@ -387,10 +390,12 @@ router.post('/jira/sync-failed', async (req, res) => {
     
     // Get all pending tasks that don't have a Jira issue key
     // This includes tasks that failed to sync previously
+    // Exclude risks - they're informational only and don't need actions
     const tasks = await db.all(
       `SELECT * FROM commitments 
        WHERE status != 'completed' 
        AND (jira_task_id IS NULL OR jira_task_id = '')
+       AND (task_type IS NULL OR task_type != 'risk')
        ORDER BY created_date DESC`
     );
     

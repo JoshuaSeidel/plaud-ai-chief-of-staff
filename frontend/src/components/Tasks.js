@@ -10,6 +10,7 @@ function Commitments() {
   const [microsoftConnected, setMicrosoftConnected] = useState(false);
   const [syncingJira, setSyncingJira] = useState(false);
   const [jiraConnected, setJiraConnected] = useState(false);
+  const [hasFailedSyncs, setHasFailedSyncs] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, completed, overdue
   const [typeFilter, setTypeFilter] = useState('all'); // all, commitment, action, follow-up, risk
 
@@ -18,6 +19,19 @@ function Commitments() {
     checkMicrosoftPlannerStatus();
     checkJiraStatus();
   }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Check for failed syncs (tasks without jira_task_id when Jira is connected)
+  useEffect(() => {
+    if (jiraConnected && commitments.length > 0) {
+      const pendingWithoutJira = commitments.filter(c => 
+        c.status !== 'completed' && 
+        (!c.jira_task_id || c.jira_task_id === '')
+      );
+      setHasFailedSyncs(pendingWithoutJira.length > 0);
+    } else {
+      setHasFailedSyncs(false);
+    }
+  }, [jiraConnected, commitments]);
 
   const checkMicrosoftPlannerStatus = async () => {
     try {
@@ -84,7 +98,11 @@ function Commitments() {
       
       if (data.success) {
         alert(`✅ Synced ${data.synced} tasks to Jira${data.failed > 0 ? `\n⚠️ ${data.failed} failed` : ''}`);
-        loadCommitments(); // Reload to show updated task IDs
+        await loadCommitments(); // Reload to show updated task IDs
+        // Update failed syncs state after reload
+        if (data.failed === 0) {
+          setHasFailedSyncs(false);
+        }
       } else {
         alert(`❌ Sync failed: ${data.message || 'Unknown error'}`);
       }
@@ -115,7 +133,11 @@ function Commitments() {
         if (data.errors && data.errors.length > 0) {
           console.error('Sync errors:', data.errors);
         }
-        loadCommitments(); // Reload to show updated task IDs
+        await loadCommitments(); // Reload to show updated task IDs
+        // Update failed syncs state after reload
+        if (data.failed === 0) {
+          setHasFailedSyncs(false);
+        }
       } else {
         alert(`❌ Sync failed: ${data.message || 'Unknown error'}`);
       }
@@ -268,66 +290,70 @@ function Commitments() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>📋 Tasks</h2>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button 
-              onClick={handleSyncToMicrosoft} 
-              disabled={syncingMicrosoft || loading || !microsoftConnected}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: !microsoftConnected ? '#52525b' : (syncingMicrosoft ? '#6e6e73' : '#0078d4'),
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: (!microsoftConnected || syncingMicrosoft) ? 'not-allowed' : 'pointer',
-                fontSize: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                opacity: !microsoftConnected ? 0.6 : 1
-              }}
-              title={!microsoftConnected ? 'Connect Microsoft Planner in Settings to enable sync' : 'Sync tasks to Microsoft Planner'}
-            >
-              {syncingMicrosoft ? '⏳ Syncing...' : '📋 Sync to Microsoft Planner'}
-            </button>
-            <button 
-              onClick={handleSyncToJira} 
-              disabled={syncingJira || loading || !jiraConnected}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: !jiraConnected ? '#52525b' : (syncingJira ? '#6e6e73' : '#0052CC'),
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: (!jiraConnected || syncingJira) ? 'not-allowed' : 'pointer',
-                fontSize: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                opacity: !jiraConnected ? 0.6 : 1
-              }}
-              title={!jiraConnected ? 'Connect Jira in Settings to enable sync' : 'Sync tasks to Jira'}
-            >
-              {syncingJira ? '⏳ Syncing...' : '🎯 Sync to Jira'}
-            </button>
-            {jiraConnected && (
+            {microsoftConnected && (
               <button 
-                onClick={handleSyncFailedToJira} 
-                disabled={syncingJira || loading}
+                onClick={handleSyncToMicrosoft} 
+                disabled={syncingMicrosoft || loading}
                 style={{
                   padding: '0.5rem 1rem',
-                  backgroundColor: syncingJira ? '#6e6e73' : '#f59e0b',
+                  backgroundColor: syncingMicrosoft ? '#6e6e73' : '#0078d4',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
-                  cursor: syncingJira ? 'not-allowed' : 'pointer',
+                  cursor: syncingMicrosoft ? 'not-allowed' : 'pointer',
                   fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem'
                 }}
-                title="Retry syncing failed/pending tasks to Jira"
+                title="Sync tasks to Microsoft Planner"
               >
-                {syncingJira ? '⏳ Syncing...' : '🔄 Retry Failed'}
+                {syncingMicrosoft ? '⏳ Syncing...' : '📋 Sync to Microsoft Planner'}
               </button>
+            )}
+            {jiraConnected && (
+              <>
+                <button 
+                  onClick={handleSyncToJira} 
+                  disabled={syncingJira || loading}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: syncingJira ? '#6e6e73' : '#0052CC',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: syncingJira ? 'not-allowed' : 'pointer',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                  title="Sync tasks to Jira"
+                >
+                  {syncingJira ? '⏳ Syncing...' : '🎯 Sync to Jira'}
+                </button>
+                {hasFailedSyncs && (
+                  <button 
+                    onClick={handleSyncFailedToJira} 
+                    disabled={syncingJira || loading}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: syncingJira ? '#6e6e73' : '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: syncingJira ? 'not-allowed' : 'pointer',
+                      fontSize: '0.9rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                    title="Retry syncing failed/pending tasks to Jira"
+                  >
+                    {syncingJira ? '⏳ Syncing...' : '🔄 Retry Failed'}
+                  </button>
+                )}
+              </>
             )}
             <button onClick={loadCommitments} disabled={loading} className="secondary">
               {loading ? 'Loading...' : '🔄 Refresh'}

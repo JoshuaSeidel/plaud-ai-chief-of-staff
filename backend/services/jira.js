@@ -64,7 +64,16 @@ async function jiraRequest(endpoint, method = 'GET', body = null) {
   
   if (!response.ok) {
     const errorText = await response.text();
-    logger.error(`Jira API error: ${response.status} - ${errorText}`);
+    // Check if this is an assignment error (400 with "cannot be assigned") - these are expected
+    const isAssignmentError = response.status === 400 && 
+      (errorText.includes('cannot be assigned') || endpoint.includes('/assignee'));
+    
+    if (isAssignmentError) {
+      // Assignment errors are expected - log as info, not error
+      logger.info(`Jira API ${method} ${endpoint} - Assignment not possible (this is expected)`);
+    } else {
+      logger.error(`Jira API error: ${response.status} - ${errorText}`);
+    }
     throw new Error(`Jira API error: ${response.status} - ${errorText.substring(0, 200)}`);
   }
   
@@ -244,17 +253,32 @@ async function createIssue(issueData) {
       delete issue.fields.assignee;
       createdIssue = await jiraRequest('/issue', 'POST', issue);
       
-      // Try to assign after creation (this can fail silently)
+      // Try to assign after creation (this can fail silently - expected behavior)
       if (assignee && createdIssue && createdIssue.key) {
         try {
           const users = await jiraRequest(`/user/search?query=${encodeURIComponent(assignee)}`);
           if (users && users.length > 0) {
-            await jiraRequest(`/issue/${createdIssue.key}/assignee`, 'PUT', {
-              accountId: users[0].accountId
-            });
-            logger.info(`Assigned issue ${createdIssue.key} to ${assignee}`);
+            // Use a wrapper to catch assignment errors without logging them as errors
+            try {
+              await jiraRequest(`/issue/${createdIssue.key}/assignee`, 'PUT', {
+                accountId: users[0].accountId
+              });
+              logger.info(`Assigned issue ${createdIssue.key} to ${assignee}`);
+            } catch (assignError) {
+              // Assignment failures are expected (permissions, project settings) - don't log as error
+              // Check if it's a "cannot be assigned" error specifically
+              const errorMsg = assignError.message || '';
+              if (errorMsg.includes('cannot be assigned') || errorMsg.includes('400')) {
+                // This is expected - user doesn't have permission or project settings prevent assignment
+                logger.info(`Issue ${createdIssue.key} created successfully (assignment skipped: user cannot be assigned issues)`);
+              } else {
+                // Other assignment errors - log as warning, not error
+                logger.warn(`Could not assign issue ${createdIssue.key} to ${assignee}: ${errorMsg}`);
+              }
+            }
           }
         } catch (assignError) {
+          // User search or other assignment-related errors - log as warning, not error
           logger.warn(`Could not assign issue ${createdIssue.key} to ${assignee}: ${assignError.message}`);
         }
       }

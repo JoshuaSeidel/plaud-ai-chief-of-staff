@@ -269,17 +269,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      // Create Jira issue for risks (even without deadlines, risks can be tracked in Jira)
-      if (isJiraConnected) {
-        try {
-          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'risk' });
-          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
-          logger.info(`Created Jira issue ${jiraIssue.key} for risk ${insertedId}`);
-        } catch (jiraError) {
-          logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
-        }
-      }
-      // Risks are not added to calendar - they're informational/awareness items only
+      // Risks are not synced to Jira, Microsoft Planner, or calendar - they're informational/awareness items only
     }
     logger.info(`Saved ${extracted.risks.length} risks (no calendar events for risks)`);
   }
