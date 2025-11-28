@@ -21,7 +21,9 @@ async function getJiraConfig() {
   if (!projectKeyRow || !projectKeyRow.value) missing.push('Project Key');
   
   if (missing.length > 0) {
-    throw new Error(`Jira credentials not configured. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
+    const error = new Error(`Jira credentials not configured. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
+    error.code = 'NOT_CONFIGURED';
+    throw error;
   }
   
   return {
@@ -83,6 +85,11 @@ async function isConnected() {
     await jiraRequest('/myself');
     return true;
   } catch (error) {
+    // If credentials aren't configured, that's fine - just return false silently
+    if (error.code === 'NOT_CONFIGURED' || (error.message && error.message.includes('not configured'))) {
+      return false;
+    }
+    // For other errors, log a warning but still return false
     logger.warn('Jira connection check failed', error.message);
     return false;
   }

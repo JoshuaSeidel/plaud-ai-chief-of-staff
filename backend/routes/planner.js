@@ -223,10 +223,15 @@ router.get('/microsoft/lists', async (req, res) => {
 router.get('/jira/status', async (req, res) => {
   try {
     const connected = await jira.isConnected();
-    res.json({ connected });
+    res.json({ connected: connected || false });
   } catch (error) {
-    logger.error('Error checking Jira status', error);
-    res.json({ connected: false });
+    // Always return false on error, don't log as error if it's just not configured
+    if (error.code === 'NOT_CONFIGURED' || (error.message && error.message.includes('not configured'))) {
+      res.json({ connected: false });
+    } else {
+      logger.error('Error checking Jira status', error);
+      res.json({ connected: false });
+    }
   }
 });
 

@@ -364,11 +364,16 @@ function Configuration() {
 
   const checkJiraStatus = async () => {
     try {
+      setCheckingJira(true);
       const response = await fetch('/api/planner/jira/status');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
       const data = await response.json();
-      setJiraConnected(data.connected);
+      setJiraConnected(data.connected || false);
     } catch (err) {
       console.error('Failed to check Jira status:', err);
+      setJiraConnected(false);
     } finally {
       setCheckingJira(false);
     }
