@@ -365,6 +365,41 @@ async function createTaskFromCommitment(commitment) {
 }
 
 /**
+ * Update task status (mark as completed)
+ */
+async function updateTaskStatus(taskId, status) {
+  try {
+    const client = await getGraphClient();
+    const taskListId = await getTaskListId();
+    
+    // Microsoft To Do API status values: notStarted, inProgress, completed, waitingOnOthers, deferred
+    const validStatuses = ['notStarted', 'inProgress', 'completed', 'waitingOnOthers', 'deferred'];
+    if (!validStatuses.includes(status)) {
+      throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+    }
+    
+    await client
+      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .patch({
+        status: status
+      });
+    
+    logger.info(`Updated Microsoft task ${taskId} status to ${status}`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to update Microsoft task ${taskId} status: ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * Mark a task as completed
+ */
+async function completeTask(taskId) {
+  return await updateTaskStatus(taskId, 'completed');
+}
+
+/**
  * List all tasks
  */
 async function listTasks(limit = 50) {
@@ -388,6 +423,8 @@ module.exports = {
   getTaskListId,
   createTask,
   createTaskFromCommitment,
+  updateTaskStatus,
+  completeTask,
   listTasks
 };
 

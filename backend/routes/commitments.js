@@ -158,6 +158,9 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Commitment not found' });
     }
     
+    // Get task data for external integrations
+    const updatedTask = await db.get('SELECT jira_task_id, microsoft_task_id, calendar_event_id FROM commitments WHERE id = ?', [id]);
+    
     // Delete calendar event if needed (after updating database)
     if (shouldDeleteCalendarEvent && task && task.calendar_event_id) {
       try {
@@ -168,6 +171,32 @@ router.put('/:id', async (req, res) => {
         }
       } catch (calError) {
         logger.warn(`Failed to delete calendar event: ${calError.message}`);
+      }
+    }
+    
+    // Close Jira issue if task is completed and has a Jira issue key
+    if (status === 'completed' && updatedTask && updatedTask.jira_task_id) {
+      try {
+        const isJiraConnected = await jira.isConnected();
+        if (isJiraConnected) {
+          await jira.closeIssue(updatedTask.jira_task_id);
+          logger.info(`Closed Jira issue ${updatedTask.jira_task_id} for completed task ${id}`);
+        }
+      } catch (jiraError) {
+        logger.warn(`Failed to close Jira issue: ${jiraError.message}`);
+      }
+    }
+    
+    // Complete Microsoft Planner task if task is completed and has a Microsoft task ID
+    if (status === 'completed' && updatedTask && updatedTask.microsoft_task_id) {
+      try {
+        const isMicrosoftConnected = await microsoftPlanner.isConnected();
+        if (isMicrosoftConnected) {
+          await microsoftPlanner.completeTask(updatedTask.microsoft_task_id);
+          logger.info(`Completed Microsoft task ${updatedTask.microsoft_task_id} for completed task ${id}`);
+        }
+      } catch (msError) {
+        logger.warn(`Failed to complete Microsoft task: ${msError.message}`);
       }
     }
     

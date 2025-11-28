@@ -292,6 +292,45 @@ async function createIssue(issueData) {
 }
 
 /**
+ * Transition a Jira issue to Done/Closed status
+ */
+async function closeIssue(issueKey) {
+  try {
+    // First, get available transitions for this issue
+    const transitions = await jiraRequest(`/issue/${issueKey}/transitions`);
+    
+    // Find the "Done" or "Closed" transition
+    // Common transition names: "Done", "Close", "Resolve", "Closed"
+    const doneTransition = transitions.transitions.find(t => 
+      t.name.toLowerCase() === 'done' || 
+      t.name.toLowerCase() === 'close' || 
+      t.name.toLowerCase() === 'closed' ||
+      t.name.toLowerCase() === 'resolve' ||
+      t.to?.name?.toLowerCase() === 'done' ||
+      t.to?.name?.toLowerCase() === 'closed'
+    );
+    
+    if (!doneTransition) {
+      logger.warn(`No "Done" transition found for issue ${issueKey}. Available transitions: ${transitions.transitions.map(t => t.name).join(', ')}`);
+      return false;
+    }
+    
+    // Transition the issue
+    await jiraRequest(`/issue/${issueKey}/transitions`, 'POST', {
+      transition: {
+        id: doneTransition.id
+      }
+    });
+    
+    logger.info(`Transitioned Jira issue ${issueKey} to Done`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to close Jira issue ${issueKey}: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Create issue from commitment
  */
 async function createIssueFromCommitment(commitment) {
