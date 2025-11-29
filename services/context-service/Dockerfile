@@ -1,15 +1,17 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /build
 
 # Install build dependencies
-RUN apk add --no-cache git
+RUN apk add --no-cache git ca-certificates
 
 # Copy go mod files
 COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
+# Download dependencies with retry and verbose output
+RUN go env -w GO111MODULE=on && \
+    go env -w GOPROXY=https://proxy.golang.org,direct && \
+    go mod download -x
 
 # Copy source code
 COPY main.go ./
