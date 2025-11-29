@@ -15,7 +15,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://localhost:3001
+      # Frontend uses relative /api path which nginx proxies to backend
+      - REACT_APP_API_URL=/api
     depends_on:
       - aicos-backend
     networks:

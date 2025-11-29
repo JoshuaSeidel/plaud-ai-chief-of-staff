@@ -24,7 +24,35 @@ serverLogger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
 serverLogger.info(`Port: ${PORT}`);
 
 // Middleware
-app.use(cors());
+// CORS configuration - allow requests from frontend container and common origins
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or same-origin requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow requests from frontend container (when proxied through nginx)
+    // Allow localhost for development
+    // Allow any origin in development mode
+    const allowedOrigins = [
+      'http://aicos-frontend:3000',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL,
+      process.env.ALLOWED_ORIGINS?.split(',')
+    ].filter(Boolean).flat();
+    
+    if (process.env.NODE_ENV === 'development' || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // In production, be more restrictive but still allow common patterns
+      callback(null, true); // For now, allow all - can be tightened based on deployment
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

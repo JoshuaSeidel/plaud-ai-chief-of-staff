@@ -18,22 +18,22 @@ import (
 
 // Context represents a context entry
 type Context struct {
-	ID          int       `json:"id"`
-	Category    string    `json:"category"`
-	Content     string    `json:"content"`
-	Source      string    `json:"source"`
-	CreatedAt   time.Time `json:"created_at"`
-	IsActive    bool      `json:"is_active"`
-	Priority    int       `json:"priority"`
-	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	ID        int        `json:"id"`
+	Category  string     `json:"category"`
+	Content   string     `json:"content"`
+	Source    string     `json:"source"`
+	CreatedAt time.Time  `json:"created_at"`
+	IsActive  bool       `json:"is_active"`
+	Priority  int        `json:"priority"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 // ContextQuery represents query parameters
 type ContextQuery struct {
-	Category  string `json:"category"`
-	Source    string `json:"source"`
-	Limit     int    `json:"limit"`
-	ActiveOnly bool  `json:"active_only"`
+	Category   string `json:"category"`
+	Source     string `json:"source"`
+	Limit      int    `json:"limit"`
+	ActiveOnly bool   `json:"active_only"`
 }
 
 // ContextResponse represents the API response
@@ -45,10 +45,10 @@ type ContextResponse struct {
 
 // HealthResponse represents health check response
 type HealthResponse struct {
-	Status          string `json:"status"`
-	Service         string `json:"service"`
-	DBConnected     bool   `json:"db_connected"`
-	RedisConnected  bool   `json:"redis_connected"`
+	Status         string `json:"status"`
+	Service        string `json:"service"`
+	DBConnected    bool   `json:"db_connected"`
+	RedisConnected bool   `json:"redis_connected"`
 }
 
 var (
@@ -91,7 +91,7 @@ func main() {
 
 func initDB() error {
 	dbType := getEnv("DB_TYPE", "postgres")
-	
+
 	var connStr string
 	if dbType == "postgres" {
 		host := getEnv("POSTGRES_HOST", "postgres")
@@ -99,7 +99,7 @@ func initDB() error {
 		user := getEnv("POSTGRES_USER", "aicos")
 		password := getEnv("POSTGRES_PASSWORD", "")
 		dbname := getEnv("POSTGRES_DB", "ai_chief_of_staff")
-		
+
 		connStr = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 			host, port, user, password, dbname)
 	} else {
@@ -278,12 +278,12 @@ func getRecentContextHandler(w http.ResponseWriter, r *http.Request) {
 		AND created_at >= NOW() - INTERVAL '%d days'
 	`
 	args := []interface{}{}
-	
+
 	if category != "" {
 		sqlQuery += " AND category = $1"
 		args = append(args, category)
 	}
-	
+
 	sqlQuery += " ORDER BY created_at DESC LIMIT 200"
 	sqlQuery = fmt.Sprintf(sqlQuery, days)
 

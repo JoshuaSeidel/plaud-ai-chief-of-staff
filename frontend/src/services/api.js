@@ -2,9 +2,12 @@ import axios from 'axios';
 
 // Auto-detect API base URL
 // Priority:
-// 1. REACT_APP_API_URL environment variable (for custom setups)
+// 1. REACT_APP_API_URL environment variable (for custom setups, including Docker: http://aicos-backend:3001/api)
 // 2. If on localhost:3000 (development), use localhost:3001/api
 // 3. Otherwise (production/SWAG/etc), use relative path /api (same origin)
+// Note: In Docker microservices, REACT_APP_API_URL should be set to http://aicos-backend:3001/api
+// However, since the browser can't resolve Docker container names, this typically needs to be
+// proxied through nginx or use the host's exposed port
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
                      (window.location.hostname === 'localhost' && window.location.port === '3000' 
                        ? 'http://localhost:3001/api' 
