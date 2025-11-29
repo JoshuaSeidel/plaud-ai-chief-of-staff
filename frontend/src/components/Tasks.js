@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { commitmentsAPI, transcriptsAPI, intelligenceAPI } from '../services/api';
+import { commitmentsAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 function Commitments() {
