@@ -1,5 +1,11 @@
 name: Build and Push Docker Images (Microservices)
 
+# Trigger Strategy:
+# - Push to main → builds images tagged as 'latest' and 'v{version}'
+# - Push to feature/** → builds images tagged as 'dev' and 'v{version}'
+# - Version tags (v*) → builds images tagged with that version
+# - PRs → NO BUILD (saves CI resources, PRs don't need published images)
+
 on:
   push:
     branches:
@@ -7,9 +13,6 @@ on:
       - 'feature/**'
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - main
 
 env:
   REGISTRY: ghcr.io
@@ -40,7 +43,9 @@ jobs:
           BRANCH_NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\///')
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           
-          # Determine tag suffix - feature branches get 'dev' tag
+          # Determine tag suffix based on branch:
+          # - main branch: 'latest' and version tags
+          # - feature branches: 'dev' and version tags
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             TAG_SUFFIX="latest"
           else
