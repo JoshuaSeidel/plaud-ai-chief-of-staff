@@ -628,6 +628,31 @@ function Configuration() {
       appUpdates.microsoftEnabled = enabledIntegrations.microsoft;
       appUpdates.jiraEnabled = enabledIntegrations.jira;
       
+      // AI Model Configuration (per-service)
+      if (config.aiIntelligenceProvider) appUpdates.aiIntelligenceProvider = config.aiIntelligenceProvider;
+      if (config.aiIntelligenceModel) appUpdates.aiIntelligenceModel = config.aiIntelligenceModel;
+      if (config.voiceProcessorProvider) appUpdates.voiceProcessorProvider = config.voiceProcessorProvider;
+      if (config.voiceProcessorModel) appUpdates.voiceProcessorModel = config.voiceProcessorModel;
+      if (config.patternRecognitionProvider) appUpdates.patternRecognitionProvider = config.patternRecognitionProvider;
+      if (config.patternRecognitionModel) appUpdates.patternRecognitionModel = config.patternRecognitionModel;
+      if (config.nlParserProvider) appUpdates.nlParserProvider = config.nlParserProvider;
+      if (config.nlParserModel) appUpdates.nlParserModel = config.nlParserModel;
+      
+      // AI API Keys
+      if (config.anthropicApiKey && !config.anthropicApiKey.includes('•')) {
+        appUpdates.anthropicApiKey = config.anthropicApiKey;
+      }
+      if (config.openaiApiKey && !config.openaiApiKey.includes('•')) {
+        appUpdates.openaiApiKey = config.openaiApiKey;
+      }
+      if (config.ollamaBaseUrl) appUpdates.ollamaBaseUrl = config.ollamaBaseUrl;
+      if (config.awsAccessKeyId && !config.awsAccessKeyId.includes('•')) {
+        appUpdates.awsAccessKeyId = config.awsAccessKeyId;
+      }
+      if (config.awsSecretAccessKey && !config.awsSecretAccessKey.includes('•')) {
+        appUpdates.awsSecretAccessKey = config.awsSecretAccessKey;
+      }
+      
       // Jira configuration
       if (config.jiraBaseUrl) {
         appUpdates.jiraBaseUrl = config.jiraBaseUrl;
@@ -957,80 +982,318 @@ function Configuration() {
           </div>
         )}
 
-        {/* AI Provider Configuration */}
+        {/* AI Configuration - Per Service */}
         <div style={{ marginBottom: '2rem' }}>
-          <h3>🤖 AI Provider</h3>
-          <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1rem' }}>
-            Select which AI provider to use for task analysis, transcription, and intelligence services.
+          <h3>🤖 AI Models & Providers</h3>
+          <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1.5rem' }}>
+            Configure AI providers and models for each service. Each service can use a different provider/model combination.
           </p>
           
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '1rem',
-            marginBottom: '1.5rem',
-            padding: '1rem',
-            backgroundColor: '#18181b',
-            borderRadius: '8px',
-            border: '1px solid #3f3f46'
-          }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
-                <input
-                  type="radio"
-                  name="aiProvider"
-                  value="anthropic"
-                  checked={config.aiProvider === 'anthropic'}
-                  onChange={(e) => handleChange('aiProvider', e.target.value)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>Anthropic Claude (Recommended)</span>
-              </label>
-              
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
-                <input
-                  type="radio"
-                  name="aiProvider"
-                  value="openai"
-                  checked={config.aiProvider === 'openai'}
-                  onChange={(e) => handleChange('aiProvider', e.target.value)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>OpenAI (GPT + Whisper)</span>
-              </label>
-              
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
-                <input
-                  type="radio"
-                  name="aiProvider"
-                  value="ollama"
-                  checked={config.aiProvider === 'ollama'}
-                  onChange={(e) => handleChange('aiProvider', e.target.value)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>Ollama (Local/Privacy)</span>
-              </label>
-              
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
-                <input
-                  type="radio"
-                  name="aiProvider"
-                  value="bedrock"
-                  checked={config.aiProvider === 'bedrock'}
-                  onChange={(e) => handleChange('aiProvider', e.target.value)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>AWS Bedrock (Enterprise)</span>
-              </label>
-            </div>
+          {/* AI Intelligence Service */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🧠 AI Intelligence Service</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Task effort estimation, energy classification, and task clustering
+            </p>
             
-            <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#27272a', borderRadius: '6px' }}>
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', margin: 0 }}>
-                {config.aiProvider === 'anthropic' && '✓ Best quality reasoning and analysis. Requires Anthropic API key.'}
-                {config.aiProvider === 'openai' && '✓ Excellent performance with GPT-4. Includes Whisper for transcription.'}
-                {config.aiProvider === 'ollama' && '✓ Run AI models locally for privacy. Requires Ollama server running.'}
-                {config.aiProvider === 'bedrock' && '✓ Enterprise AWS integration. Uses Claude models via Bedrock.'}
-              </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.aiIntelligenceProvider || 'anthropic'}
+                  onChange={(e) => handleChange('aiIntelligenceProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                <select
+                  value={config.aiIntelligenceModel || 'claude-sonnet-4-5-20250929'}
+                  onChange={(e) => handleChange('aiIntelligenceModel', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {(config.aiIntelligenceProvider || 'anthropic') === 'anthropic' && (
+                    <>
+                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    </>
+                  )}
+                  {(config.aiIntelligenceProvider || 'anthropic') === 'openai' && (
+                    <>
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </>
+                  )}
+                  {(config.aiIntelligenceProvider || 'anthropic') === 'ollama' && (
+                    <>
+                      <option value="mistral:latest">Mistral Latest</option>
+                      <option value="llama2:latest">Llama 2 Latest</option>
+                      <option value="codellama:latest">Code Llama Latest</option>
+                    </>
+                  )}
+                  {(config.aiIntelligenceProvider || 'anthropic') === 'bedrock' && (
+                    <>
+                      <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                      <option value="anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* Voice Processor Service */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🎤 Voice Processor Service</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Audio transcription and voice-to-text
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.voiceProcessorProvider || 'openai'}
+                  onChange={(e) => handleChange('voiceProcessorProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="openai">OpenAI Whisper</option>
+                  <option value="ollama">Ollama Whisper</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                <select
+                  value={config.voiceProcessorModel || 'whisper-1'}
+                  onChange={(e) => handleChange('voiceProcessorModel', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {(config.voiceProcessorProvider || 'openai') === 'openai' && (
+                    <option value="whisper-1">Whisper-1 (Best Quality)</option>
+                  )}
+                  {(config.voiceProcessorProvider || 'openai') === 'ollama' && (
+                    <>
+                      <option value="whisper:medium">Whisper Medium</option>
+                      <option value="whisper:small">Whisper Small</option>
+                      <option value="whisper:base">Whisper Base</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* Pattern Recognition Service */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>📊 Pattern Recognition Service</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Behavioral patterns and productivity insights
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.patternRecognitionProvider || 'anthropic'}
+                  onChange={(e) => handleChange('patternRecognitionProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                <select
+                  value={config.patternRecognitionModel || 'claude-sonnet-4-5-20250929'}
+                  onChange={(e) => handleChange('patternRecognitionModel', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {(config.patternRecognitionProvider || 'anthropic') === 'anthropic' && (
+                    <>
+                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    </>
+                  )}
+                  {(config.patternRecognitionProvider || 'anthropic') === 'openai' && (
+                    <>
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    </>
+                  )}
+                  {(config.patternRecognitionProvider || 'anthropic') === 'ollama' && (
+                    <>
+                      <option value="mistral:latest">Mistral Latest</option>
+                      <option value="llama2:latest">Llama 2 Latest</option>
+                    </>
+                  )}
+                  {(config.patternRecognitionProvider || 'anthropic') === 'bedrock' && (
+                    <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* NL Parser Service */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>💬 Natural Language Parser</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Parse natural language into structured tasks
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.nlParserProvider || 'anthropic'}
+                  onChange={(e) => handleChange('nlParserProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                <select
+                  value={config.nlParserModel || 'claude-sonnet-4-5-20250929'}
+                  onChange={(e) => handleChange('nlParserModel', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {(config.nlParserProvider || 'anthropic') === 'anthropic' && (
+                    <>
+                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    </>
+                  )}
+                  {(config.nlParserProvider || 'anthropic') === 'openai' && (
+                    <>
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    </>
+                  )}
+                  {(config.nlParserProvider || 'anthropic') === 'ollama' && (
+                    <>
+                      <option value="mistral:latest">Mistral Latest</option>
+                      <option value="llama2:latest">Llama 2 Latest</option>
+                    </>
+                  )}
+                  {(config.nlParserProvider || 'anthropic') === 'bedrock' && (
+                    <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* API Keys Section */}
+          <div className="glass-panel">
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🔑 API Keys</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Configure API keys for AI providers. Keys are stored securely and never displayed in full.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Anthropic API Key
+                </label>
+                <input
+                  type="password"
+                  value={config.anthropicApiKey || ''}
+                  onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
+                  placeholder="sk-ant-..."
+                  style={{ width: '100%', fontFamily: 'monospace' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  OpenAI API Key
+                </label>
+                <input
+                  type="password"
+                  value={config.openaiApiKey || ''}
+                  onChange={(e) => handleChange('openaiApiKey', e.target.value)}
+                  placeholder="sk-..."
+                  style={{ width: '100%', fontFamily: 'monospace' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Ollama Base URL (for local deployment)
+                </label>
+                <input
+                  type="url"
+                  value={config.ollamaBaseUrl || 'http://localhost:11434'}
+                  onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
+                  placeholder="http://localhost:11434"
+                  style={{ width: '100%' }}
+                />
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    AWS Access Key ID (for Bedrock)
+                  </label>
+                  <input
+                    type="password"
+                    value={config.awsAccessKeyId || ''}
+                    onChange={(e) => handleChange('awsAccessKeyId', e.target.value)}
+                    placeholder="AKIA..."
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    AWS Secret Access Key
+                  </label>
+                  <input
+                    type="password"
+                    value={config.awsSecretAccessKey || ''}
+                    onChange={(e) => handleChange('awsSecretAccessKey', e.target.value)}
+                    placeholder="..."
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>

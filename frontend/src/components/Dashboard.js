@@ -167,15 +167,11 @@ function Dashboard({ setActiveTab }) {
           <button 
             onClick={generateBrief} 
             disabled={loading}
+            className="glass-button-primary"
             style={{
               padding: '0.75rem 1.25rem',
-              backgroundColor: '#3f3f46',
-              color: '#e4e4e7',
-              border: '1px solid #52525b',
-              borderRadius: '8px',
               cursor: loading ? 'not-allowed' : 'pointer',
               fontSize: '0.9375rem',
-              fontWeight: '500',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',

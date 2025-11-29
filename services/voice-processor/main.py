@@ -127,8 +127,17 @@ async def root():
     """Root endpoint"""
     return {
         "service": "voice-processor",
-        "version": "1.0.0",
+        "version": "1.5.0",
         "status": "running"
+    }
+
+@app.get("/version")
+async def version():
+    """Version endpoint"""
+    return {
+        "service": "voice-processor",
+        "version": "1.5.0",
+        "status": "operational"
     }
 
 @app.get("/health")
@@ -137,7 +146,7 @@ async def health_check():
     health = {
         "status": "healthy",
         "service": "voice-processor",
-        "version": "1.0.0",
+        "version": "1.5.0",
         "openai_configured": bool(openai_api_key),
         "redis_connected": False
     }

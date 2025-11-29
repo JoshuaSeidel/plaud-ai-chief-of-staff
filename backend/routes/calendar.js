@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createModuleLogger } = require('../utils/logger');
+const { getConfig } = require('../config/manager');
 const googleCalendar = require('../services/google-calendar');
 const microsoftCalendar = require('../services/microsoft-calendar');
 
@@ -12,7 +13,6 @@ const logger = createModuleLogger('CALENDAR');
 router.get('/events', async (req, res) => {
   try {
     // Get configuration
-    const { getConfig } = require('../config/manager');
     const googleEnabled = await getConfig('googleCalendarEnabled', true);
     const microsoftEnabled = await getConfig('microsoftEnabled', false);
     

@@ -366,8 +366,8 @@ async def health_check():
     status = {
         "status": "healthy",
         "service": "ai-intelligence",
-        "version": "1.0.0",
-        "anthropic": anthropic_client is not None,
+        "version": "1.5.0",
+        "ai_provider": ai_client is not None,
         "redis": redis_client is not None
     }
     
@@ -386,13 +386,22 @@ async def root():
     """Root endpoint"""
     return {
         "service": "AI Intelligence Service",
-        "version": "1.0.0",
+        "version": "1.5.0",
         "endpoints": [
             "/estimate-effort",
             "/classify-energy",
             "/cluster-tasks",
             "/health"
         ]
+    }
+
+@app.get("/version")
+async def version():
+    """Version endpoint"""
+    return {
+        "service": "ai-intelligence",
+        "version": "1.5.0",
+        "status": "operational"
     }
 
 if __name__ == "__main__":
