@@ -123,6 +123,7 @@ async def health_check():
     health = {
         "status": "healthy",
         "service": "voice-processor",
+        "version": "1.0.0",
         "openai_configured": bool(openai_api_key),
         "redis_connected": False
     }

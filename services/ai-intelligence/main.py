@@ -310,6 +310,7 @@ async def health_check():
     status = {
         "status": "healthy",
         "service": "ai-intelligence",
+        "version": "1.0.0",
         "anthropic": anthropic_client is not None,
         "redis": redis_client is not None
     }

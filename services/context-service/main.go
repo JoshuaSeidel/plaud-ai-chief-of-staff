@@ -49,6 +49,7 @@ type ContextResponse struct {
 type HealthResponse struct {
 	Status         string `json:"status"`
 	Service        string `json:"service"`
+	Version        string `json:"version"`
 	DBConnected    bool   `json:"db_connected"`
 	RedisConnected bool   `json:"redis_connected"`
 }
@@ -203,6 +204,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	health := HealthResponse{
 		Status:         "healthy",
 		Service:        "context-service",
+		Version:        "1.0.0",
 		DBConnected:    db != nil && db.Ping() == nil,
 		RedisConnected: false,
 	}

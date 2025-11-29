@@ -218,6 +218,8 @@ async def health_check():
     
     return {
         "status": "healthy",
+        "service": "pattern-recognition",
+        "version": "1.0.0",
         "redis": redis_status,
         "timestamp": datetime.utcnow().isoformat()
     }

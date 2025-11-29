@@ -113,6 +113,7 @@ function Configuration() {
     microsoftClientId: '',
     microsoftClientSecret: '',
     microsoftRedirectUri: '',
+    microsoftCalendarId: '',
     microsoftTaskListId: '',
     jiraBaseUrl: '',
     jiraEmail: '',
@@ -133,7 +134,7 @@ function Configuration() {
   // Integration toggles
   const [enabledIntegrations, setEnabledIntegrations] = useState({
     googleCalendar: true,
-    microsoftPlanner: false,
+    microsoft: false, // Combined Microsoft Calendar + Planner
     jira: false
   });
   
@@ -181,19 +182,19 @@ function Configuration() {
     const success = hashParams.get('success');
     const errorDetails = hashParams.get('error_details');
     
-    if (success === 'microsoft_planner_connected') {
-      setMessage({ type: 'success', text: '✅ Microsoft Planner connected successfully!' });
+    if (success === 'microsoft_planner_connected' || success === 'microsoft_calendar_connected' || success === 'microsoft_integration_connected') {
+      setMessage({ type: 'success', text: '✅ Microsoft Integration connected successfully! (Calendar + Planner)' });
       checkMicrosoftPlannerStatus(); // Refresh connection status
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
     } else if (error === 'microsoft_oauth_failed') {
-      setMessage({ type: 'error', text: '❌ Failed to connect Microsoft Planner. Please try again.' });
+      setMessage({ type: 'error', text: '❌ Failed to connect Microsoft Integration. Please try again.' });
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
     } else if (error === 'microsoft_oauth_access_denied') {
-      setMessage({ type: 'error', text: '❌ Microsoft Planner connection was cancelled. Please try again if you want to connect.' });
+      setMessage({ type: 'error', text: '❌ Microsoft Integration connection was cancelled. Please try again if you want to connect.' });
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
@@ -207,7 +208,7 @@ function Configuration() {
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
     } else if (error === 'microsoft_oauth_exchange_failed') {
-      setMessage({ type: 'error', text: '❌ Failed to complete Microsoft Planner connection. Please check your credentials and try again.' });
+      setMessage({ type: 'error', text: '❌ Failed to complete Microsoft Integration connection. Please check your credentials and try again.' });
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
@@ -352,6 +353,7 @@ function Configuration() {
         microsoftClientId: appData.microsoftClientId || '',
         microsoftClientSecret: appData.microsoftClientSecret ? '••••••••' : '',
         microsoftRedirectUri: appData.microsoftRedirectUri || '',
+        microsoftCalendarId: appData.microsoftCalendarId || '',
         microsoftTaskListId: appData.microsoftTaskListId || '',
         jiraBaseUrl: appData.jiraBaseUrl || '',
         jiraEmail: appData.jiraEmail || '',
@@ -392,16 +394,18 @@ function Configuration() {
 
   const checkMicrosoftPlannerStatus = async () => {
     try {
+      // Check Microsoft status (shared token for Calendar and Planner)
       const response = await fetch('/api/planner/microsoft/status');
       const data = await response.json();
       setMicrosoftConnected(data.connected);
       
-      // If connected, load available task lists
+      // If connected, load available task lists and enable integration
       if (data.connected) {
         loadMicrosoftTaskLists();
+        setEnabledIntegrations(prev => ({ ...prev, microsoft: true }));
       }
     } catch (err) {
-      console.error('Failed to check Microsoft Planner status:', err);
+      console.error('Failed to check Microsoft status:', err);
     } finally {
       setCheckingMicrosoft(false);
     }
@@ -494,27 +498,30 @@ function Configuration() {
 
   const handleMicrosoftConnect = async () => {
     try {
+      // Use planner route for auth (it uses microsoft-calendar service which includes both scopes)
       const response = await fetch('/api/planner/microsoft/auth');
       const data = await response.json();
       if (data.authUrl) {
         window.location.href = data.authUrl;
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to initiate Microsoft Planner connection' });
+      setMessage({ type: 'error', text: 'Failed to initiate Microsoft Integration connection' });
     }
   };
 
   const handleMicrosoftDisconnect = async () => {
-    if (!window.confirm('Are you sure you want to disconnect Microsoft Planner?')) {
+    if (!window.confirm('Are you sure you want to disconnect Microsoft Integration? This will disconnect both Calendar and Planner.')) {
       return;
     }
     
     try {
+      // Disconnect from planner route (removes shared token)
       await fetch('/api/planner/microsoft/disconnect', { method: 'POST' });
       setMicrosoftConnected(false);
-      setMessage({ type: 'success', text: 'Microsoft Planner disconnected successfully' });
+      setEnabledIntegrations(prev => ({ ...prev, microsoft: false }));
+      setMessage({ type: 'success', text: 'Microsoft Integration disconnected successfully (Calendar + Planner)' });
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to disconnect Microsoft Planner' });
+      setMessage({ type: 'error', text: 'Failed to disconnect Microsoft Integration' });
     }
   };
 
@@ -603,6 +610,11 @@ function Configuration() {
       }
       if (config.microsoftRedirectUri) {
         appUpdates.microsoftRedirectUri = config.microsoftRedirectUri;
+      }
+      if (config.microsoftCalendarId) {
+        appUpdates.microsoftCalendarId = config.microsoftCalendarId;
+      } else if (!config.microsoftCalendarId && loadedFields.microsoftCalendarId) {
+        appUpdates.microsoftCalendarId = '';
       }
       if (config.googleCalendarId) {
         appUpdates.googleCalendarId = config.googleCalendarId;
@@ -969,11 +981,16 @@ function Configuration() {
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
               <input
                 type="checkbox"
-                checked={enabledIntegrations.microsoftPlanner}
-                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, microsoftPlanner: e.target.checked })}
+                checked={enabledIntegrations.microsoft}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setEnabledIntegrations({ ...enabledIntegrations, microsoft: newValue });
+                  // When Microsoft Integration is enabled/disabled, both Calendar and Planner are affected
+                  // They can't be enabled/disabled separately
+                }}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📋 Microsoft Planner/To Do</span>
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📅 Microsoft Integration (Calendar + Planner)</span>
             </label>
             
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
@@ -1154,9 +1171,9 @@ function Configuration() {
         </div>
         )}
 
-        {enabledIntegrations.microsoftPlanner && (
+        {enabledIntegrations.microsoft && (
         <div style={{ marginBottom: '2rem' }}>
-          <h3>📋 Microsoft Planner/To Do Integration</h3>
+          <h3>📅 Microsoft Integration (Calendar + Planner)</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -1166,8 +1183,8 @@ function Configuration() {
             marginBottom: '1.5rem'
           }}>
             <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📋</span>
-              Microsoft Planner (Recommended)
+              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📅</span>
+              Microsoft Outlook Calendar & Planner
             </h4>
             
             {checkingMicrosoft ? (
@@ -1185,7 +1202,7 @@ function Configuration() {
                   justifyContent: 'space-between'
                 }}>
                   <span>
-                    <strong>✓ Connected</strong> - Tasks will be created automatically in Microsoft To Do
+                    <strong>✓ Connected</strong> - Calendar events and tasks will be created automatically
                   </span>
                   <button 
                     onClick={handleMicrosoftDisconnect}
@@ -1203,7 +1220,21 @@ function Configuration() {
                   </button>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
-                  Tasks with deadlines will automatically create Microsoft To Do tasks. Tasks sync across all your devices.
+                  Commitments with deadlines will automatically create Outlook Calendar events and Microsoft To Do tasks. Both sync across all your devices.
+                </p>
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  Calendar ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={config.microsoftCalendarId || ''}
+                  onChange={(e) => handleChange('microsoftCalendarId', e.target.value)}
+                  placeholder="Leave blank for default calendar"
+                  style={{ marginBottom: '1rem' }}
+                />
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                  Leave blank to use your default Outlook calendar. To find calendar IDs, use the Microsoft Graph API or Outlook web interface.
                 </p>
                 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
@@ -1266,8 +1297,8 @@ function Configuration() {
             ) : (
               <div>
                 <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
-                  Connect your Microsoft Planner/To Do to automatically create tasks for commitments with deadlines.
-                  One-click setup with OAuth.
+                  Connect your Microsoft account to automatically create Outlook Calendar events and Microsoft To Do tasks for commitments with deadlines.
+                  One-click setup with OAuth. Both Calendar and Planner are enabled together.
                 </p>
                 
                 {!config.microsoftClientId || !config.microsoftClientSecret || !config.microsoftTenantId ? (
@@ -1344,6 +1375,7 @@ function Configuration() {
                         </li>
                         <li>Go to <strong>API permissions</strong> → Add:
                           <ul style={{ marginTop: '0.25rem', listStyleType: 'circle' }}>
+                            <li><code style={{ fontSize: '0.8rem' }}>Calendars.ReadWrite</code> (Outlook Calendar)</li>
                             <li><code style={{ fontSize: '0.8rem' }}>Tasks.ReadWrite</code> (Microsoft To Do)</li>
                             <li><code style={{ fontSize: '0.8rem' }}>User.Read</code></li>
                           </ul>
@@ -1374,7 +1406,7 @@ function Configuration() {
                     }}
                   >
                     <span style={{ fontSize: '1.2rem' }}>🔗</span>
-                    Connect Microsoft Planner
+                    Connect Microsoft Integration
                   </button>
                 )}
               </div>

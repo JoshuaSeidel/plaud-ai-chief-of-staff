@@ -10,7 +10,8 @@ An intelligent executive assistant that automates personal productivity by inges
 - 🤖 **Claude AI Integration**: Extracts tasks, actions, follow-ups, and risks
 - 💾 **Dual Database Support**: SQLite or PostgreSQL with unified interface
 - ⚙️ **Configuration UI**: Easy setup for API keys, prompts, and integrations
-- 🐳 **Docker Deployment**: Single container, works on Unraid or any Docker host
+- 🐳 **Docker Deployment**: Single container or microservices architecture
+- 🚀 **Microservices Architecture**: Optional specialized AI services for enhanced capabilities
 
 ### Task Management
 - 📋 **Unified Task System**: Commitments, Actions, Follow-ups, Risks in one view
@@ -55,14 +56,63 @@ An intelligent executive assistant that automates personal productivity by inges
 - 🎯 **Next Week Focus**: Priorities and commitments
 - 📋 **All Task Types**: Includes commitments, actions, follow-ups, risks
 
+### AI Microservices (Optional)
+The application supports an optional microservices architecture with specialized AI services:
+
+#### 🧠 AI Intelligence Service
+- **Effort Estimation**: Predict task duration with confidence scores
+- **Energy Classification**: Categorize tasks by cognitive load (deep work, administrative, etc.)
+- **Task Clustering**: Group related tasks semantically
+- **Access**: Available in the "AI Tools" tab
+
+#### 📝 Natural Language Parser Service
+- **Task Parsing**: Convert natural language into structured task data
+- **Quick Add**: Ultra-fast parsing for minimal input ("coffee 2pm tomorrow")
+- **Commitment Extraction**: Pull action items from meeting notes/emails
+- **Smart Date Parsing**: Handles "tomorrow", "next Tuesday", "in 3 days"
+- **Priority Detection**: Auto-detects urgent, high, medium, low priorities
+- **Access**: Available in the "AI Tools" tab
+
+#### 🎤 Voice Processor Service
+- **Audio Transcription**: Convert speech to text using OpenAI Whisper
+- **Multi-language Support**: Automatic language detection or specify language
+- **Format Support**: mp3, mp4, mpeg, mpga, m4a, wav, webm (max 25MB)
+- **Translation**: Translate any language audio to English
+- **Access**: Available in the "AI Tools" tab
+
+#### 🗄️ Context Service (Go)
+- **Fast Retrieval**: 10x faster than Node.js for high-throughput queries
+- **Filtering**: By category, source, date range, active status
+- **Rolling Window**: 2-week context window for AI processing
+- **Text Search**: Search across context entries
+- **Access**: Available in the "AI Tools" tab
+
+#### 📊 Pattern Recognition Service
+- **Pattern Detection**: Identifies working hours, energy levels, task clustering
+- **Focus Time Analysis**: Finds optimal hours for deep work
+- **Anomaly Detection**: Spots unusual task patterns (spikes, urgent deadlines)
+- **Streak Analysis**: Tracks completion streaks for motivation
+- **AI-Powered Insights**: Uses Claude to detect complex behavioral patterns
+- **Access**: Available in the "AI Tools" tab
+
+**Note**: Microservices are optional. The application works perfectly in standalone mode. Microservices provide enhanced AI capabilities when deployed with `docker-compose.microservices.yml`.
+
 ## Tech Stack
 
 - **Frontend**: React 18 with modern hooks, React Router, Axios, React Markdown
-- **Backend**: Node.js with Express
+- **Backend**: Node.js with Express (API Gateway)
 - **Database**: SQLite (default) or PostgreSQL with unified interface
 - **AI**: Anthropic Claude API (claude-sonnet-4.5, claude-3-5-sonnet, claude-3-opus)
-- **Deployment**: Single all-in-one Docker container
+- **Deployment**: 
+  - **Standalone**: Single all-in-one Docker container
+  - **Microservices**: Optional specialized services (Python/FastAPI, Go)
 - **PWA**: Service worker with offline support and push notifications
+- **Microservices** (Optional):
+  - AI Intelligence: Python/FastAPI (Port 8001)
+  - Pattern Recognition: Python/FastAPI (Port 8002)
+  - NL Parser: Python/FastAPI (Port 8003)
+  - Voice Processor: Python/FastAPI (Port 8004)
+  - Context Service: Go (Port 8005)
 
 ## Prerequisites
 
