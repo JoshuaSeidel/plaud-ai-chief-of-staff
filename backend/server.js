@@ -239,6 +239,10 @@ async function startServer() {
       });
     });
     
+    // Generate/load VAPID keys for push notifications
+    const { ensureVapidKeys } = require('./utils/vapid-manager');
+    await ensureVapidKeys();
+    
     // Start task scheduler for push notifications
     const taskScheduler = require('./services/task-scheduler');
     taskScheduler.startScheduler();

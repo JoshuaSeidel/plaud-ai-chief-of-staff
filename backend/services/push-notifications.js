@@ -4,24 +4,8 @@ const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('PUSH-NOTIFICATIONS');
 
-// VAPID keys for push notifications
-// In production, generate these once with: npx web-push generate-vapid-keys
-// Then store in environment variables
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
-
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    VAPID_SUBJECT,
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-  );
-  logger.info('Push notifications configured');
-} else {
-  logger.warn('VAPID keys not configured - push notifications disabled');
-  logger.warn('Generate keys with: npx web-push generate-vapid-keys');
-}
+// VAPID keys are now managed by vapid-manager.js and loaded from database
+// They are automatically generated on first startup if they don't exist
 
 /**
  * Subscribe a device to push notifications
@@ -200,8 +184,14 @@ async function sendEventReminder(event) {
 /**
  * Get public VAPID key for client
  */
-function getPublicKey() {
-  return VAPID_PUBLIC_KEY;
+async function getPublicKey() {
+  try {
+    const { getVapidPublicKey } = require('../utils/vapid-manager');
+    return await getVapidPublicKey();
+  } catch (error) {
+    logger.error('Failed to get VAPID public key', { error: error.message });
+    return null;
+  }
 }
 
 module.exports = {

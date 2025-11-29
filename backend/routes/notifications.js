@@ -8,17 +8,25 @@ const logger = createModuleLogger('NOTIFICATIONS-API');
 /**
  * Get VAPID public key for client
  */
-router.get('/vapid-public-key', (req, res) => {
-  const publicKey = pushService.getPublicKey();
-  
-  if (!publicKey) {
-    return res.status(503).json({ 
-      error: 'Push notifications not configured',
-      message: 'VAPID keys are not set on the server'
+router.get('/vapid-public-key', async (req, res) => {
+  try {
+    const publicKey = await pushService.getPublicKey();
+    
+    if (!publicKey) {
+      return res.status(503).json({ 
+        error: 'Push notifications not configured',
+        message: 'VAPID keys are not set on the server'
+      });
+    }
+    
+    res.json({ publicKey });
+  } catch (error) {
+    logger.error('Failed to get VAPID public key:', error);
+    res.status(500).json({ 
+      error: 'Failed to retrieve VAPID key',
+      message: error.message
     });
   }
-  
-  res.json({ publicKey });
 });
 
 /**
