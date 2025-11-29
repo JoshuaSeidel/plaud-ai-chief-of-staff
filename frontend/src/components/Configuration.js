@@ -623,6 +623,11 @@ function Configuration() {
         appUpdates.userNames = config.userNames;
       }
       
+      // Save integration toggles
+      appUpdates.googleCalendarEnabled = enabledIntegrations.googleCalendar;
+      appUpdates.microsoftEnabled = enabledIntegrations.microsoft;
+      appUpdates.jiraEnabled = enabledIntegrations.jira;
+      
       // Jira configuration
       if (config.jiraBaseUrl) {
         appUpdates.jiraBaseUrl = config.jiraBaseUrl;
@@ -951,6 +956,84 @@ function Configuration() {
             </p>
           </div>
         )}
+
+        {/* AI Provider Configuration */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>🤖 AI Provider</h3>
+          <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+            Select which AI provider to use for task analysis, transcription, and intelligence services.
+          </p>
+          
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '1rem',
+            marginBottom: '1.5rem',
+            padding: '1rem',
+            backgroundColor: '#18181b',
+            borderRadius: '8px',
+            border: '1px solid #3f3f46'
+          }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
+                <input
+                  type="radio"
+                  name="aiProvider"
+                  value="anthropic"
+                  checked={config.aiProvider === 'anthropic'}
+                  onChange={(e) => handleChange('aiProvider', e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>Anthropic Claude (Recommended)</span>
+              </label>
+              
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
+                <input
+                  type="radio"
+                  name="aiProvider"
+                  value="openai"
+                  checked={config.aiProvider === 'openai'}
+                  onChange={(e) => handleChange('aiProvider', e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>OpenAI (GPT + Whisper)</span>
+              </label>
+              
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
+                <input
+                  type="radio"
+                  name="aiProvider"
+                  value="ollama"
+                  checked={config.aiProvider === 'ollama'}
+                  onChange={(e) => handleChange('aiProvider', e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>Ollama (Local/Privacy)</span>
+              </label>
+              
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: '1 1 45%' }}>
+                <input
+                  type="radio"
+                  name="aiProvider"
+                  value="bedrock"
+                  checked={config.aiProvider === 'bedrock'}
+                  onChange={(e) => handleChange('aiProvider', e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>AWS Bedrock (Enterprise)</span>
+              </label>
+            </div>
+            
+            <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#27272a', borderRadius: '6px' }}>
+              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', margin: 0 }}>
+                {config.aiProvider === 'anthropic' && '✓ Best quality reasoning and analysis. Requires Anthropic API key.'}
+                {config.aiProvider === 'openai' && '✓ Excellent performance with GPT-4. Includes Whisper for transcription.'}
+                {config.aiProvider === 'ollama' && '✓ Run AI models locally for privacy. Requires Ollama server running.'}
+                {config.aiProvider === 'bedrock' && '✓ Enterprise AWS integration. Uses Claude models via Bedrock.'}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>🔌 Integrations</h3>

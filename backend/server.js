@@ -167,6 +167,7 @@ async function startServer() {
     const briefRoutes = require('./routes/brief');
     const transcriptRoutes = require('./routes/transcripts');
     const configRoutes = require('./routes/config');
+    const configApiRoutes = require('./routes/config-api');
     const calendarRoutes = require('./routes/calendar');
     const commitmentsRoutes = require('./routes/commitments');
     const webhookRoutes = require('./routes/webhook');
@@ -174,6 +175,7 @@ async function startServer() {
     app.use('/api/brief', briefRoutes);
     app.use('/api/transcripts', transcriptRoutes);
     app.use('/api/config', configRoutes);
+    app.use('/api/config-api', configApiRoutes); // Database-backed configuration management
     app.use('/api/calendar', calendarRoutes);
     app.use('/api/planner', require('./routes/planner'));
     app.use('/api/commitments', commitmentsRoutes);

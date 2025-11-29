@@ -1,7 +1,7 @@
 {
   "name": "ai-chief-of-staff-backend",
   "version": "1.5.0",
-  "description": "Backend API for AI Chief of Staff Application",
+  "description": "AI-powered personal productivity assistant backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

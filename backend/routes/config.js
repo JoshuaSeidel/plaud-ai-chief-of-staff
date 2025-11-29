@@ -238,10 +238,13 @@ router.get('/version', async (req, res) => {
           const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
           frontendVersion = frontendPackageJson.version || null;
         } else {
-          logger.warn('Frontend package.json not found at any expected location');
+          logger.warn('Frontend package.json not found, using backend version as fallback');
+          // Fallback: use backend version if frontend not found (same version in most cases)
+          frontendVersion = backendVersion;
         }
       } catch (pkgError) {
         logger.warn('Failed to read frontend package.json', pkgError);
+        frontendVersion = backendVersion; // Use backend version as fallback
       }
     }
     

@@ -125,7 +125,7 @@ function Calendar() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="calendar">
-      <div className="card">
+      <div className="card glass-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2>📅 Calendar</h2>
           <div style={{ display: 'flex', gap: '1rem' }}>

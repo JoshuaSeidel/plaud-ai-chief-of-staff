@@ -161,7 +161,7 @@ function Dashboard({ setActiveTab }) {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="dashboard">
       {/* Daily Brief Section */}
-      <div className="card">
+      <div className="card glass-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h2 style={{ margin: 0 }}>Morning Dashboard</h2>
           <button 
@@ -515,7 +515,7 @@ function Dashboard({ setActiveTab }) {
       </div>
 
       {/* Quick Actions Section */}
-      <div className="card">
+      <div className="card glass-card">
         <h2 style={{ marginBottom: '1rem' }}>Quick Actions</h2>
         <div className="quick-actions-grid">
           <button 

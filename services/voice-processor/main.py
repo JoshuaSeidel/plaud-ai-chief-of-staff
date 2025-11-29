@@ -11,9 +11,11 @@ import os
 import logging
 import tempfile
 from typing import Optional
+from datetime import datetime
 import redis
 import hashlib
 import json
+from storage_manager import get_storage_manager
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +40,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configure AI model (Whisper-1 optimized for transcription)
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "whisper-1")
+logger.info(f"Using Whisper model: {WHISPER_MODEL}")
+
 # Initialize OpenAI client
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
@@ -54,6 +60,14 @@ try:
 except Exception as e:
     logger.warning(f"Could not connect to Redis: {e}")
     redis_client = None
+
+# Initialize storage manager
+try:
+    storage_manager = get_storage_manager()
+    logger.info(f"Storage manager initialized: {storage_manager.storage_type}")
+except Exception as e:
+    logger.error(f"Failed to initialize storage manager: {e}")
+    storage_manager = None
 
 # Cache TTL (1 hour for transcriptions)
 CACHE_TTL = 3600
@@ -210,6 +224,24 @@ async def transcribe_audio(
             "duration": getattr(transcript, 'duration', None),
             "cached": False
         }
+        
+        # Save recording to storage with metadata
+        if storage_manager:
+            try:
+                metadata = {
+                    "transcription": transcript.text,
+                    "language": result.get('language'),
+                    "duration": result.get('duration'),
+                    "filename": file.filename,
+                    "size_bytes": len(file_content),
+                    "timestamp": str(datetime.now())
+                }
+                storage_path = storage_manager.save_recording(file_content, file.filename, metadata)
+                result["storage_path"] = storage_path
+                logger.info(f"Recording saved to: {storage_path}")
+            except Exception as e:
+                logger.error(f"Failed to save recording to storage: {e}")
+                # Continue without failing the transcription
         
         # Cache result
         cache_transcription(cache_key, result)

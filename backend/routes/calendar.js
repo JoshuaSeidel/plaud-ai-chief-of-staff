@@ -11,20 +11,29 @@ const logger = createModuleLogger('CALENDAR');
  */
 router.get('/events', async (req, res) => {
   try {
-    // Try Google Calendar first
-    const isGoogleConnected = await googleCalendar.isConnected();
-    if (isGoogleConnected) {
-      logger.info('Fetching events from Google Calendar');
-      const events = await googleCalendar.listEvents(50);
-      return res.json({ source: 'google', events });
+    // Get configuration
+    const { getConfig } = require('../config/manager');
+    const googleEnabled = await getConfig('googleCalendarEnabled', true);
+    const microsoftEnabled = await getConfig('microsoftEnabled', false);
+    
+    // Try Google Calendar first (if enabled)
+    if (googleEnabled) {
+      const isGoogleConnected = await googleCalendar.isConnected();
+      if (isGoogleConnected) {
+        logger.info('Fetching events from Google Calendar');
+        const events = await googleCalendar.listEvents(50);
+        return res.json({ source: 'google', events });
+      }
     }
     
-    // Try Microsoft Calendar
-    const isMicrosoftConnected = await microsoftCalendar.isConnected();
-    if (isMicrosoftConnected) {
-      logger.info('Fetching events from Microsoft Calendar');
-      const events = await microsoftCalendar.listEvents(50);
-      return res.json({ source: 'microsoft', events });
+    // Try Microsoft Calendar (if enabled)
+    if (microsoftEnabled) {
+      const isMicrosoftConnected = await microsoftCalendar.isConnected();
+      if (isMicrosoftConnected) {
+        logger.info('Fetching events from Microsoft Calendar');
+        const events = await microsoftCalendar.listEvents(50);
+        return res.json({ source: 'microsoft', events });
+      }
     }
     
     return res.status(400).json({ 

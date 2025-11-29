@@ -20,6 +20,10 @@ import re
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Configure AI model (Claude Sonnet 4.5 for NLP parsing)
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
+logger.info(f"Using Claude model: {CLAUDE_MODEL}")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Natural Language Parser Service",
@@ -297,8 +301,8 @@ Be concise. Only include non-null values.
 """
         
         response = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=500,
+            model=CLAUDE_MODEL,
+            max_tokens=800,
             messages=[{"role": "user", "content": prompt}]
         )
         
@@ -521,7 +525,7 @@ Only extract clear, actionable commitments. Skip vague statements.
 """
         
         response = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=CLAUDE_MODEL,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )

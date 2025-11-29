@@ -85,8 +85,10 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
       - LOG_LEVEL=info
     depends_on:
       - aicos-redis
@@ -102,7 +104,7 @@ services:
           memory: 512M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -118,6 +120,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
       - LOG_LEVEL=info
     depends_on:
       - aicos-postgres
@@ -153,6 +157,7 @@ services:
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - REDIS_URL=redis://aicos-redis:6379
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
       - LOG_LEVEL=info
     depends_on:
       - aicos-redis
@@ -182,13 +187,25 @@ services:
     ports:
       - "8004:8004"
     environment:
+      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - REDIS_URL=redis://aicos-redis:6379
+      - WHISPER_MODEL=${WHISPER_MODEL:-whisper-1}
+      - STORAGE_TYPE=${VOICE_STORAGE_TYPE:-local}
+      - STORAGE_PATH=/app/data/voice-recordings
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
       - LOG_LEVEL=info
     depends_on:
       - aicos-redis
+      - aicos-postgres
     networks:
       - aicos-network
+    volumes:
+      - voice-recordings:/app/data/voice-recordings
     deploy:
       resources:
         limits:
@@ -247,6 +264,57 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ============================================================================
+  # OPTIONAL SERVICES (Uncomment to enable)
+  # ============================================================================
+
+  # Ollama - Local AI Models (Optional)
+  # Uncomment to run AI models locally for privacy/offline use
+  # aicos-ollama:
+  #   container_name: aicos-ollama
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   networks:
+  #     - aicos-network
+  #   restart: unless-stopped
+  #   # Uncomment for GPU support
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: 1
+  #   #           capabilities: [gpu]
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # Radicale - CalDAV/CardDAV Server (Optional)
+  # Uncomment for built-in calendar storage (alternative to Google/Microsoft)
+  # aicos-radicale:
+  #   container_name: aicos-radicale
+  #   image: tomsquest/docker-radicale:latest
+  #   ports:
+  #     - "5232:5232"
+  #   environment:
+  #     - RADICALE_AUTH_TYPE=htpasswd
+  #   volumes:
+  #     - radicale-data:/data
+  #     - radicale-config:/config
+  #   networks:
+  #     - aicos-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:5232/"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # ============================================================================
   # DATA LAYER
@@ -334,6 +402,14 @@ volumes:
     driver: local
   pattern-models:
     driver: local
+  voice-recordings:
+    driver: local
+  # ollama-data:
+  #   driver: local
+  # radicale-data:
+  #   driver: local
+  # radicale-config:
+  #   driver: local
   # prometheus-data:
   #   driver: local
   # grafana-data:

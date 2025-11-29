@@ -21,6 +21,10 @@ import statistics
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Configure AI model (Claude Sonnet 4.5 for complex pattern analysis)
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
+logger.info(f"Using Claude model: {CLAUDE_MODEL}")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Pattern Recognition Service",
@@ -313,7 +317,7 @@ Return as JSON array with format:
 """
                 
                 response = anthropic_client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model=CLAUDE_MODEL,
                     max_tokens=1500,
                     messages=[{"role": "user", "content": prompt}]
                 )

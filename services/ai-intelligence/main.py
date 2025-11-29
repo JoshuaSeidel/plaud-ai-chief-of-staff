@@ -6,16 +6,31 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import anthropic
 import redis
 import json
 import os
 import hashlib
 import logging
+import sys
+
+# Add shared directory to path
+sys.path.append('/app/shared')
+
+try:
+    from ai_providers import get_ai_client, get_best_available_provider
+    from config_manager import get_config_manager
+    USE_SHARED_LIBS = True
+    logger = logging.getLogger(__name__)
+    logger.info("✓ Using shared AI provider abstraction")
+except ImportError:
+    # Fallback to direct import if shared libs not available
+    import anthropic
+    USE_SHARED_LIBS = False
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠ Shared libs not available, using direct Anthropic import")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="AI Intelligence Service",
@@ -32,14 +47,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configure AI model (Claude Sonnet 4.5 optimized for complex reasoning)
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
+logger.info(f"Using Claude model: {CLAUDE_MODEL}")
+
 # Initialize clients
 try:
-    anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    if USE_SHARED_LIBS:
+        # Use config-driven AI provider selection
+        config = get_config_manager()
+        provider_config = config.get_ai_provider_config('ai_intelligence')
+        
+        try:
+            ai_client = get_ai_client(
+                provider=provider_config['provider'],
+                model=provider_config['model'],
+                api_key=provider_config.get('api_key')
+            )
+            logger.info(f"✓ Using AI provider: {provider_config['provider']} with model {provider_config['model']}")
+        except Exception as e:
+            logger.warning(f"Failed to use configured provider, trying fallback: {e}")
+            ai_client = get_best_available_provider()
+    else:
+        # Legacy fallback to direct Anthropic
+        ai_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        logger.info("✓ Using legacy Anthropic client")
+    
     redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379"))
-    logger.info("✓ Initialized Anthropic and Redis clients")
+    logger.info("✓ Initialized AI and Redis clients")
 except Exception as e:
     logger.error(f"Failed to initialize clients: {e}")
-    anthropic_client = None
+    ai_client = None
     redis_client = None
 
 # Pydantic Models
@@ -121,8 +159,8 @@ async def estimate_effort(request: EffortEstimationRequest):
     if cached:
         return cached
     
-    if not anthropic_client:
-        raise HTTPException(status_code=503, detail="Anthropic API not available")
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI service unavailable")
     
     # Build prompt
     prompt = f"""You are a productivity expert helping estimate task duration.
@@ -151,14 +189,20 @@ Respond in JSON format:
 }}"""
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=500,
-            temperature=0.3,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        result = json.loads(message.content[0].text)
+        if USE_SHARED_LIBS:
+            result = ai_client.complete_json(
+                prompt=prompt,
+                max_tokens=300,
+                temperature=0.3
+            )
+        else:
+            message = ai_client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=300,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = json.loads(message.content[0].text)
         
         # Validate result
         if not all(k in result for k in ["estimated_hours", "confidence", "reasoning", "breakdown"]):
@@ -197,8 +241,8 @@ async def classify_energy(request: EnergyClassificationRequest):
     if cached:
         return cached
     
-    if not anthropic_client:
-        raise HTTPException(status_code=503, detail="Anthropic API not available")
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI service not available")
     
     prompt = f"""Classify this task by the energy level it requires:
 
@@ -215,14 +259,20 @@ Respond in JSON format:
 {{"energy_level": "deep_work", "confidence": 0.9}}"""
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=50,
-            temperature=0.2,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        result = json.loads(message.content[0].text)
+        if USE_SHARED_LIBS:
+            result = ai_client.complete_json(
+                prompt=prompt,
+                max_tokens=50,
+                temperature=0.2
+            )
+        else:
+            message = ai_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=50,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = json.loads(message.content[0].text)
         
         # Add description
         descriptions = {
@@ -261,8 +311,8 @@ async def cluster_tasks(request: TaskClusteringRequest):
     if not request.tasks:
         return {"clusters": []}
     
-    if not anthropic_client:
-        raise HTTPException(status_code=503, detail="Anthropic API not available")
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI service not available")
     
     task_list = "\n".join([
         f"{i+1}. {task.description} (deadline: {task.deadline or 'none'})"
@@ -288,14 +338,20 @@ Respond in JSON format:
 }}"""
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1000,
-            temperature=0.4,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        result = json.loads(message.content[0].text)
+        if USE_SHARED_LIBS:
+            result = ai_client.complete_json(
+                prompt=prompt,
+                max_tokens=1000,
+                temperature=0.4
+            )
+        else:
+            message = ai_client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1000,
+                temperature=0.4,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = json.loads(message.content[0].text)
         
         logger.info(f"✓ Created {len(result['clusters'])} clusters")
         return result
