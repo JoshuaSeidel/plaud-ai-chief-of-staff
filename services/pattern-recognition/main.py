@@ -245,6 +245,41 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat()
     }
 
+@app.post("/analyze-patterns")
+async def analyze_patterns(request: dict):
+    """
+    Analyze task patterns from database (called by backend)
+    This is a simplified endpoint that returns stats and insights
+    Compatible with backend's intelligence-local.js format
+    """
+    try:
+        time_range = request.get("time_range", "30d")
+        
+        logger.info(f"Analyzing patterns for time range: {time_range}")
+        
+        # For now, return a simple success response indicating the service is available
+        # The backend should provide task data or we should query the database
+        # This is a placeholder that prevents 404 errors
+        return {
+            "success": True,
+            "time_range": time_range,
+            "stats": {
+                "total_tasks": 0,
+                "completed": 0,
+                "pending": 0,
+                "overdue": 0,
+                "completion_rate": 0,
+                "avg_completion_days": 0,
+                "most_productive_day": "N/A"
+            },
+            "insights": "Pattern analysis requires task completion data from the database. This endpoint is available but needs task data to analyze.",
+            "note": "This is a placeholder response. Backend should use local implementation with database access for full pattern analysis.",
+            "service": "pattern-recognition-microservice"
+        }
+    except Exception as e:
+        logger.error(f"❌ Pattern analysis error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/detect-patterns", response_model=List[ProductivityPattern])
 async def detect_patterns(data: WorkingHoursData):
     """
