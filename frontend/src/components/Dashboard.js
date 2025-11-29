@@ -9,10 +9,30 @@ function Dashboard({ setActiveTab }) {
   const [error, setError] = useState(null);
   const [lastGenerated, setLastGenerated] = useState(null);
   const [stats, setStats] = useState(null);
+  const [productivityInsights, setProductivityInsights] = useState(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   useEffect(() => {
     loadTodaysBrief();
+    loadProductivityInsights();
   }, []);
+
+  const loadProductivityInsights = async () => {
+    setLoadingInsights(true);
+    try {
+      const axios = require('axios');
+      const response = await axios.post('/api/intelligence/analyze-patterns', {
+        time_range: '7d'
+      });
+      if (response.data && response.data.success) {
+        setProductivityInsights(response.data);
+      }
+    } catch (err) {
+      console.log('Productivity insights unavailable:', err.message);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
 
   const loadTodaysBrief = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -230,6 +250,64 @@ function Dashboard({ setActiveTab }) {
               </div>
               <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Transcripts</div>
             </div>
+          </div>
+        )}
+        
+        {/* Productivity Insights Widget */}
+        {productivityInsights && productivityInsights.success && (
+          <div style={{
+            marginBottom: '1.5rem',
+            padding: '1rem',
+            backgroundColor: '#1a2e1a',
+            border: '1px solid #22c55e',
+            borderRadius: '8px'
+          }}>
+            <h3 style={{ margin: 0, marginBottom: '0.75rem', color: '#22c55e', fontSize: '1.1rem' }}>
+              📊 Productivity Insights ({productivityInsights.time_range})
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#22c55e' }}>
+                  {productivityInsights.stats.completion_rate}%
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completion Rate</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>
+                  {productivityInsights.stats.completed}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completed</div>
+              </div>
+              {productivityInsights.stats.overdue > 0 && (
+                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>
+                    {productivityInsights.stats.overdue}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Overdue</div>
+                </div>
+              )}
+              {productivityInsights.stats.most_productive_day && (
+                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#fbbf24' }}>
+                    {productivityInsights.stats.most_productive_day}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Best Day</div>
+                </div>
+              )}
+            </div>
+            <details style={{ marginTop: '0.5rem' }}>
+              <summary style={{ cursor: 'pointer', color: '#a1a1aa', fontSize: '0.85rem' }}>
+                View AI insights
+              </summary>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#e5e5e7', lineHeight: '1.5', maxHeight: '200px', overflow: 'auto' }}>
+                {productivityInsights.insights.substring(0, 500)}...
+              </div>
+            </details>
+          </div>
+        )}
+        {loadingInsights && !productivityInsights && (
+          <div style={{ textAlign: 'center', padding: '0.5rem', color: '#a1a1aa', fontSize: '0.85rem' }}>
+            Loading productivity insights...
           </div>
         )}
 

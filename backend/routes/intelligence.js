@@ -78,14 +78,20 @@ router.post('/estimate-effort', async (req, res) => {
 
     logger.info(`Estimating effort for: "${description.substring(0, 50)}..."`);
 
-    const result = await callMicroservice(
-      AI_INTELLIGENCE_URL,
-      '/estimate-effort',
-      'POST',
-      { description, context: context || '' }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        AI_INTELLIGENCE_URL,
+        '/estimate-effort',
+        'POST',
+        { description, context: context || '' }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { estimateEffort } = require('./intelligence-local');
+      const result = await estimateEffort(description, context);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error estimating effort:', err);
@@ -110,14 +116,20 @@ router.post('/classify-energy', async (req, res) => {
 
     logger.info(`Classifying energy level for: "${description.substring(0, 50)}..."`);
 
-    const result = await callMicroservice(
-      AI_INTELLIGENCE_URL,
-      '/classify-energy',
-      'POST',
-      { description }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        AI_INTELLIGENCE_URL,
+        '/classify-energy',
+        'POST',
+        { description }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { classifyEnergy } = require('./intelligence-local');
+      const result = await classifyEnergy(description);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error classifying energy:', err);
@@ -142,14 +154,20 @@ router.post('/cluster-tasks', async (req, res) => {
 
     logger.info(`Clustering ${tasks.length} tasks`);
 
-    const result = await callMicroservice(
-      AI_INTELLIGENCE_URL,
-      '/cluster-tasks',
-      'POST',
-      { tasks }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        AI_INTELLIGENCE_URL,
+        '/cluster-tasks',
+        'POST',
+        { tasks }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { clusterTasks } = require('./intelligence-local');
+      const result = await clusterTasks(tasks);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error clustering tasks:', err);
@@ -174,14 +192,20 @@ router.post('/parse-task', async (req, res) => {
 
     logger.info(`Parsing task: "${text.substring(0, 50)}..."`);
 
-    const result = await callMicroservice(
-      NL_PARSER_URL,
-      '/parse',
-      'POST',
-      { text }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        NL_PARSER_URL,
+        '/parse',
+        'POST',
+        { text }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { parseTask } = require('./intelligence-local');
+      const result = await parseTask(text);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error parsing task:', err);
@@ -194,7 +218,7 @@ router.post('/parse-task', async (req, res) => {
 
 /**
  * POST /api/intelligence/analyze-patterns
- * Analyze user behavioral patterns (proxies to pattern-recognition service)
+ * Analyze user behavioral patterns (proxies to pattern-recognition service or uses local implementation)
  */
 router.post('/analyze-patterns', async (req, res) => {
   try {
@@ -202,14 +226,23 @@ router.post('/analyze-patterns', async (req, res) => {
 
     logger.info(`Analyzing patterns for user ${user_id || 'default'}`);
 
-    const result = await callMicroservice(
-      PATTERN_RECOGNITION_URL,
-      '/analyze-patterns',
-      'POST',
-      { user_id, time_range }
-    );
-
-    res.json(result);
+    // Try microservice first
+    try {
+      const result = await callMicroservice(
+        PATTERN_RECOGNITION_URL,
+        '/analyze-patterns',
+        'POST',
+        { user_id, time_range }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local pattern analysis', { error: microserviceErr.message });
+      
+      // Fallback: Local implementation using database + AI
+      const { analyzeTaskPatterns } = require('./intelligence-local');
+      const result = await analyzeTaskPatterns(time_range);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error analyzing patterns:', err);
@@ -230,15 +263,22 @@ router.get('/insights', async (req, res) => {
 
     logger.info(`Getting insights for user ${user_id || 'default'}`);
 
-    const result = await callMicroservice(
-      PATTERN_RECOGNITION_URL,
-      '/insights',
-      'GET',
-      null,
-      { user_id }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        PATTERN_RECOGNITION_URL,
+        '/insights',
+        'GET',
+        null,
+        { user_id }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      // Use analyze patterns as fallback for insights
+      const { analyzeTaskPatterns } = require('./intelligence-local');
+      const result = await analyzeTaskPatterns('30d');
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error getting insights:', err);
@@ -265,14 +305,20 @@ router.post('/extract-dates', async (req, res) => {
 
     logger.info(`Extracting dates from: "${text.substring(0, 50)}..."`);
 
-    const result = await callMicroservice(
-      NL_PARSER_URL,
-      '/extract-dates',
-      'POST',
-      { text }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        NL_PARSER_URL,
+        '/extract-dates',
+        'POST',
+        { text }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { extractDates } = require('./intelligence-local');
+      const result = await extractDates(text);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error extracting dates:', err);
@@ -297,14 +343,21 @@ router.post('/predict-completion', async (req, res) => {
 
     logger.info(`Predicting completion for: "${task_description.substring(0, 50)}..."`);
 
-    const result = await callMicroservice(
-      PATTERN_RECOGNITION_URL,
-      '/predict-completion',
-      'POST',
-      { task_description, user_id }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        PATTERN_RECOGNITION_URL,
+        '/predict-completion',
+        'POST',
+        { task_description, user_id }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      // Use effort estimation as fallback
+      const { estimateEffort } = require('./intelligence-local');
+      const result = await estimateEffort(task_description);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error predicting completion:', err);
@@ -346,18 +399,27 @@ router.post('/transcribe', (req, res) => {
       if (language) formData.append('language', language);
       if (temperature) formData.append('temperature', temperature);
 
-      const result = await axios.post(
-        `${VOICE_PROCESSOR_URL}/transcribe`,
-        formData,
-        {
-          headers: formData.getHeaders(),
-          timeout: MICROSERVICE_TIMEOUT,
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity
-        }
-      );
+      try {
+        const result = await axios.post(
+          `${VOICE_PROCESSOR_URL}/transcribe`,
+          formData,
+          {
+            headers: formData.getHeaders(),
+            timeout: MICROSERVICE_TIMEOUT,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity
+          }
+        );
 
-      res.json(result.data);
+        res.json(result.data);
+      } catch (microserviceErr) {
+        logger.warn('Voice processor microservice unavailable');
+        res.status(503).json({
+          error: 'Voice processor unavailable',
+          message: 'Audio transcription requires the voice-processor microservice to be running. Please use the Transcripts page to upload audio files via Plaud webhook.',
+          alternative: 'Use POST /api/transcripts/upload for Plaud audio integration'
+        });
+      }
 
     } catch (err) {
       logger.error('Error transcribing audio:', err);
@@ -375,13 +437,22 @@ router.post('/transcribe', (req, res) => {
  */
 router.get('/supported-formats', async (req, res) => {
   try {
-    const result = await callMicroservice(
-      VOICE_PROCESSOR_URL,
-      '/supported-formats',
-      'GET'
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        VOICE_PROCESSOR_URL,
+        '/supported-formats',
+        'GET'
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Voice processor unavailable, returning default formats');
+      // Return default supported formats
+      return res.json({
+        success: true,
+        formats: ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac', 'wma'],
+        note: 'Voice processor microservice not available. Upload feature requires microservice.'
+      });
+    }
 
   } catch (err) {
     logger.error('Error getting supported formats:', err);
@@ -402,15 +473,21 @@ router.get('/context', async (req, res) => {
 
     logger.info(`Getting context: category=${category}, source=${source}, limit=${limit}`);
 
-    const result = await callMicroservice(
-      CONTEXT_SERVICE_URL,
-      '/context',
-      'GET',
-      null,
-      { category, source, limit, active_only }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        CONTEXT_SERVICE_URL,
+        '/context',
+        'GET',
+        null,
+        { category, source, limit, active_only }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { getContext } = require('./intelligence-local');
+      const result = await getContext(category, source, limit || 50, active_only !== 'false');
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error getting context:', err);
@@ -429,13 +506,19 @@ router.get('/context/rolling', async (req, res) => {
   try {
     logger.info('Getting rolling 2-week context window');
 
-    const result = await callMicroservice(
-      CONTEXT_SERVICE_URL,
-      '/context/rolling',
-      'GET'
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        CONTEXT_SERVICE_URL,
+        '/context/rolling',
+        'GET'
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { getContext } = require('./intelligence-local');
+      const result = await getContext(null, null, 100, true);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error getting rolling context:', err);
@@ -460,14 +543,20 @@ router.post('/context/search', async (req, res) => {
 
     logger.info(`Searching context for: "${query}"`);
 
-    const result = await callMicroservice(
-      CONTEXT_SERVICE_URL,
-      '/context/search',
-      'POST',
-      { query, category, limit }
-    );
-
-    res.json(result);
+    try {
+      const result = await callMicroservice(
+        CONTEXT_SERVICE_URL,
+        '/context/search',
+        'POST',
+        { query, category, limit }
+      );
+      return res.json(result);
+    } catch (microserviceErr) {
+      logger.warn('Microservice unavailable, using local implementation');
+      const { searchContext } = require('./intelligence-local');
+      const result = await searchContext(query, category, limit || 20);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error searching context:', err);

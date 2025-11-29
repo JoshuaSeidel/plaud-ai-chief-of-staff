@@ -22,6 +22,9 @@ function Commitments() {
     deadline: '',
     priority: 'medium'
   });
+  const [showClusters, setShowClusters] = useState(false);
+  const [clusters, setClusters] = useState(null);
+  const [clusteringTasks, setClusteringTasks] = useState(false);
 
   useEffect(() => {
     loadCommitments();
@@ -214,6 +217,37 @@ function Commitments() {
     await loadCommitments();
   };
 
+  const handleSmartGroup = async () => {
+    const pendingTasks = filteredCommitments.filter(c => c.status !== 'completed');
+    if (pendingTasks.length < 2) {
+      alert('Need at least 2 pending tasks to group');
+      return;
+    }
+    
+    setClusteringTasks(true);
+    try {
+      const axios = require('axios');
+      const tasks = pendingTasks.map((c, i) => ({
+        id: i + 1,
+        description: c.description,
+        deadline: c.deadline
+      }));
+      
+      const response = await axios.post('/api/intelligence/cluster-tasks', { tasks });
+      if (response.data && response.data.clusters) {
+        setClusters(response.data);
+        setShowClusters(true);
+      } else {
+        alert('No clusters identified');
+      }
+    } catch (err) {
+      console.error('Clustering failed:', err);
+      alert('Smart grouping unavailable. Make sure microservices are running.');
+    } finally {
+      setClusteringTasks(false);
+    }
+  };
+
   const updateStatus = async (id, newStatus) => {
     try {
       await commitmentsAPI.update(id, { status: newStatus });
@@ -357,6 +391,25 @@ function Commitments() {
               title="Create a new task"
             >
               ➕ Create Task
+            </button>
+            <button
+              onClick={handleSmartGroup}
+              disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: clusteringTasks ? '#6e6e73' : '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: clusteringTasks || filteredCommitments.filter(c => c.status !== 'completed').length < 2 ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              title="AI-powered task grouping"
+            >
+              {clusteringTasks ? '⏳ Grouping...' : '🤖 Smart Group'}
             </button>
             {microsoftConnected && (
               <button 
@@ -989,6 +1042,103 @@ function Commitments() {
                 {creating ? 'Creating...' : 'Create Task'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Smart Groups Modal */}
+      {showClusters && clusters && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#18181b',
+            borderRadius: '12px',
+            padding: '2rem',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            color: '#e5e5e7'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: '#e5e5e7' }}>🤖 AI-Grouped Tasks</h3>
+              <button
+                onClick={() => setShowClusters(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#a1a1aa'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {clusters.clusters && clusters.clusters.map((cluster, idx) => (
+              <div key={idx} style={{
+                marginBottom: '1rem',
+                padding: '1rem',
+                backgroundColor: '#09090b',
+                borderRadius: '8px',
+                border: '1px solid #3f3f46'
+              }}>
+                <h4 style={{ color: '#3b82f6', marginTop: 0, marginBottom: '0.5rem' }}>{cluster.name}</h4>
+                {cluster.reasoning && (
+                  <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{cluster.reasoning}</p>
+                )}
+                {cluster.suggested_order && (
+                  <p style={{ color: '#22c55e', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                    <strong>Order:</strong> {cluster.suggested_order}
+                  </p>
+                )}
+                <p style={{ color: '#71717a', fontSize: '0.85rem', margin: 0 }}>
+                  Tasks: {(cluster.tasks || cluster.task_indices || []).join(', ')}
+                </p>
+              </div>
+            ))}
+            
+            {clusters.recommendations && (
+              <div style={{
+                marginTop: '1.5rem',
+                padding: '1rem',
+                backgroundColor: '#1a2e1a',
+                borderRadius: '8px',
+                border: '1px solid #22c55e'
+              }}>
+                <h4 style={{ color: '#22c55e', marginTop: 0, marginBottom: '0.5rem' }}>💡 Recommendations</h4>
+                <p style={{ color: '#e5e5e7', fontSize: '0.9rem', margin: 0 }}>{clusters.recommendations}</p>
+              </div>
+            )}
+            
+            <button
+              onClick={() => setShowClusters(false)}
+              style={{
+                marginTop: '1.5rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                width: '100%',
+                fontSize: '1rem'
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

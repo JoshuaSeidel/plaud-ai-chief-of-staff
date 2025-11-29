@@ -198,11 +198,8 @@ function Intelligence() {
     setPatternLoading(true);
     setPatternResult(null);
     try {
-      // This would need task completion data - for now show message
-      setPatternResult({ 
-        message: 'Pattern analysis requires task completion history. This feature analyzes your productivity patterns over time.',
-        note: 'Use the Tasks page to mark tasks as complete, then return here to analyze patterns.'
-      });
+      const response = await intelligenceAPI.analyzePatterns(null, '30d');
+      setPatternResult(response.data);
     } catch (err) {
       setPatternResult({ error: err.message || 'Failed to analyze patterns' });
     } finally {
@@ -270,13 +267,35 @@ function Intelligence() {
                       <p style={{ color: '#ef4444' }}>❌ {effortResult.error}</p>
                     ) : (
                       <div>
-                        <p style={{ color: '#22c55e', fontWeight: 'bold' }}>Estimated: {effortResult.estimated_hours} hours</p>
-                        <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Confidence: {(effortResult.confidence * 100).toFixed(0)}%</p>
+                        <p style={{ color: '#22c55e', fontWeight: 'bold' }}>
+                          Estimated: {effortResult.estimated_time || (effortResult.estimated_hours ? `${effortResult.estimated_hours} hours` : 'N/A')}
+                        </p>
+                        {effortResult.complexity && <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Complexity: {effortResult.complexity}</p>}
+                        {effortResult.confidence && <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Confidence: {(effortResult.confidence * 100).toFixed(0)}%</p>}
                         {effortResult.reasoning && <p style={{ color: '#a1a1aa', marginTop: '0.5rem' }}>{effortResult.reasoning}</p>}
-                        {effortResult.breakdown && (
-                          <ul style={{ marginTop: '0.5rem', color: '#a1a1aa' }}>
-                            {effortResult.breakdown.map((item, idx) => <li key={idx}>{item}</li>)}
-                          </ul>
+                        {effortResult.breakdown && effortResult.breakdown.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <p style={{ color: '#e5e5e7', fontSize: '0.9rem', fontWeight: 'bold' }}>Breakdown:</p>
+                            <ul style={{ marginTop: '0.25rem', color: '#a1a1aa', fontSize: '0.85rem' }}>
+                              {effortResult.breakdown.map((item, idx) => <li key={idx}>{item}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {effortResult.risks && effortResult.risks.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <p style={{ color: '#fbbf24', fontSize: '0.9rem', fontWeight: 'bold' }}>⚠️ Risks:</p>
+                            <ul style={{ marginTop: '0.25rem', color: '#a1a1aa', fontSize: '0.85rem' }}>
+                              {effortResult.risks.map((item, idx) => <li key={idx}>{item}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {effortResult.raw_response && (
+                          <details style={{ marginTop: '0.5rem' }}>
+                            <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
+                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                              {effortResult.raw_response}
+                            </pre>
+                          </details>
                         )}
                       </div>
                     )}
@@ -309,9 +328,33 @@ function Intelligence() {
                       <p style={{ color: '#ef4444' }}>❌ {energyResult.error}</p>
                     ) : (
                       <div>
-                        <p style={{ color: '#22c55e', fontWeight: 'bold' }}>Energy Level: {energyResult.energy_level}</p>
-                        <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Confidence: {(energyResult.confidence * 100).toFixed(0)}%</p>
+                        <p style={{ color: '#22c55e', fontWeight: 'bold' }}>
+                          Energy Level: {energyResult.energy_level}
+                          {energyResult.energy_level === 'High' && ' 🔥'}
+                          {energyResult.energy_level === 'Medium' && ' ⚡'}
+                          {energyResult.energy_level === 'Low' && ' 💤'}
+                        </p>
+                        {energyResult.confidence && <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Confidence: {(energyResult.confidence * 100).toFixed(0)}%</p>}
+                        {energyResult.reasoning && <p style={{ color: '#a1a1aa', marginTop: '0.5rem' }}>{energyResult.reasoning}</p>}
+                        {energyResult.best_time && (
+                          <p style={{ color: '#3b82f6', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                            <strong>Best time:</strong> {energyResult.best_time}
+                          </p>
+                        )}
+                        {energyResult.duration_recommendation && (
+                          <p style={{ color: '#3b82f6', fontSize: '0.9rem' }}>
+                            <strong>Recommended duration:</strong> {energyResult.duration_recommendation}
+                          </p>
+                        )}
                         {energyResult.description && <p style={{ color: '#a1a1aa', marginTop: '0.5rem' }}>{energyResult.description}</p>}
+                        {energyResult.raw_response && (
+                          <details style={{ marginTop: '0.5rem' }}>
+                            <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
+                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                              {energyResult.raw_response}
+                            </pre>
+                          </details>
+                        )}
                       </div>
                     )}
                   </div>
@@ -343,15 +386,39 @@ function Intelligence() {
                       <p style={{ color: '#ef4444' }}>❌ {clusterResult.error}</p>
                     ) : (
                       <div>
-                        {clusterResult.clusters && clusterResult.clusters.map((cluster, idx) => (
-                          <div key={idx} style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#09090b', borderRadius: '6px' }}>
-                            <p style={{ color: '#22c55e', fontWeight: 'bold' }}>{cluster.name}</p>
-                            <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>{cluster.description}</p>
-                            <p style={{ color: '#71717a', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                              Tasks: {cluster.task_indices.join(', ')}
-                            </p>
+                        {clusterResult.clusters && clusterResult.clusters.length > 0 ? (
+                          clusterResult.clusters.map((cluster, idx) => (
+                            <div key={idx} style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#09090b', borderRadius: '6px' }}>
+                              <p style={{ color: '#22c55e', fontWeight: 'bold' }}>{cluster.name}</p>
+                              {cluster.reasoning && <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>{cluster.reasoning}</p>}
+                              {cluster.description && <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>{cluster.description}</p>}
+                              {cluster.suggested_order && (
+                                <p style={{ color: '#3b82f6', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                                  <strong>Order:</strong> {cluster.suggested_order}
+                                </p>
+                              )}
+                              <p style={{ color: '#71717a', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                                Tasks: {(cluster.tasks || cluster.task_indices || []).join(', ')}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <p style={{ color: '#a1a1aa' }}>No clusters identified</p>
+                        )}
+                        {clusterResult.recommendations && (
+                          <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#09090b', borderRadius: '6px' }}>
+                            <p style={{ color: '#e5e5e7', fontWeight: 'bold' }}>💡 Recommendations:</p>
+                            <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginTop: '0.25rem' }}>{clusterResult.recommendations}</p>
                           </div>
-                        ))}
+                        )}
+                        {clusterResult.raw_response && (
+                          <details style={{ marginTop: '0.5rem' }}>
+                            <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
+                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                              {clusterResult.raw_response}
+                            </pre>
+                          </details>
+                        )}
                       </div>
                     )}
                   </div>
@@ -407,12 +474,30 @@ function Intelligence() {
                       <p style={{ color: '#ef4444' }}>❌ {parseResult.error}</p>
                     ) : (
                       <div>
-                        <p style={{ color: '#22c55e', fontWeight: 'bold' }}>Title: {parseResult.title}</p>
-                        {parseResult.deadline && <p style={{ color: '#a1a1aa' }}>Deadline: {new Date(parseResult.deadline).toLocaleString()}</p>}
-                        {parseResult.priority && <p style={{ color: '#a1a1aa' }}>Priority: {parseResult.priority}</p>}
-                        {parseResult.estimated_hours && <p style={{ color: '#a1a1aa' }}>Estimated: {parseResult.estimated_hours} hours</p>}
-                        {parseResult.tags && parseResult.tags.length > 0 && <p style={{ color: '#a1a1aa' }}>Tags: {parseResult.tags.join(', ')}</p>}
+                        {parseResult.title && <p style={{ color: '#22c55e', fontWeight: 'bold' }}>Title: {parseResult.title}</p>}
+                        {parseResult.description && parseResult.description !== parseResult.title && (
+                          <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginTop: '0.5rem' }}>{parseResult.description}</p>
+                        )}
+                        {parseResult.deadline && parseResult.deadline !== 'none' && (
+                          <p style={{ color: '#a1a1aa' }}>📅 Deadline: {parseResult.deadline}</p>
+                        )}
+                        {parseResult.priority && <p style={{ color: '#a1a1aa' }}>🎯 Priority: {parseResult.priority}</p>}
+                        {parseResult.assignee && parseResult.assignee !== 'unassigned' && (
+                          <p style={{ color: '#a1a1aa' }}>👤 Assignee: {parseResult.assignee}</p>
+                        )}
+                        {parseResult.estimated_hours && <p style={{ color: '#a1a1aa' }}>⏱️ Estimated: {parseResult.estimated_hours} hours</p>}
+                        {parseResult.tags && parseResult.tags.length > 0 && (
+                          <p style={{ color: '#a1a1aa' }}>🏷️ Tags: {parseResult.tags.join(', ')}</p>
+                        )}
                         {parseResult.confidence && <p style={{ color: '#71717a', fontSize: '0.85rem' }}>Confidence: {(parseResult.confidence * 100).toFixed(0)}%</p>}
+                        {parseResult.raw_response && (
+                          <details style={{ marginTop: '0.5rem' }}>
+                            <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
+                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                              {parseResult.raw_response}
+                            </pre>
+                          </details>
+                        )}
                       </div>
                     )}
                   </div>
@@ -674,7 +759,68 @@ function Intelligence() {
               {patternResult && (
                 <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: patternResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${patternResult.error ? '#ef4444' : '#22c55e'}` }}>
                   {patternResult.error ? (
-                    <p style={{ color: '#ef4444' }}>❌ {patternResult.error}</p>
+                    <div>
+                      <p style={{ color: '#ef4444', fontWeight: 'bold' }}>❌ {patternResult.error}</p>
+                      {patternResult.note && <p style={{ color: '#a1a1aa', marginTop: '0.5rem', fontSize: '0.9rem' }}>{patternResult.note}</p>}
+                      {patternResult.stats && (
+                        <div style={{ marginTop: '1rem', color: '#a1a1aa', fontSize: '0.85rem' }}>
+                          <p>📊 Current Stats:</p>
+                          <ul style={{ marginTop: '0.5rem' }}>
+                            <li>Total tasks: {patternResult.stats.total_tasks}</li>
+                            <li>Completed: {patternResult.stats.completed}</li>
+                            <li>Pending: {patternResult.stats.pending}</li>
+                            <li>Overdue: {patternResult.stats.overdue}</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ) : patternResult.success ? (
+                    <div>
+                      <h4 style={{ color: '#22c55e', marginTop: 0, marginBottom: '1rem' }}>✅ Pattern Analysis Complete</h4>
+                      
+                      {patternResult.stats && (
+                        <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
+                          <h5 style={{ color: '#e5e5e7', marginTop: 0, marginBottom: '0.75rem' }}>📊 Statistics ({patternResult.time_range})</h5>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', fontSize: '0.85rem', color: '#a1a1aa' }}>
+                            <div>
+                              <strong style={{ color: '#e5e5e7' }}>Total Tasks:</strong> {patternResult.stats.total_tasks}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#22c55e' }}>Completed:</strong> {patternResult.stats.completed}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#fbbf24' }}>Pending:</strong> {patternResult.stats.pending}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#ef4444' }}>Overdue:</strong> {patternResult.stats.overdue}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#e5e5e7' }}>Completion Rate:</strong> {patternResult.stats.completion_rate}%
+                            </div>
+                            <div>
+                              <strong style={{ color: '#e5e5e7' }}>Avg Time:</strong> {patternResult.stats.avg_completion_days} days
+                            </div>
+                            {patternResult.stats.most_productive_day && (
+                              <div>
+                                <strong style={{ color: '#3b82f6' }}>Most Productive:</strong> {patternResult.stats.most_productive_day}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {patternResult.insights && (
+                        <div style={{ color: '#e5e5e7', fontSize: '0.9rem', lineHeight: '1.6' }}>
+                          <div dangerouslySetInnerHTML={{ 
+                            __html: patternResult.insights
+                              .replace(/\n/g, '<br/>')
+                              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                              .replace(/## (.+?)(<br\/>|$)/g, '<h4 style="color: #3b82f6; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h4>')
+                              .replace(/\* (.+?)(<br\/>|$)/g, '<li style="margin-left: 1.5rem;">$1</li>')
+                          }} />
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div>
                       {patternResult.message && <p style={{ color: '#22c55e', fontWeight: 'bold' }}>{patternResult.message}</p>}
