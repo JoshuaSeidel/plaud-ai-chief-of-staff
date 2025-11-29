@@ -1,104 +1,324 @@
 # AI Chief of Staff
 
-An intelligent executive assistant that automates personal productivity by ingesting meeting transcripts and using Claude AI to generate actionable daily briefs, track commitments, and maintain rolling context.
+Modern AI-powered productivity assistant with glassmorphism UI that automates personal productivity by processing meeting transcripts, generating daily briefs, tracking commitments, and maintaining rolling context with intelligent calendar integration.
 
-## Features
+## ✨ Features
 
-### Core Functionality
-- 📊 **Smart Dashboard**: AI-generated priorities, patterns, and insights
-- 📝 **Transcript Processing**: Upload transcripts (file or paste) with automatic AI extraction
-- 🤖 **Multi-Provider AI Integration**: Choose from Anthropic, OpenAI, Ollama (local), or AWS Bedrock per service
-- 💾 **Dual Database Support**: SQLite or PostgreSQL with unified interface
-- ⚙️ **Configuration UI**: Easy setup for API keys, prompts, and integrations
-- 🐳 **Docker Deployment**: Single container or microservices architecture
-- 🚀 **Microservices Architecture**: Optional specialized AI services with independent provider selection
-- 🎨 **Liquid Glass UI Theme**: Beautiful Apple-style morphism effect with mouse-responsive refraction
+### Core Capabilities
+- 🎨 **Modern Glassmorphism UI** - Elegant backdrop-blur design with smooth transitions across entire interface
+- 🤖 **Multi-Provider AI** - Choose Anthropic Claude, OpenAI GPT, Ollama (local), or AWS Bedrock per service
+- 📊 **Smart Dashboard** - AI-generated daily briefs, priority tracking, and behavioral insights
+- 📝 **Transcript Processing** - Upload meeting notes (file or paste), extract tasks automatically
+- 📅 **Calendar Integration** - Google Calendar, Microsoft Calendar, and Radicale CalDAV support
+- 🔔 **Push Notifications** - Auto-generated VAPID keys, task reminders, overdue alerts
+- 🔒 **Privacy Options** - Local Ollama support for on-premise AI processing
+- 📱 **Progressive Web App** - Install on any device, works offline with background sync
+
+### Architecture Flexibility
+- **Standalone Mode**: All-in-one Docker container with configurable AI provider
+- **Microservices Mode** (Optional): Specialized AI services for enhanced capabilities
+  - 🧠 **AI Intelligence**: Task effort estimation, energy classification, semantic clustering
+  - 🎙️ **Voice Processor**: Audio transcription with OpenAI Whisper (25+ languages)
+  - 🔍 **Pattern Recognition**: Behavioral insights and productivity analytics
+  - 💬 **NL Parser**: Natural language task extraction and smart date parsing
 
 ### Task Management
-- 📋 **Unified Task System**: Commitments, Actions, Follow-ups, Risks in one view
-- 🎨 **Visual Organization**: Color-coded badges and type-based filtering
-- ⏰ **Smart Deadlines**: AI assigns intelligent deadlines (default 2 weeks)
-- 📊 **Task Analytics**: Stats by type and status
-- ✅ **Status Tracking**: Mark complete, view overdue, filter by status
+- 📋 **Unified Task System** - Commitments, Actions, Follow-ups, Risks in color-coded view
+- ⏰ **Smart Deadlines** - AI assigns intelligent deadlines (default 2-week window)
+- 🎨 **Visual Organization** - Type-based filtering, status tracking, analytics
+- ✅ **Status Management** - Mark complete, view overdue, filter by type and status
 
 ### Calendar Integration
-- 📅 **Google Calendar**: Full OAuth integration with event creation
-- 🔄 **Two-Way Sync**: Events from calendar, create events for tasks
-- 📝 **Rich Descriptions**: AI-generated 3-5 paragraph event details
-- 🔔 **Smart Event Titles**: Task type emojis and descriptive titles
-- 🗑️ **Auto Cleanup**: Deletes old events when reprocessing transcripts
-- 📊 **Microsoft Planner**: Multi-tenant OAuth integration for enterprise task management
+- 📅 **Google Calendar** - Full OAuth integration with automatic event creation
+- 🗓️ **Microsoft Calendar** - Multi-tenant OAuth (personal + work accounts)
+- 📆 **Radicale CalDAV** - Self-hosted local calendar server integration (privacy-focused)
+- 🔄 **Two-Way Sync** - Events from calendar, create events for tasks
+- 📝 **Rich Event Details** - AI-generated 3-5 paragraph descriptions with task context
 
-### AI Customization
-- 🎛️ **Editable Prompts**: Customize all AI prompts via UI
-- 🔄 **Live Updates**: Changes apply immediately (no restart needed)
-- 📋 **Template System**: Use variables like {{transcriptText}}, {{taskType}}
-- 🔙 **Reset to Default**: Restore original prompts anytime
+### Progressive Web App Features
+- 📱 **Installable** - Add to home screen on iOS/Android/Desktop
+- 🌐 **Offline Support** - Works without internet, syncs when online
+- 🔔 **Push Notifications** - Auto-generated VAPID keys (no manual setup!)
+- 📲 **Background Sync** - Offline task changes sync automatically
+- 🚀 **Fast Loading** - Service worker caching for instant load times
+- 📐 **Mobile Optimized** - Safe area support for device notches
 
-### Progressive Web App
-- 📱 **Installable**: Add to home screen on iOS/Android/Desktop
-- 🌐 **Offline Support**: Works without internet connection
-- 🔔 **Push Notifications**: Task reminders and overdue alerts
-- 📲 **Background Sync**: Offline tasks sync when online
-- 🚀 **Fast Loading**: Service worker caching for instant load
-- 📐 **Mobile Optimized**: Responsive design with mobile-first approach
-- 🎨 **Safe Area Support**: Proper handling of device notches and status bars
+## 🚀 Quick Start
 
-### Liquid Glass UI Theme
-- ✨ **Modern Glass Morphism**: Subtle liquid glass effect across entire interface
-- 🌈 **Gradient Background**: Elegant dark gradient (slate blue to navy) with fixed attachment
-- 💎 **Glassmorphic Cards**: Semi-transparent cards with backdrop blur and saturation
-- 🎨 **Hover Effects**: Smooth transitions with subtle lift and glow on hover
-- 🔮 **Enhanced Depth**: Shadows and borders create multi-layer depth perception
-- ⚡ **Performance Optimized**: CSS-based effects with hardware acceleration
-- 🎯 **Consistent Theme**: Applied uniformly across all pages and components
+### Standalone Deployment (Recommended)
 
-### Notifications & Reminders
-- ⏰ **Task Reminders**: Notifications 24 hours before deadline
-- ⚠️ **Overdue Alerts**: Daily summary of overdue tasks
-- 📅 **Event Reminders**: Upcoming calendar event notifications
-- 🔄 **Auto Scheduling**: Checks every 30 minutes
-- ✅ **Sync Alerts**: Success notifications for offline task sync
+Deploy as a single container with configurable AI provider:
 
-### Weekly Reports
-- 📊 **Executive Summaries**: AI-generated weekly reports
-- 📈 **Progress Tracking**: What shipped, what's at risk
-- 🎯 **Next Week Focus**: Priorities and commitments
-- 📋 **All Task Types**: Includes commitments, actions, follow-ups, risks
+```bash
+docker run -d \
+  --name=ai-chief-of-staff \
+  -p 3001:3001 \
+  -v ai-chief-data:/app/backend/data \
+  -v ai-chief-uploads:/app/backend/uploads \
+  --restart=unless-stopped \
+  ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest
+```
 
-### AI Microservices (Optional)
-The application supports an optional microservices architecture with specialized AI services:
+Access at: `http://localhost:3001`
 
-#### 🧠 AI Intelligence Service
-- **Effort Estimation**: Predict task duration with confidence scores
-- **Energy Classification**: Categorize tasks by cognitive load (deep work, administrative, etc.)
-- **Task Clustering**: Group related tasks semantically
-- **Access**: Available in the "AI Tools" tab
+### Microservices Deployment (Optional Enhanced Features)
 
-#### 📝 Natural Language Parser Service
-- **Task Parsing**: Convert natural language into structured task data
-- **Quick Add**: Ultra-fast parsing for minimal input ("coffee 2pm tomorrow")
-- **Commitment Extraction**: Pull action items from meeting notes/emails
-- **Smart Date Parsing**: Handles "tomorrow", "next Tuesday", "in 3 days"
-- **Priority Detection**: Auto-detects urgent, high, medium, low priorities
-- **Access**: Available in the "AI Tools" tab
+For advanced capabilities with specialized AI services:
 
-#### 🎤 Voice Processor Service
-- **Audio Transcription**: Convert speech to text using OpenAI Whisper
-- **Multi-language Support**: Automatic language detection or specify language
-- **Format Support**: mp3, mp4, mpeg, mpga, m4a, wav, webm (max 25MB)
-- **Translation**: Translate any language audio to English
-- **Access**: Available in the "AI Tools" tab
+```bash
+# Clone repository
+git clone https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff.git
+cd plaud-ai-chief-of-staff
 
-#### 🗄️ Context Service (Go)
-- **Fast Retrieval**: 10x faster than Node.js for high-throughput queries
-- **Filtering**: By category, source, date range, active status
-- **Rolling Window**: 2-week context window for AI processing
-- **Text Search**: Search across context entries
-- **Access**: Available in the "AI Tools" tab
+# Start all microservices
+docker-compose -f docker-compose.microservices.yml up -d
+```
 
-#### 📊 Pattern Recognition Service
-- **Pattern Detection**: Identifies working hours, energy levels, task clustering
+**Microservices Architecture Includes:**
+- Main application (port 3001)
+- AI Intelligence Service (port 8001) - Task analysis and clustering
+- Voice Processor (port 8004) - Audio transcription with Whisper
+- Pattern Recognition (port 8002) - Behavioral analytics
+- NL Parser (port 8003) - Natural language task extraction
+
+See [MICROSERVICES.md](MICROSERVICES.md) for detailed documentation.
+
+## ⚙️ Configuration
+
+### Main Application AI Provider
+
+1. Navigate to **Settings → AI Models & Providers** (collapsible section)
+2. In **Main Application** section (highlighted with blue border):
+   - **Provider**: Select Anthropic, OpenAI, Ollama, or AWS Bedrock
+   - **Model**: Choose model based on provider:
+     - Anthropic: Claude Sonnet 4.5 (recommended), Claude Sonnet 4, Claude 3.5 Sonnet, Claude 3 Opus
+     - OpenAI: GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
+     - Ollama: Mistral, Llama 2, Code Llama (local models)
+     - AWS Bedrock: Claude Sonnet 4.5, Claude 3.5 Sonnet
+   - **Max Tokens**: 2048-8192 (higher = more detailed responses, more cost)
+   - **Your Name**: Enter names as they appear in transcripts for auto-assignment
+
+### API Keys (Centralized)
+
+All API keys configured in one section under **AI Models & Providers**:
+
+- **Anthropic API Key**: Get from [console.anthropic.com](https://console.anthropic.com/)
+- **OpenAI API Key**: Get from [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- **Ollama Base URL**: Local installation (default: `http://localhost:11434`)
+- **AWS Access Key ID + Secret**: For Bedrock access
+
+Keys are stored securely in database and displayed masked with `•••••` after saving.
+
+### Microservices Configuration (Optional)
+
+Each microservice can use a different AI provider/model combination:
+
+- **AI Intelligence Service**: Best for reasoning (recommend Claude Sonnet 4.5)
+- **Voice Processor Service**: Best for audio (OpenAI Whisper-1)
+- **Pattern Recognition Service**: Best for analytics (Anthropic or local Ollama)
+- **NL Parser Service**: Best for language understanding (GPT-4 or Claude)
+
+Each service has its own provider/model dropdowns in the Settings UI.
+
+### Calendar Integrations
+
+#### Google Calendar
+- Full OAuth integration with automatic event creation
+- Configure Client ID, Client Secret, and Redirect URI
+- Events created 30 minutes before task deadlines
+- Rich AI-generated event descriptions (3-5 paragraphs)
+
+#### Microsoft Calendar
+- Multi-tenant OAuth (supports personal + work accounts)
+- Tenant ID, Client ID, Client Secret, Redirect URI configuration
+- Integrates with Microsoft Planner for task management
+
+#### Radicale CalDAV (Self-Hosted)
+- Privacy-focused local calendar server integration
+- Configure Server URL (default: `http://localhost:5232`)
+- Username/password authentication
+- Perfect for air-gapped or on-premise deployments
+- Installation: `pip install radicale` → Run: `python -m radicale`
+- More info: [radicale.org](https://radicale.org/)
+
+### Push Notifications
+
+**No configuration needed!** VAPID keys are automatically generated on first startup and stored in the database. No manual `npx web-push generate-vapid-keys` required.
+
+Notifications include:
+- Task reminders (24 hours before deadline)
+- Overdue task alerts (daily summaries)
+- Upcoming calendar events
+- Offline task sync confirmations
+
+## 🏗️ Architecture
+
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (React PWA)                      │
+│  Glassmorphism UI • Offline Support • Service Worker        │
+└────────────────────┬────────────────────────────────────────┘
+                     │ HTTPS
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Backend (Express API Gateway)                   │
+│  Multi-Provider AI • Configuration Manager • Task Scheduler │
+└────────────┬───────────────────────┬────────────────────────┘
+             │                       │
+             │ Database              │ Optional Microservices
+             ▼                       ▼
+    ┌────────────────┐    ┌──────────────────────────┐
+    │ SQLite/Postgres│    │ AI Intelligence (8001)   │
+    │  • Tasks       │    │ Voice Processor (8004)   │
+    │  • Config      │    │ Pattern Recognition(8002)│
+    │  • Context     │    │ NL Parser (8003)         │
+    └────────────────┘    └──────────────────────────┘
+```
+
+### Database Support
+
+- **SQLite** (default): Zero-configuration, perfect for single-user deployments
+- **PostgreSQL**: Enterprise-ready, supports high-concurrency environments
+
+Both use unified `database/db.js` interface for seamless switching.
+
+### Configuration Storage
+
+- **App Configuration**: Database (API keys, models, integration settings, VAPID keys)
+- **System Configuration**: `/app/data/config.json` (database type, connection strings)
+- **Prompts**: Database with live updates (no restart required)
+
+## 🛠️ Development
+
+### Local Setup
+
+```bash
+# Backend
+cd backend
+npm install
+npm run dev  # Starts on port 3001
+
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm start    # Starts on port 3000 (proxies to backend:3001)
+```
+
+### Environment Variables
+
+Create `.env` file in backend directory:
+
+```bash
+# Not required! VAPID keys auto-generate
+# But you can override if needed:
+# VAPID_PUBLIC_KEY=your_public_key
+# VAPID_PRIVATE_KEY=your_private_key
+# VAPID_SUBJECT=mailto:notifications@yourdomain.com
+
+# Database (optional - defaults to SQLite)
+DB_TYPE=sqlite  # or 'postgres'
+
+# PostgreSQL (if DB_TYPE=postgres)
+# POSTGRES_HOST=localhost
+# POSTGRES_PORT=5432
+# POSTGRES_DB=aicos
+# POSTGRES_USER=postgres
+# POSTGRES_PASSWORD=password
+```
+
+### Build Frontend
+
+```bash
+cd frontend
+npm run build  # Outputs to frontend/build/
+```
+
+Backend serves static files from `frontend/build/` in production.
+
+## 📚 Documentation
+
+- **[MICROSERVICES.md](MICROSERVICES.md)** - Detailed microservices architecture and deployment
+- **[MICROSOFT-PLANNER-SETUP.md](MICROSOFT-PLANNER-SETUP.md)** - Microsoft integration setup guide
+- **[PRODUCTION-SETUP.md](PRODUCTION-SETUP.md)** - Production deployment instructions
+- **[LICENSE](LICENSE)** - Custom proprietary license
+
+## 🐛 Troubleshooting
+
+### Push Notifications Not Working
+
+VAPID keys auto-generate on startup. Check logs for:
+```
+✓ VAPID keys generated successfully
+✓ VAPID keys loaded from database
+```
+
+If issues persist, delete keys from database and restart:
+```sql
+DELETE FROM config WHERE key LIKE 'vapid%';
+```
+
+### Calendar Integration Issues
+
+**Google Calendar:**
+- Ensure Redirect URI matches exactly in Google Cloud Console
+- Format: `http://localhost:3001/api/calendar/google/callback`
+- Check OAuth consent screen is configured
+
+**Microsoft Calendar:**
+- Verify Tenant ID is correct (find in Azure Portal)
+- Redirect URI: `http://localhost:3001/api/calendar/microsoft/callback`
+- Ensure API permissions include `Calendars.ReadWrite`, `Tasks.ReadWrite`
+
+**Radicale CalDAV:**
+- Verify server is running: `curl http://localhost:5232`
+- Check authentication credentials are correct
+- Default collection path: `/username/calendar.ics/`
+
+### Microservice Connection Errors
+
+Verify all services are running:
+```bash
+docker-compose -f docker-compose.microservices.yml ps
+```
+
+Check service logs:
+```bash
+docker-compose logs ai-intelligence
+docker-compose logs voice-processor
+```
+
+Ensure backend can reach services (check network configuration).
+
+### Database Issues
+
+**SQLite (default):**
+- Database file: `/app/backend/data/database.sqlite`
+- Automatically created on first run
+- Check file permissions if errors occur
+
+**PostgreSQL:**
+- Verify connection string in config
+- Test connection: `psql -h localhost -U postgres -d aicos`
+- Run migrations if schema outdated
+
+## 📄 License
+
+Custom Proprietary License - See [LICENSE](LICENSE)
+
+**Not open source.** This software is proprietary and may not be copied, distributed, or modified without explicit written permission from the copyright holder.
+
+## 👤 Author
+
+**Joshua Seidel**  
+Email: me@joshuaseidel.com  
+GitHub: [@JoshuaSeidel](https://github.com/JoshuaSeidel)
+
+---
+
+**Last Updated**: November 2025  
+**Version**: 2.0.0 (Microservices Architecture + Radicale CalDAV)
 - **Focus Time Analysis**: Finds optimal hours for deep work
 - **Anomaly Detection**: Spots unusual task patterns (spikes, urgent deadlines)
 - **Streak Analysis**: Tracks completion streaks for motivation

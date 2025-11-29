@@ -8,32 +8,42 @@
    - Updated `backend/services/push-notifications.js` to use database keys
    - Updated `backend/routes/notifications.js` for async handling
 
+2. **Configuration UI Refactoring** (Configuration.js - now 2435 lines)
+   - ✅ Removed lines 739-950: Old duplicate "AI Provider Configuration" section
+   - ✅ Wrapped entire "AI Models & Providers" section with `<details open>` for collapsibility
+   - ✅ Added max tokens and user names fields to Main Application section
+   - ✅ Added Radicale CalDAV integration checkbox and configuration UI
+   - ✅ Added Radicale to `enabledIntegrations` state initialization
+   - ✅ Radicale settings saved in `handleSave()` function
+   - ✅ Google Calendar checkbox already saves correctly (line 648: `googleCalendarEnabled`)
+
 ## Remaining Tasks 🔄
 
-### Priority 1: Configuration UI Refactoring (Configuration.js - 2478 lines)
+### Priority 1: README Complete Rewrite
 
-**Issue**: Duplicate API key fields and redundant AI configuration sections
+**Current State**: README is outdated, doesn't reflect:
+- Glassmorphism UI theme
+- Multi-provider AI configuration
+- Main Application vs Microservices architecture
+- VAPID key automation
+- Microservices optional deployment
 
-**Required Changes**:
-1. **Remove lines 739-952**: Old "AI Provider Configuration" collapsible section
-   - This duplicates API keys, models, max tokens, and user names
-   - These settings should only be in the new "Main Application" section
+**Required Sections**:
+1. **Overview** - Modern AI productivity assistant
+2. **Features** - Highlight glassmorphism, multi-provider AI, PWA, Radicale
+3. **Architecture** - Link to ARCHITECTURE_FLOWS.md
+4. **Quick Start** - Docker deployment (standalone + microservices)
+5. **Configuration** - Main app AI provider, API keys, integrations (including Radicale)
+6. **Microservices** - Optional enhanced capabilities
+7. **Development** - Local setup guide
+8. **Troubleshooting** - Common issues
 
-2. **Update "AI Models & Providers" section** (starts line 985):
-   - Already has "Main Application" section ✅
-   - Add collapsible `<details>` wrapper around entire section
-   - Move max tokens and user names into Main Application section
-   - Wrap each microservice in its own `<details>` for collapsing
+### Priority 2: Commit All Work
 
-3. **Add Radicale CalDAV Integration**:
-   - Add checkbox under Calendar Integrations
-   - Add configuration fields (URL, username, password)
-   - Save to `enabledIntegrations.radicale` state
-
-4. **Fix Google Calendar Checkbox**:
-   - Line 1392-1393: `enabledIntegrations.googleCalendar` checkbox
-   - Issue: Changes not being saved
-   - Fix: Ensure `googleCalendarEnabled` is included in save payload (line 627)
+Files to commit:
+- Backend: `utils/vapid-manager.js`, `server.js`, `services/push-notifications.js`, `routes/notifications.js`
+- Frontend: `src/components/Configuration.js`, `package.json`, `src/index.css`
+- Documentation: `README.md` (after rewrite), `REFACTORING_PLAN.md`, `ARCHITECTURE_FLOWS.md`, `ARCHITECTURE_DIAGRAM.md`
 
 ### Priority 2: README Complete Rewrite
 

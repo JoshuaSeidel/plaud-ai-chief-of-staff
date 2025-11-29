@@ -135,7 +135,8 @@ function Configuration() {
   const [enabledIntegrations, setEnabledIntegrations] = useState({
     googleCalendar: true,
     microsoft: false, // Combined Microsoft Calendar + Planner
-    jira: false
+    jira: false,
+    radicale: false
   });
   
   const [saving, setSaving] = useState(false);
@@ -669,6 +670,20 @@ function Configuration() {
         appUpdates.jiraProjectKey = config.jiraProjectKey;
       }
       
+      // Radicale CalDAV configuration
+      appUpdates.radicaleEnabled = enabledIntegrations.radicale;
+      if (config.radicaleUrl) {
+        appUpdates.radicaleUrl = config.radicaleUrl;
+      }
+      if (config.radicaleUsername) {
+        appUpdates.radicaleUsername = config.radicaleUsername;
+      }
+      if (config.radicalePassword && !config.radicalePassword.includes('•')) {
+        appUpdates.radicalePassword = config.radicalePassword;
+      } else if (!config.radicalePassword && loadedFields.radicalePassword) {
+        appUpdates.radicalePassword = '';
+      }
+      
       // System configuration (stored in /app/data/config.json)
       if (config.dbType === 'postgres') {
         sysUpdates.postgres = {};
@@ -736,217 +751,7 @@ function Configuration() {
           </div>
         )}
 
-        <details style={{ marginBottom: '2rem' }}>
-          <summary style={{ 
-            cursor: 'pointer', 
-            fontWeight: 'bold',
-            padding: '0.5rem',
-            color: '#e5e5e7',
-            fontSize: '1.125rem',
-            marginBottom: '0.5rem'
-          }}>
-            🤖 AI Provider Configuration
-          </summary>
-          <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            AI Provider
-          </label>
-          <select
-            value={config.aiProvider}
-            onChange={(e) => handleChange('aiProvider', e.target.value)}
-            style={{ 
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #3f3f46',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              marginBottom: '1.5rem',
-              backgroundColor: '#18181b',
-              color: '#e5e5e7'
-            }}
-          >
-            <option value="anthropic">Anthropic (Claude)</option>
-            <option value="openai">OpenAI (GPT)</option>
-            <option value="ollama">Ollama (Local/Private)</option>
-          </select>
-
-          {/* Anthropic Configuration */}
-          {config.aiProvider === 'anthropic' && (
-            <>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Anthropic API Key (Required)
-              </label>
-              <input
-                type="password"
-                value={config.anthropicApiKey}
-                onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
-                placeholder="sk-ant-..."
-              />
-              {config.anthropicApiKey.includes('•') && (
-                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
-                  ✓ API key is configured (change to update)
-                </p>
-              )}
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.anthropicApiKey.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
-                Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>
-              </p>
-
-              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Claude Model
-              </label>
-              <select
-                value={config.claudeModel}
-                onChange={(e) => handleChange('claudeModel', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #3f3f46',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontFamily: 'inherit',
-                  marginBottom: '1rem',
-                  backgroundColor: '#18181b',
-                  color: '#e5e5e7'
-                }}
-              >
-                <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest - Recommended)</option>
-                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-              </select>
-            </>
-          )}
-
-          {/* OpenAI Configuration */}
-          {config.aiProvider === 'openai' && (
-            <>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                OpenAI API Key (Required)
-              </label>
-              <input
-                type="password"
-                value={config.openaiApiKey}
-                onChange={(e) => handleChange('openaiApiKey', e.target.value)}
-                placeholder="sk-..."
-              />
-              {config.openaiApiKey.includes('•') && (
-                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
-                  ✓ API key is configured (change to update)
-                </p>
-              )}
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.openaiApiKey.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
-                Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">platform.openai.com</a>
-              </p>
-
-              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                OpenAI Model
-              </label>
-              <select
-                value={config.openaiModel}
-                onChange={(e) => handleChange('openaiModel', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #3f3f46',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontFamily: 'inherit',
-                  marginBottom: '1rem',
-                  backgroundColor: '#18181b',
-                  color: '#e5e5e7'
-                }}
-              >
-                <option value="gpt-4o">GPT-4o (Latest - Recommended)</option>
-                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                <option value="gpt-4">GPT-4</option>
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-              </select>
-            </>
-          )}
-
-          {/* Ollama Configuration */}
-          {config.aiProvider === 'ollama' && (
-            <>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Ollama Base URL
-              </label>
-              <input
-                type="url"
-                value={config.ollamaBaseUrl}
-                onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
-                placeholder="http://localhost:11434"
-              />
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                URL where your Ollama instance is running. Default: http://localhost:11434
-              </p>
-
-              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Ollama Model
-              </label>
-              <input
-                type="text"
-                value={config.ollamaModel}
-                onChange={(e) => handleChange('ollamaModel', e.target.value)}
-                placeholder="llama3.1"
-              />
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                Model name as it appears in Ollama. Common: llama3.1, mistral, codellama, etc.
-              </p>
-            </>
-          )}
-
-          {/* Shared Max Tokens */}
-          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            Max Tokens (Response Length)
-          </label>
-          <select
-            value={config.aiMaxTokens}
-            onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
-            style={{ 
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #3f3f46',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              marginBottom: '1rem',
-              backgroundColor: '#18181b',
-              color: '#e5e5e7'
-            }}
-          >
-            <option value="2048">2048 - Short meetings (cheaper)</option>
-            <option value="4096">4096 - Normal meetings (recommended)</option>
-            <option value="6144">6144 - Long meetings</option>
-            <option value="8192">8192 - Very long meetings (max)</option>
-          </select>
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-            Maximum tokens for AI responses. Higher = longer/complete responses but more cost.
-          </p>
-          
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-            Your Name(s) (Comma-separated)
-          </label>
-          <input
-            type="text"
-            value={config.userNames}
-            onChange={(e) => handleChange('userNames', e.target.value)}
-            placeholder="John Smith"
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #d2d2d7',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              marginBottom: '1rem'
-            }}
-          />
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
-            Enter your name(s) as they appear in meeting transcripts. Tasks assigned to you will be automatically added. Others will require confirmation.
-          </p>
-          </div>
-        </details>
+        {/* Old AI Provider Configuration section removed - now consolidated in AI Models & Providers below */}
 
         {/* Plaud Integration - Hidden until implemented */}
         {false && (
@@ -983,8 +788,10 @@ function Configuration() {
         )}
 
         {/* AI Configuration - Per Service */}
-        <div style={{ marginBottom: '2rem' }}>
-          <h3>🤖 AI Models & Providers</h3>
+        <details open style={{ marginBottom: '2rem' }}>
+          <summary style={{ cursor: 'pointer', fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>🤖 AI Models & Providers</span>
+          </summary>
           <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1.5rem' }}>
             Configure AI providers and models for the main application and each microservice. Each service can use a different provider/model combination.
           </p>
@@ -1053,6 +860,43 @@ function Configuration() {
                     </>
                   )}
                 </select>
+              </div>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Max Tokens (Response Length)
+                </label>
+                <select
+                  value={config.aiMaxTokens || '4096'}
+                  onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="2048">2048 - Short meetings (cheaper)</option>
+                  <option value="4096">4096 - Normal meetings (recommended)</option>
+                  <option value="6144">6144 - Long meetings</option>
+                  <option value="8192">8192 - Very long meetings (max)</option>
+                </select>
+                <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                  Higher = longer/complete responses but more cost
+                </p>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Your Name(s) (Comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={config.userNames || ''}
+                  onChange={(e) => handleChange('userNames', e.target.value)}
+                  placeholder="John Smith, J. Smith"
+                  style={{ width: '100%' }}
+                />
+                <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                  For automatic task assignment from transcripts
+                </p>
               </div>
             </div>
           </div>
@@ -1368,7 +1212,7 @@ function Configuration() {
               </div>
             </div>
           </div>
-        </div>
+        </details>
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>🔌 Integrations</h3>
@@ -1419,6 +1263,16 @@ function Configuration() {
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
               <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>🎯 Jira</span>
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enabledIntegrations.radicale}
+                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, radicale: e.target.checked })}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📆 Radicale CalDAV (Local Calendar Server)</span>
             </label>
           </div>
         </div>
@@ -1970,6 +1824,107 @@ function Configuration() {
         </div>
         )}
 
+        {enabledIntegrations.radicale && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>📆 Radicale CalDAV Integration</h3>
+          
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '2px solid #3f3f46', 
+            borderRadius: '12px', 
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📆</span>
+              Radicale (Local/Self-Hosted Calendar Server)
+            </h4>
+            
+            <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
+              Connect your Radicale CalDAV server for privacy-focused local calendar synchronization.
+              Perfect for self-hosted environments and on-premise deployments.
+            </p>
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Radicale Server URL
+            </label>
+            <input
+              type="url"
+              value={config.radicaleUrl || 'http://localhost:5232'}
+              onChange={(e) => handleChange('radicaleUrl', e.target.value)}
+              placeholder="http://localhost:5232"
+              style={{ 
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #3f3f46',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                marginBottom: '1rem',
+                backgroundColor: '#18181b',
+                color: '#e5e5e7'
+              }}
+            />
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+              Default: http://localhost:5232 (adjust if running on different host/port)
+            </p>
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Username
+            </label>
+            <input
+              type="text"
+              value={config.radicaleUsername || ''}
+              onChange={(e) => handleChange('radicaleUsername', e.target.value)}
+              placeholder="Your Radicale username"
+              style={{ 
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #3f3f46',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                marginBottom: '1rem',
+                backgroundColor: '#18181b',
+                color: '#e5e5e7'
+              }}
+            />
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={config.radicalePassword || ''}
+              onChange={(e) => handleChange('radicalePassword', e.target.value)}
+              placeholder="Your Radicale password"
+              style={{ 
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #3f3f46',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                marginBottom: '1rem',
+                backgroundColor: '#18181b',
+                color: '#e5e5e7'
+              }}
+            />
+            {config.radicalePassword && config.radicalePassword.includes('•') && (
+              <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                ✓ Password is configured
+              </p>
+            )}
+            
+            <p style={{ fontSize: '0.85rem', color: '#60a5fa', marginTop: '1rem', padding: '0.75rem', backgroundColor: '#1a2433', borderRadius: '6px' }}>
+              💡 Radicale is a lightweight CalDAV server. Install with: <code style={{ backgroundColor: '#18181b', padding: '0.25rem 0.5rem', borderRadius: '4px', fontFamily: 'monospace' }}>pip install radicale</code><br />
+              Run with: <code style={{ backgroundColor: '#18181b', padding: '0.25rem 0.5rem', borderRadius: '4px', fontFamily: 'monospace' }}>python -m radicale</code><br />
+              More info: <a href="https://radicale.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>radicale.org</a>
+            </p>
+          </div>
+        </div>
+        )}
+
         <details style={{ marginBottom: '2rem' }}>
           <summary style={{ 
             cursor: 'pointer', 
@@ -2162,8 +2117,8 @@ function Configuration() {
             <li>Daily overdue task alerts</li>
             <li>Sync success notifications</li>
           </ul>
-          <p style={{ fontSize: '0.85rem', color: '#bfdbfe', marginTop: '1rem' }}>
-            <strong>Server setup:</strong> VAPID keys required. See README for instructions.
+          <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '1rem' }}>
+            ✓ VAPID keys are automatically generated on server startup - no manual configuration needed!
           </p>
         </div>
       </div>
