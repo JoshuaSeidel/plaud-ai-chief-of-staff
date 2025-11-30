@@ -76,14 +76,28 @@ except Exception as e:
 async def init_db():
     global db_pool
     database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        try:
-            db_pool = await asyncpg.create_pool(database_url, min_size=1, max_size=10)
-            logger.info(f"✓ Connected to PostgreSQL database")
-        except Exception as e:
-            logger.error(f"❌ Failed to connect to database: {e}", exc_info=True)
-    else:
-        logger.warning("DATABASE_URL not set - database features disabled")
+    if not database_url:
+        logger.warning("⚠️  DATABASE_URL not set - pattern analysis will fall back to backend")
+        return
+    
+    try:
+        # Parse DATABASE_URL to check host
+        from urllib.parse import urlparse
+        parsed = urlparse(database_url)
+        logger.info(f"→ Attempting database connection to: {parsed.hostname}:{parsed.port or 5432}")
+        
+        db_pool = await asyncpg.create_pool(
+            database_url, 
+            min_size=1, 
+            max_size=10,
+            timeout=5.0,  # 5 second timeout
+            command_timeout=10.0
+        )
+        logger.info(f"✓ Connected to PostgreSQL database")
+    except Exception as e:
+        logger.warning(f"⚠️  Database connection failed: {str(e)}")
+        logger.warning("Pattern analysis will fall back to backend local implementation")
+        db_pool = None
 
 @app.on_event("startup")
 async def startup():
