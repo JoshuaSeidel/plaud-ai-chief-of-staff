@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 
 # Add shared directory to path
-sys.path.append('/app/shared')
+sys.path.insert(0, '/app/shared')
 
 try:
     from ai_providers import get_ai_client, get_best_available_provider

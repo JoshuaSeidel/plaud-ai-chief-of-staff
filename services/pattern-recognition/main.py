@@ -12,7 +12,7 @@ import sys
 import os
 
 # Add shared modules to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+sys.path.insert(0, '/app/shared')
 from db_config import get_ai_model, get_ai_provider
 
 import anthropic
