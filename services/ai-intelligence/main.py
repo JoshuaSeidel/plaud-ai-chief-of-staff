@@ -19,7 +19,6 @@ sys.path.insert(0, '/app/shared')
 
 try:
     from ai_providers import get_ai_client, get_best_available_provider
-    from config_manager import get_config_manager
     from db_config import get_ai_model, get_ai_provider
     USE_SHARED_LIBS = True
     logger = logging.getLogger(__name__)
@@ -70,14 +69,14 @@ app.add_middleware(
 try:
     if USE_SHARED_LIBS:
         logger.info("Attempting to use shared AI provider abstraction...")
-        # Use config-driven AI provider selection
-        config = get_config_manager()
-        provider_config = config.get_ai_provider_config('ai_intelligence')
+        # Use config-driven AI provider selection from database
+        provider = get_ai_provider()
+        model = get_ai_model(provider=provider)
         
         try:
             ai_client = get_ai_client(
-                provider=provider_config['provider'],
-                model=provider_config['model'],
+                provider=provider,
+                model=model,
                 api_key=provider_config.get('api_key')
             )
             logger.info(f"✓ Using AI provider: {provider_config['provider']} with model {provider_config['model']}")

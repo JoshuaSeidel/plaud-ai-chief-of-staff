@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import openai
 import os
+import sys
 import logging
 import tempfile
 from typing import Optional
@@ -16,6 +17,10 @@ import redis
 import hashlib
 import json
 from storage_manager import get_storage_manager
+
+# Add shared modules to path
+sys.path.insert(0, '/app/shared')
+from db_config import get_ai_model, get_ai_provider
 
 # Configure logging
 logging.basicConfig(
@@ -53,15 +58,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure AI model (Whisper-1 optimized for transcription)
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "whisper-1")
-logger.info(f"Using Whisper model: {WHISPER_MODEL}")
+# Get AI configuration from database
+try:
+    ai_provider = get_ai_provider()
+    ai_model = get_ai_model(provider=ai_provider)
+    logger.info(f"Using AI provider: {ai_provider}, model: {ai_model}")
+except Exception as e:
+    logger.warning(f"Failed to load AI config from database: {e}. Using defaults.")
+    ai_provider = "openai"
+    ai_model = "whisper-1"
 
-# Initialize OpenAI client
+# Initialize OpenAI client (for Whisper or OpenAI models)
 openai_api_key = os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    logger.warning("OPENAI_API_KEY not set - transcription will not work")
-else:
+if not openai_api_key and ai_provider == "openai":
+    logger.warning("OPENAI_API_KEY not set - OpenAI transcription will not work")
+elif openai_api_key:
     openai.api_key = openai_api_key
 
 # Initialize Redis client
@@ -225,16 +236,32 @@ async def transcribe_audio(
             tmp_file.write(file_content)
             tmp_file_path = tmp_file.name
         
-        # Transcribe with Whisper
+        # Transcribe with configured AI model
         with open(tmp_file_path, "rb") as audio_file:
-            transcript = openai.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language=language,
-                prompt=prompt,
-                temperature=temperature,
-                response_format="verbose_json"
-            )
+            if ai_provider == "openai":
+                # Use OpenAI Whisper
+                transcript = openai.audio.transcriptions.create(
+                    model=ai_model,
+                    file=audio_file,
+                    language=language,
+                    prompt=prompt,
+                    temperature=temperature,
+                    response_format="verbose_json"
+                )
+            elif ai_provider == "ollama":
+                # TODO: Implement Ollama transcription
+                # For now, fallback to Whisper
+                logger.warning("Ollama transcription not yet implemented, using OpenAI Whisper")
+                transcript = openai.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language=language,
+                    prompt=prompt,
+                    temperature=temperature,
+                    response_format="verbose_json"
+                )
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported AI provider for transcription: {ai_provider}")
         
         # Clean up temp file
         os.unlink(tmp_file_path)
@@ -321,15 +348,28 @@ async def transcribe_with_timestamps(
             tmp_file.write(file_content)
             tmp_file_path = tmp_file.name
         
-        # Transcribe with timestamps
+        # Transcribe with timestamps using configured AI model
         with open(tmp_file_path, "rb") as audio_file:
-            transcript = openai.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language=language,
-                response_format="verbose_json",
-                timestamp_granularities=["word"]
-            )
+            if ai_provider == "openai":
+                transcript = openai.audio.transcriptions.create(
+                    model=ai_model,
+                    file=audio_file,
+                    language=language,
+                    response_format="verbose_json",
+                    timestamp_granularities=["word"]
+                )
+            elif ai_provider == "ollama":
+                # TODO: Implement Ollama transcription with timestamps
+                logger.warning("Ollama transcription not yet implemented, using OpenAI Whisper")
+                transcript = openai.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language=language,
+                    response_format="verbose_json",
+                    timestamp_granularities=["word"]
+                )
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported AI provider: {ai_provider}")
         
         # Clean up
         os.unlink(tmp_file_path)

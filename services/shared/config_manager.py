@@ -94,7 +94,7 @@ class ConfigManager:
         # Query database
         if self._conn:
             try:
-                query = "SELECT config_value, config_type FROM configurations WHERE config_key = %s"
+                query = "SELECT value FROM config WHERE key = %s"
                 result = self._execute_query(query, (key,))
                 
                 if result and len(result) > 0:
@@ -140,7 +140,7 @@ class ConfigManager:
         
         try:
             query = """
-                UPDATE configurations 
+                UPDATE config 
                 SET config_value = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE config_key = %s
             """
@@ -171,7 +171,7 @@ class ConfigManager:
         try:
             query = """
                 SELECT config_key, config_value, config_type, is_sensitive 
-                FROM configurations 
+                FROM config 
                 WHERE category = %s
                 ORDER BY config_key
             """
