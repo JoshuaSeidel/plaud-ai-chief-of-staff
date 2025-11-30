@@ -316,7 +316,8 @@ async def analyze_patterns(request: dict):
             )
             
             # Get overdue tasks
-            now = datetime.utcnow()
+            # Note: deadline column is TEXT (ISO string), not TIMESTAMP
+            now = datetime.utcnow().isoformat()
             overdue_tasks = await conn.fetch(
                 "SELECT * FROM commitments WHERE status != $1 AND deadline < $2 AND deadline IS NOT NULL",
                 'completed', now
