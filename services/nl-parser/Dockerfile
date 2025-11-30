@@ -9,8 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy shared modules
 COPY shared /app/shared
 
-# Copy application
-COPY nl-parser/main.py .
+# Copy application files
+COPY nl-parser/*.py .
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
