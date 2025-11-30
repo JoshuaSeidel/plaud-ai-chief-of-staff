@@ -1,7 +1,37 @@
 version: '3.8'
 
+# ==============================================================================
 # AI Chief of Staff - Microservices Architecture
-# Development environment with all services
+# ==============================================================================
+#
+# ENVIRONMENT VARIABLE PHILOSOPHY:
+#
+# This file minimizes environment variables following the principle:
+# "Configuration should be database-driven, not environment-driven"
+#
+# WHAT'S IN ENVIRONMENT VARIABLES:
+# ✓ Infrastructure URLs (DATABASE_URL, REDIS_URL, service discovery)
+# ✓ External API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY - sensitive!)
+# ✓ Runtime settings (NODE_ENV, LOG_LEVEL)
+# ✓ Storage configuration (S3 credentials if using cloud storage)
+#
+# WHAT'S IN DATABASE (configured via Settings UI):
+# ✓ AI model selection (Claude Sonnet 4.5, GPT-4, etc.)
+# ✓ Calendar credentials (Google OAuth tokens, Microsoft OAuth, CalDAV)
+# ✓ Jira/Planner integration settings
+# ✓ User preferences and dashboard settings
+# ✓ Push notification keys (auto-generated VAPID)
+# ✓ Redirect URIs (with localhost:3001 fallback)
+# ✓ Calendar IDs (with 'primary' fallback)
+#
+# BENEFITS:
+# - Changes to AI models don't require container restart
+# - Calendar integration configured through UI, not YAML
+# - Per-user settings without environment variables
+# - Safer: API keys encrypted at rest in PostgreSQL
+# - Easier: Settings UI is more user-friendly than editing .env files
+#
+# ==============================================================================
 
 services:
   # ============================================================================
@@ -36,27 +66,54 @@ services:
     ports:
       - "3001:3001"
     environment:
-      # Database
+      # ============================================
+      # INFRASTRUCTURE (Required - cannot be in DB)
+      # ============================================
+      
+      # Database connection string
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - DB_TYPE=postgres
       
-      # Cache
+      # Cache/queue connection
       - REDIS_URL=redis://aicos-redis:6379
       
-      # Microservices
+      # Microservice discovery URLs (auto-configured via Docker network)
       - AI_INTELLIGENCE_URL=http://aicos-ai-intelligence:8001
       - PATTERN_RECOGNITION_URL=http://aicos-pattern-recognition:8002
       - NL_PARSER_URL=http://aicos-nl-parser:8003
       - VOICE_PROCESSOR_URL=http://aicos-voice-processor:8004
       - CONTEXT_SERVICE_URL=http://aicos-context-service:8005
       
-      # External APIs
+      # ============================================
+      # EXTERNAL API KEYS (Required - sensitive)
+      # ============================================
+      
+      # Anthropic Claude API key for AI operations
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      
+      # OpenAI API key for Whisper transcription
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       
-      # Config
+      # ============================================
+      # RUNTIME CONFIGURATION (Reasonable as env)
+      # ============================================
+      
+      # Runtime environment (development/production)
       - NODE_ENV=development
+      
+      # Log verbosity (debug/info/warn/error)
       - LOG_LEVEL=info
+      
+      # ============================================
+      # ALL OTHER CONFIG IN DATABASE (via Settings UI)
+      # ============================================
+      # - AI model selection (Claude Sonnet 4.5, GPT-4, etc.)
+      # - Calendar credentials (Google OAuth, Microsoft OAuth, CalDAV)
+      # - Jira/Planner integration settings
+      # - User preferences and dashboard settings
+      # - Push notification keys (auto-generated)
+      # - Redirect URIs (fallback to localhost:3001 if not in DB)
+      # - Calendar IDs (fallback to 'primary' if not in DB)
     depends_on:
       - aicos-postgres
       - aicos-redis
@@ -188,17 +245,30 @@ services:
     ports:
       - "8004:8004"
     environment:
+      # Database for storing transcript metadata
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      
+      # OpenAI API key for Whisper transcription
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Redis for caching and rate limiting
       - REDIS_URL=redis://aicos-redis:6379
+      
+      # Whisper model (whisper-1 is latest)
       - WHISPER_MODEL=${WHISPER_MODEL:-whisper-1}
+      
+      # Storage configuration (local or S3)
       - STORAGE_TYPE=${VOICE_STORAGE_TYPE:-local}
       - STORAGE_PATH=/app/data/voice-recordings
+      
+      # S3 storage (optional - leave empty for local storage)
       - S3_BUCKET=${S3_BUCKET:-}
       - S3_REGION=${S3_REGION:-us-east-1}
       - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-}
       - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
       - S3_ENDPOINT=${S3_ENDPOINT:-}
+      
+      # Log verbosity
       - LOG_LEVEL=info
     depends_on:
       - aicos-redis
@@ -235,16 +305,13 @@ services:
     ports:
       - "8005:8005"
     environment:
-      # Use DATABASE_URL (preferred) or individual variables
+      # Database connection (Go service parses this directly)
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos?sslmode=disable
-      # Fallback individual variables (if DATABASE_URL not used)
-      - DB_TYPE=postgres
-      - POSTGRES_HOST=aicos-postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=aicos
+      
+      # Redis for caching
       - REDIS_URL=redis://aicos-redis:6379
+      
+      # Log verbosity
       - LOG_LEVEL=info
     depends_on:
       - aicos-postgres

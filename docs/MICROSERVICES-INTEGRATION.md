@@ -21,9 +21,13 @@ The AI Chief of Staff uses a microservices architecture where specialized servic
 - Backend automatically calls NL-parser to extract tasks from the content
 
 **Example Flow:**
-```
-User uploads transcript → Backend receives → Calls NL-parser → 
-Extracts tasks → Saves to commitments table → Shows in Tasks tab
+```mermaid
+graph LR
+    A[User uploads transcript] --> B[Backend receives]
+    B --> C[Calls NL-parser]
+    C --> D[Extracts tasks]
+    D --> E[Saves to commitments table]
+    E --> F[Shows in Tasks tab]
 ```
 
 ### 2. **AI-Intelligence** (Task Analysis)
@@ -41,11 +45,13 @@ Extracts tasks → Saves to commitments table → Shows in Tasks tab
 - Backend brief generation → Optionally uses for prioritization
 
 **Example Flow:**
-```
-User clicks "Smart Grouping..." → Frontend calls backend → 
-Backend calls AI-Intelligence /cluster-tasks → 
-Returns semantic groups → Saves cluster_group to database → 
-Shows group badges on tasks
+```mermaid
+graph LR
+    A[User clicks Smart Grouping...] --> B[Frontend calls backend]
+    B --> C[Backend calls AI-Intelligence]
+    C --> D[Returns semantic groups]
+    D --> E[Saves cluster_group to database]
+    E --> F[Shows group badges on tasks]
 ```
 
 ### 3. **Pattern-Recognition** (Behavioral Insights)
@@ -68,11 +74,14 @@ Shows group badges on tasks
 - Generates AI insights about working patterns
 
 **Example Flow:**
-```
-Dashboard loads → Calls /api/intelligence/analyze-patterns → 
-Backend proxies to Pattern-Recognition → Queries database → 
-Analyzes completion patterns → Claude generates insights → 
-Displays in "📊 Productivity Insights" widget
+```mermaid
+graph LR
+    A[Dashboard loads] --> B[Calls /api/intelligence/analyze-patterns]
+    B --> C[Backend proxies to Pattern-Recognition]
+    C --> D[Queries database]
+    D --> E[Analyzes completion patterns]
+    E --> F[Claude generates insights]
+    F --> G[Displays in Productivity Insights widget]
 ```
 
 ### 4. **Voice-Processor** (Transcription)
@@ -100,39 +109,26 @@ Displays in "📊 Productivity Insights" widget
 ## How They Work Together
 
 ### Transcript Processing Flow
-```
-1. User uploads transcript
-   ↓
-2. NL-Parser extracts tasks
-   ↓
-3. Backend saves commitments
-   ↓
-4. Smart Grouping (optional)
-   ↓
-5. AI-Intelligence clusters tasks
-   ↓
-6. Pattern-Recognition analyzes trends
-   ↓
-7. Dashboard shows insights
+```mermaid
+graph TD
+    A[1. User uploads transcript] --> B[2. NL-Parser extracts tasks]
+    B --> C[3. Backend saves commitments]
+    C --> D[4. Smart Grouping optional]
+    D --> E[5. AI-Intelligence clusters tasks]
+    E --> F[6. Pattern-Recognition analyzes trends]
+    F --> G[7. Dashboard shows insights]
 ```
 
 ### Smart Grouping Integration
-```
-1. User has tasks in database
-   ↓
-2. Clicks "Smart Grouping..." button
-   ↓
-3. AI-Intelligence /cluster-tasks analyzes semantics
-   ↓
-4. Returns clusters with task_indices
-   ↓
-5. Frontend saves cluster_group to each task
-   ↓
-6. Pattern-Recognition sees grouped data
-   ↓
-7. Generates insights considering groups
-   ↓
-8. Tasks display group badges (📁 Group Name)
+```mermaid
+graph TD
+    A[1. User has tasks in database] --> B[2. Clicks Smart Grouping... button]
+    B --> C[3. AI-Intelligence analyzes semantics]
+    C --> D[4. Returns clusters with task_indices]
+    D --> E[5. Frontend saves cluster_group to each task]
+    E --> F[6. Pattern-Recognition sees grouped data]
+    F --> G[7. Generates insights considering groups]
+    G --> H[8. Tasks display group badges]
 ```
 
 ### Pattern Analysis with Groups
