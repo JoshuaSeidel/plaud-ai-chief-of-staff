@@ -186,6 +186,11 @@ function Configuration() {
     checkJiraStatus();
     loadPrompts();
     
+    // Load available models for all providers on mount
+    loadModelsForProvider('anthropic');
+    loadModelsForProvider('openai');
+    loadModelsForProvider('ollama');
+    
     // Set initial integration toggles based on configuration
     // This will be updated when status checks complete
     const hasJiraConfig = config.jiraBaseUrl && config.jiraEmail && config.jiraApiToken && config.jiraProjectKey;
@@ -439,6 +444,110 @@ function Configuration() {
     } finally {
       setLoadingModels(prev => ({ ...prev, [provider]: false }));
     }
+  };
+
+  // Helper to render model dropdown with refresh button
+  const renderModelSelector = (provider, currentModel, onModelChange) => {
+    const supportsRefresh = ['anthropic', 'openai', 'ollama'].includes(provider);
+    
+    return (
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+        <select
+          value={currentModel}
+          onChange={(e) => onModelChange(e.target.value)}
+          style={{ flex: 1 }}
+          disabled={loadingModels[provider]}
+        >
+          {provider === 'anthropic' && (
+            <>
+              {availableModels.anthropic.length > 0 ? (
+                availableModels.anthropic.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                  <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                </>
+              )}
+            </>
+          )}
+          {provider === 'openai' && (
+            <>
+              {availableModels.openai.length > 0 ? (
+                availableModels.openai.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                  <option value="gpt-4">GPT-4</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  <option value="whisper-1">Whisper-1</option>
+                </>
+              )}
+            </>
+          )}
+          {provider === 'ollama' && (
+            <>
+              {availableModels.ollama.length > 0 ? (
+                availableModels.ollama.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="mistral:latest">Mistral Latest</option>
+                  <option value="llama3.1:latest">Llama 3.1 Latest</option>
+                  <option value="llama2:latest">Llama 2 Latest</option>
+                  <option value="codellama:latest">Code Llama Latest</option>
+                  <option value="whisper:latest">Whisper Latest</option>
+                </>
+              )}
+            </>
+          )}
+          {provider === 'bedrock' && (
+            <>
+              <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+              <option value="anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet</option>
+            </>
+          )}
+        </select>
+        {supportsRefresh && (
+          <button
+            type="button"
+            onClick={() => loadModelsForProvider(provider)}
+            disabled={loadingModels[provider]}
+            title="Refresh model list"
+            style={{
+              padding: '0.5rem',
+              fontSize: '1rem',
+              background: '#3b82f6',
+              border: 'none',
+              borderRadius: '4px',
+              color: 'white',
+              cursor: loadingModels[provider] ? 'not-allowed' : 'pointer',
+              opacity: loadingModels[provider] ? 0.6 : 1,
+              minWidth: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {loadingModels[provider] ? '⏳' : '🔄'}
+          </button>
+        )}
+      </div>
+    );
   };
 
   const checkGoogleCalendarStatus = async () => {
@@ -892,103 +1001,11 @@ function Configuration() {
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
                   Model
-                  {['anthropic', 'openai', 'ollama'].includes(config.aiProvider || 'anthropic') && (
-                    <button
-                      type="button"
-                      onClick={() => loadModelsForProvider(config.aiProvider || 'anthropic')}
-                      disabled={loadingModels[config.aiProvider || 'anthropic']}
-                      style={{
-                        marginLeft: '0.5rem',
-                        padding: '0.2rem 0.5rem',
-                        fontSize: '0.75rem',
-                        background: '#3b82f6',
-                        border: 'none',
-                        borderRadius: '4px',
-                        color: 'white',
-                        cursor: loadingModels[config.aiProvider || 'anthropic'] ? 'not-allowed' : 'pointer',
-                        opacity: loadingModels[config.aiProvider || 'anthropic'] ? 0.6 : 1
-                      }}
-                    >
-                      {loadingModels[config.aiProvider || 'anthropic'] ? '⏳' : '🔄'} Refresh
-                    </button>
-                  )}
                 </label>
-                <select
-                  value={config.claudeModel || 'claude-sonnet-4-5-20250929'}
-                  onChange={(e) => handleChange('claudeModel', e.target.value)}
-                  style={{ width: '100%' }}
-                  disabled={loadingModels[config.aiProvider || 'anthropic']}
-                >
-                  {(config.aiProvider || 'anthropic') === 'anthropic' && (
-                    <>
-                      {availableModels.anthropic.length > 0 ? (
-                        availableModels.anthropic.map(model => (
-                          <option key={model.id} value={model.id}>
-                            {model.name}
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
-                          <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                          <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-                        </>
-                      )}
-                    </>
-                  )}
-                  {(config.aiProvider || 'anthropic') === 'openai' && (
-                    <>
-                      {availableModels.openai.length > 0 ? (
-                        availableModels.openai.map(model => (
-                          <option key={model.id} value={model.id}>
-                            {model.name}
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="gpt-4o">GPT-4o</option>
-                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                          <option value="gpt-4">GPT-4</option>
-                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                        </>
-                      )}
-                    </>
-                  )}
-                  {(config.aiProvider || 'anthropic') === 'ollama' && (
-                    <>
-                      {availableModels.ollama.length > 0 ? (
-                        availableModels.ollama.map(model => (
-                          <option key={model.id} value={model.id}>
-                            {model.name}
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="mistral:latest">Mistral Latest</option>
-                          <option value="llama3.1:latest">Llama 3.1 Latest</option>
-                          <option value="llama2:latest">Llama 2 Latest</option>
-                          <option value="codellama:latest">Code Llama Latest</option>
-                        </>
-                      )}
-                    </>
-                  )}
-                  {(config.aiProvider || 'anthropic') === 'bedrock' && (
-                    <>
-                      <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
-                      <option value="anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet</option>
-                    </>
-                  )}
-                </select>
-                {loadingModels[config.aiProvider || 'anthropic'] && (
-                  <p style={{ fontSize: '0.75rem', color: '#60a5fa', marginTop: '0.25rem', marginBottom: 0 }}>
-                    Loading models from API...
-                  </p>
-                )}
-                {!loadingModels[config.aiProvider || 'anthropic'] && availableModels[config.aiProvider || 'anthropic']?.length === 0 && ['anthropic', 'openai', 'ollama'].includes(config.aiProvider || 'anthropic') && (
-                  <p style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.25rem', marginBottom: 0 }}>
-                    Click Refresh to load available models
-                  </p>
+                {renderModelSelector(
+                  config.aiProvider || 'anthropic',
+                  config.claudeModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('claudeModel', value)
                 )}
               </div>
             </div>
@@ -1081,39 +1098,11 @@ function Configuration() {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
                   Model
                 </label>
-                <select
-                  value={config.aiIntelligenceModel || 'claude-sonnet-4-5-20250929'}
-                  onChange={(e) => handleChange('aiIntelligenceModel', e.target.value)}
-                  style={{ width: '100%' }}
-                >
-                  {(config.aiIntelligenceProvider || 'anthropic') === 'anthropic' && (
-                    <>
-                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
-                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                    </>
-                  )}
-                  {(config.aiIntelligenceProvider || 'anthropic') === 'openai' && (
-                    <>
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                    </>
-                  )}
-                  {(config.aiIntelligenceProvider || 'anthropic') === 'ollama' && (
-                    <>
-                      <option value="mistral:latest">Mistral Latest</option>
-                      <option value="llama2:latest">Llama 2 Latest</option>
-                      <option value="codellama:latest">Code Llama Latest</option>
-                    </>
-                  )}
-                  {(config.aiIntelligenceProvider || 'anthropic') === 'bedrock' && (
-                    <>
-                      <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
-                      <option value="anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet</option>
-                    </>
-                  )}
-                </select>
+                {renderModelSelector(
+                  config.aiIntelligenceProvider || 'anthropic',
+                  config.aiIntelligenceModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('aiIntelligenceModel', value)
+                )}
               </div>
             </div>
           </div>
@@ -1144,22 +1133,11 @@ function Configuration() {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
                   Model
                 </label>
-                <select
-                  value={config.voiceProcessorModel || 'whisper-1'}
-                  onChange={(e) => handleChange('voiceProcessorModel', e.target.value)}
-                  style={{ width: '100%' }}
-                >
-                  {(config.voiceProcessorProvider || 'openai') === 'openai' && (
-                    <option value="whisper-1">Whisper-1 (Best Quality)</option>
-                  )}
-                  {(config.voiceProcessorProvider || 'openai') === 'ollama' && (
-                    <>
-                      <option value="whisper:medium">Whisper Medium</option>
-                      <option value="whisper:small">Whisper Small</option>
-                      <option value="whisper:base">Whisper Base</option>
-                    </>
-                  )}
-                </select>
+                {renderModelSelector(
+                  config.voiceProcessorProvider || 'openai',
+                  config.voiceProcessorModel || 'whisper-1',
+                  (value) => handleChange('voiceProcessorModel', value)
+                )}
               </div>
             </div>
             
