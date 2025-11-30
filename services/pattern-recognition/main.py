@@ -305,13 +305,14 @@ async def analyze_patterns(request: dict):
                 start_date
             )
             
-            # Get completed tasks
+            # Get completed tasks - include ALL completed tasks for pattern analysis
+            # Don't filter by date - we want historical completion patterns even outside time window
             completed_tasks = await conn.fetch(
-                "SELECT * FROM commitments WHERE status = $1 AND completed_date >= $2 ORDER BY completed_date DESC",
-                'completed', start_date
+                "SELECT * FROM commitments WHERE status = $1 ORDER BY completed_date DESC",
+                'completed'
             )
             
-            # Get pending tasks
+            # Get pending tasks within time range
             pending_tasks = await conn.fetch(
                 "SELECT * FROM commitments WHERE status = $1 AND created_date >= $2 ORDER BY created_date DESC",
                 'pending', start_date
@@ -367,11 +368,11 @@ async def analyze_patterns(request: dict):
         # Generate AI insights
         prompt = f"""Analyze this task completion data and provide actionable productivity insights.
 
-Stats (Last {days} days):
-- Total tasks: {len(all_tasks)}
-- Completed: {len(completed_tasks)}
-- Pending: {len(pending_tasks)}
-- Overdue: {len(overdue_tasks)}
+Task Overview:
+- Tasks created in last {days} days: {len(all_tasks)}
+- Total completed tasks (all time): {len(completed_tasks)}
+- Pending tasks: {len(pending_tasks)}
+- Overdue tasks: {len(overdue_tasks)}
 - Completion rate: {completion_rate}%
 - Average time to complete: {avg_completion_days} days
 - Most productive day: {most_productive_day}
