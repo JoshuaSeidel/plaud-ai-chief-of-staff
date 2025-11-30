@@ -105,6 +105,30 @@ router.post('/test', async (req, res) => {
 });
 
 /**
+ * Dismiss a notification to prevent future sends
+ */
+router.post('/dismiss', async (req, res) => {
+  try {
+    const { notificationTag } = req.body;
+    
+    if (!notificationTag) {
+      return res.status(400).json({ error: 'notificationTag required' });
+    }
+    
+    await pushService.dismissNotification(notificationTag);
+    logger.info(`Notification dismissed: ${notificationTag}`);
+    
+    res.json({ message: 'Notification dismissed successfully' });
+  } catch (error) {
+    logger.error('Error dismissing notification:', error);
+    res.status(500).json({ 
+      error: 'Failed to dismiss notification',
+      message: error.message
+    });
+  }
+});
+
+/**
  * Regenerate VAPID keys (will invalidate all existing subscriptions)
  */
 router.post('/regenerate-vapid', async (req, res) => {

@@ -20,6 +20,7 @@ sys.path.append('/app/shared')
 try:
     from ai_providers import get_ai_client, get_best_available_provider
     from config_manager import get_config_manager
+    from db_config import get_ai_model, get_ai_provider
     USE_SHARED_LIBS = True
     logger = logging.getLogger(__name__)
     logger.info("✓ Using shared AI provider abstraction")
@@ -64,10 +65,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure AI model (Claude Sonnet 4.5 optimized for complex reasoning)
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
-logger.info(f"Using Claude model: {CLAUDE_MODEL}")
 
 # Initialize clients
 try:
@@ -220,8 +217,10 @@ Respond in JSON format:
                 temperature=0.3
             )
         else:
+            # Get model from database configuration
+            model = get_ai_model(provider="anthropic")
             message = ai_client.messages.create(
-                model=CLAUDE_MODEL,
+                model=model,
                 max_tokens=300,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}]
@@ -290,8 +289,10 @@ Respond in JSON format:
                 temperature=0.2
             )
         else:
+            # Get model from database configuration
+            model = get_ai_model(provider="anthropic")
             message = ai_client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model=model,
                 max_tokens=50,
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
@@ -380,18 +381,22 @@ Respond in JSON format:
             # Always use the global ai_client if it's properly initialized
             if isinstance(ai_client, anthropic.Anthropic):
                 logger.info("Using existing Anthropic client")
-                message = ai_client.messages.create(
-                    model=CLAUDE_MODEL,
-                    max_tokens=1000,
-                    temperature=0.4,
-                    messages=[{"role": "user", "content": prompt}]
-                )
+                # Get model from database configuration
+                model = get_ai_model(provider="anthropic")
+                
+                # Try with shared AI client first
+                try:
+                    response = ai_client.messages.create(
+                        model=model,
+                        max_tokens=1024,
             else:
                 # Re-initialize if needed
                 logger.warning(f"AI client type mismatch: {type(ai_client)}, re-initializing")
+                # Get model from database configuration
+                model = get_ai_model(provider="anthropic")
                 anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
                 message = anthropic_client.messages.create(
-                    model=CLAUDE_MODEL,
+                    model=model,
                     max_tokens=1000,
                     temperature=0.4,
                     messages=[{"role": "user", "content": prompt}]

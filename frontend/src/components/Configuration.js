@@ -148,6 +148,8 @@ function Configuration() {
   const [jiraConnected, setJiraConnected] = useState(false);
   const [checkingJira, setCheckingJira] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationMaxRepeat, setNotificationMaxRepeat] = useState(3);
+  const [notificationRepeatIntervalHours, setNotificationRepeatIntervalHours] = useState(24);
   const [microsoftTaskLists, setMicrosoftTaskLists] = useState([]);
   const [loadingTaskLists, setLoadingTaskLists] = useState(false);
   const [prompts, setPrompts] = useState([]);
@@ -175,6 +177,18 @@ function Configuration() {
     if (typeof Notification !== 'undefined') {
       setNotificationsEnabled(Notification.permission === 'granted');
     }
+    
+    // Load notification limits from config
+    configAPI.getAll().then(config => {
+      if (config.notification_max_repeat !== undefined) {
+        setNotificationMaxRepeat(parseInt(config.notification_max_repeat) || 3);
+      }
+      if (config.notification_repeat_interval_hours !== undefined) {
+        setNotificationRepeatIntervalHours(parseInt(config.notification_repeat_interval_hours) || 24);
+      }
+    }).catch(err => {
+      console.error('Failed to load notification config:', err);
+    });
     
     // Check for URL parameters (success/error messages from OAuth redirects)
     const hash = window.location.hash;
@@ -2194,6 +2208,86 @@ function Configuration() {
         >
           🔄 Regenerate VAPID Keys
         </button>
+
+        {/* Notification Repeat Limits */}
+        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #3f3f46' }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#e4e4e7' }}>
+            Notification Repeat Limits
+          </h3>
+          <p style={{ color: '#a1a1aa', marginBottom: '1rem', fontSize: '0.9rem' }}>
+            Control how many times you'll be notified about the same overdue task to prevent notification spam.
+          </p>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e4e4e7' }}>
+              Maximum Repeat Notifications (per task):
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={notificationMaxRepeat}
+              onChange={(e) => setNotificationMaxRepeat(parseInt(e.target.value) || 3)}
+              style={{ 
+                width: '100px',
+                padding: '0.5rem',
+                backgroundColor: '#18181b',
+                border: '1px solid #3f3f46',
+                borderRadius: '4px',
+                color: '#e4e4e7'
+              }}
+            />
+            <span style={{ marginLeft: '0.5rem', color: '#a1a1aa', fontSize: '0.9rem' }}>
+              notifications
+            </span>
+            <p style={{ color: '#6e6e73', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+              After reaching this limit, you won't receive more notifications for that task until it's updated.
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e4e4e7' }}>
+              Minimum Hours Between Repeat Notifications:
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="168"
+              value={notificationRepeatIntervalHours}
+              onChange={(e) => setNotificationRepeatIntervalHours(parseInt(e.target.value) || 24)}
+              style={{ 
+                width: '100px',
+                padding: '0.5rem',
+                backgroundColor: '#18181b',
+                border: '1px solid #3f3f46',
+                borderRadius: '4px',
+                color: '#e4e4e7'
+              }}
+            />
+            <span style={{ marginLeft: '0.5rem', color: '#a1a1aa', fontSize: '0.9rem' }}>
+              hours ({Math.round(notificationRepeatIntervalHours / 24 * 10) / 10} days)
+            </span>
+            <p style={{ color: '#6e6e73', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+              Wait at least this long before sending another notification for the same task.
+            </p>
+          </div>
+
+          <button
+            onClick={async () => {
+              try {
+                await configAPI.set('notification_max_repeat', notificationMaxRepeat.toString());
+                await configAPI.set('notification_repeat_interval_hours', notificationRepeatIntervalHours.toString());
+                alert('✅ Notification limits saved successfully!');
+              } catch (error) {
+                console.error('Failed to save notification limits:', error);
+                alert('❌ Failed to save notification limits: ' + error.message);
+              }
+            }}
+            style={{ marginTop: '0.5rem' }}
+          >
+            💾 Save Notification Limits
+          </button>
+        </div>
 
         <div style={{ 
           marginTop: '1.5rem', 

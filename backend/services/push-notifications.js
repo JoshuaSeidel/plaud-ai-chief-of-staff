@@ -137,48 +137,170 @@ async function sendToAll(payload) {
  * Send push notification for task reminder
  */
 async function sendTaskReminder(task) {
-  // iOS limits: title 40 chars, body 4 lines (~120 chars), total payload 4KB
-  const taskTypeEmoji = {
-    'commitment': '📋',
-    'action': '⚡',
-    'follow-up': '🔄',
-    'risk': '⚠️'
-  }[task.task_type] || '📋';
-  
-  const title = `${taskTypeEmoji} Task Due Soon`.substring(0, 40);
-  const body = task.description.substring(0, 110); // Keep under 4 lines
-  
-  const payload = {
-    title,
-    body,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: `task-${task.id}`,
-    data: {
-      taskId: task.id,
-      url: '/#tasks'
+  try {
+    const db = getDb();
+    const tag = `task-${task.id}`;
+    
+    // Get max notification repeat limit from config (default 3)
+    const { getConfigValue } = require('../config/manager');
+    const maxRepeats = parseInt(await getConfigValue('notification_max_repeats') || '3', 10);
+    
+    // Check if this task notification was dismissed
+    const dismissed = await db.get(
+      `SELECT * FROM notification_history 
+       WHERE notification_tag = ? 
+       AND dismissed = ${db.constructor.name === 'Database' ? '1' : 'TRUE'}
+       ORDER BY dismissed_date DESC LIMIT 1`,
+      [tag]
+    );
+    
+    if (dismissed) {
+      logger.debug(`Task ${task.id} notification was dismissed, skipping`);
+      return { sent: 0, failed: 0, skipped: true, reason: 'dismissed' };
     }
-  };
-  
-  return await sendToAll(payload);
+    
+    // Count recent notifications for this specific task
+    const recentCount = await db.get(
+      `SELECT COUNT(*) as count FROM notification_history 
+       WHERE notification_tag = ? 
+       AND sent_date >= datetime('now', '-24 hours')
+       AND dismissed = ${db.constructor.name === 'Database' ? '0' : 'FALSE'}`,
+      [tag]
+    );
+    
+    if (recentCount.count >= maxRepeats) {
+      logger.debug(`Task ${task.id} notification sent ${recentCount.count} times in last 24h (max: ${maxRepeats}), skipping`);
+      return { sent: 0, failed: 0, skipped: true, reason: 'max_repeats' };
+    }
+    
+    // iOS limits: title 40 chars, body 4 lines (~120 chars), total payload 4KB
+    const taskTypeEmoji = {
+      'commitment': '📋',
+      'action': '⚡',
+      'follow-up': '🔄',
+      'risk': '⚠️'
+    }[task.task_type] || '📋';
+    
+    const title = `${taskTypeEmoji} Task Due Soon`.substring(0, 40);
+    const body = task.description.substring(0, 110); // Keep under 4 lines
+    
+    const payload = {
+      title,
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag,
+      data: {
+        taskId: task.id,
+        url: '/#tasks',
+        notificationTag: tag,
+        dismissible: true
+      },
+      actions: [
+        { action: 'dismiss', title: 'Dismiss' },
+        { action: 'open', title: 'View Task' }
+      ]
+    };
+    
+    const result = await sendToAll(payload);
+    
+    // Record notification in history
+    if (result.sent > 0) {
+      await db.run(
+        `INSERT INTO notification_history (notification_tag, task_id, notification_type, sent_date) 
+         VALUES (?, ?, 'task_reminder', ${db.constructor.name === 'Database' ? 'CURRENT_TIMESTAMP' : 'NOW()'})`,
+        [tag, task.id]
+      );
+      logger.info(`Task ${task.id} reminder sent (${recentCount.count + 1}/${maxRepeats} in 24h)`);
+    }
+    
+    return result;
+  } catch (error) {
+    logger.error(`Error sending task reminder for task ${task.id}:`, error);
+    throw error;
+  }
 }
 
 /**
  * Send push notification for overdue tasks
  */
 async function sendOverdueNotification(count) {
-  const payload = {
-    title: `⚠️ ${count} Overdue`,
-    body: `You have ${count} overdue task${count > 1 ? 's' : ''}. Tap to review.`,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: 'overdue-tasks',
-    data: {
-      url: '/#tasks'
+  try {
+    const db = getDb();
+    const tag = 'overdue-tasks';
+    
+    // Get max notification repeat limit from config (default 3)
+    const { getConfigValue } = require('../config/manager');
+    const maxRepeats = parseInt(await getConfigValue('notification_max_repeats') || '3', 10);
+    const cooldownHours = parseInt(await getConfigValue('notification_cooldown_hours') || '24', 10);
+    
+    // Check if this notification was recently dismissed
+    const dismissed = await db.get(
+      `SELECT * FROM notification_history 
+       WHERE notification_tag = ? 
+       AND dismissed = ${db.constructor.name === 'Database' ? '1' : 'TRUE'}
+       ORDER BY dismissed_date DESC LIMIT 1`,
+      [tag]
+    );
+    
+    if (dismissed) {
+      const dismissedDate = new Date(dismissed.dismissed_date);
+      const hoursSinceDismissed = (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60);
+      
+      if (hoursSinceDismissed < cooldownHours) {
+        logger.debug(`Overdue notification dismissed ${hoursSinceDismissed.toFixed(1)}h ago, skipping (cooldown: ${cooldownHours}h)`);
+        return { sent: 0, failed: 0, skipped: true, reason: 'dismissed' };
+      }
     }
-  };
-  
-  return await sendToAll(payload);
+    
+    // Count recent notifications (last 7 days) that weren't dismissed
+    const recentCount = await db.get(
+      `SELECT COUNT(*) as count FROM notification_history 
+       WHERE notification_tag = ? 
+       AND sent_date >= datetime('now', '-7 days')
+       AND dismissed = ${db.constructor.name === 'Database' ? '0' : 'FALSE'}`,
+      [tag]
+    );
+    
+    if (recentCount.count >= maxRepeats) {
+      logger.debug(`Overdue notification sent ${recentCount.count} times in last 7 days (max: ${maxRepeats}), skipping`);
+      return { sent: 0, failed: 0, skipped: true, reason: 'max_repeats' };
+    }
+    
+    const payload = {
+      title: `⚠️ ${count} Overdue`,
+      body: `You have ${count} overdue task${count > 1 ? 's' : ''}. Tap to review.`,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag,
+      data: {
+        url: '/#tasks',
+        notificationTag: tag,
+        dismissible: true
+      },
+      actions: [
+        { action: 'dismiss', title: 'Dismiss' },
+        { action: 'open', title: 'View Tasks' }
+      ]
+    };
+    
+    const result = await sendToAll(payload);
+    
+    // Record notification in history
+    if (result.sent > 0) {
+      await db.run(
+        `INSERT INTO notification_history (notification_tag, notification_type, sent_date) 
+         VALUES (?, 'overdue', ${db.constructor.name === 'Database' ? 'CURRENT_TIMESTAMP' : 'NOW()'})`,
+        [tag]
+      );
+      logger.info(`Overdue notification sent (${recentCount.count + 1}/${maxRepeats} in 7 days)`);
+    }
+    
+    return result;
+  } catch (error) {
+    logger.error('Error sending overdue notification:', error);
+    throw error;
+  }
 }
 
 /**
@@ -204,6 +326,27 @@ async function sendEventReminder(event) {
 }
 
 /**
+ * Dismiss a notification to prevent future sends
+ */
+async function dismissNotification(notificationTag) {
+  try {
+    const db = getDb();
+    
+    await db.run(
+      `INSERT INTO notification_history (notification_tag, notification_type, dismissed, dismissed_date) 
+       VALUES (?, 'dismissed', ${db.constructor.name === 'Database' ? '1' : 'TRUE'}, ${db.constructor.name === 'Database' ? 'CURRENT_TIMESTAMP' : 'NOW()'})`,
+      [notificationTag]
+    );
+    
+    logger.info(`Notification dismissed: ${notificationTag}`);
+    return true;
+  } catch (error) {
+    logger.error('Error dismissing notification:', error);
+    throw error;
+  }
+}
+
+/**
  * Get public VAPID key for client
  */
 async function getPublicKey() {
@@ -223,6 +366,7 @@ module.exports = {
   sendTaskReminder,
   sendOverdueNotification,
   sendEventReminder,
+  dismissNotification,
   getPublicKey
 };
 

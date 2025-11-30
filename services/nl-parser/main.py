@@ -8,9 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timedelta
+import sys
+import os
+
+# Add shared modules to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from db_config import get_ai_model, get_ai_provider
+
 import anthropic
 import redis
-import os
 import logging
 import hashlib
 import json
@@ -23,10 +29,6 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
-
-# Configure AI model (Claude Sonnet 4.5 for NLP parsing)
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
-logger.info(f"Using Claude model: {CLAUDE_MODEL}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -317,9 +319,13 @@ Return as JSON:
 Be concise. Only include non-null values.
 """
         
+        # Get model from database configuration
+        model = get_ai_model(provider="anthropic")
+        
+        # Use Claude for quick parsing
         response = anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=800,
+            model=model,
+            max_tokens=2048,
             messages=[{"role": "user", "content": prompt}]
         )
         

@@ -299,6 +299,19 @@ function initDatabaseTables() {
           keys TEXT NOT NULL,
           created_date DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+      `);
+      
+      // Notification history to prevent spam
+      db.run(`
+        CREATE TABLE IF NOT EXISTS notification_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          notification_tag TEXT NOT NULL,
+          task_id INTEGER,
+          notification_type TEXT NOT NULL,
+          sent_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          dismissed BOOLEAN DEFAULT 0,
+          dismissed_date DATETIME
+        )
       `, (err) => {
         if (err) {
           dbLogger.error('Error creating tables:', err);
@@ -409,6 +422,21 @@ async function initDatabaseTablesPostgres() {
         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Notification history to prevent spam
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notification_history (
+        id SERIAL PRIMARY KEY,
+        notification_tag TEXT NOT NULL,
+        task_id INTEGER,
+        notification_type TEXT NOT NULL,
+        sent_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        dismissed BOOLEAN DEFAULT FALSE,
+        dismissed_date TIMESTAMP
+      )
+    `);
+    
+    dbLogger.info('✓ PostgreSQL tables initialized');
 
   } catch (err) {
     dbLogger.error('Error initializing PostgreSQL tables:', err);

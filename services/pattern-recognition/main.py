@@ -8,9 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timedelta
+import sys
+import os
+
+# Add shared modules to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from db_config import get_ai_model, get_ai_provider
+
 import anthropic
 import redis
-import os
 import logging
 import hashlib
 import json
@@ -25,10 +31,6 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
-
-# Configure AI model (Claude Sonnet 4.5 for complex pattern analysis)
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
-logger.info(f"Using Claude model: {CLAUDE_MODEL}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -390,8 +392,11 @@ Provide:
 
 Format as markdown with clear sections."""
 
+        # Get model from database configuration
+        model = get_ai_model(provider="anthropic")
+        
         response = anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
+            model=model,
             max_tokens=1024,  # Reduced for faster responses
             temperature=0.7,  # Slightly creative but focused
             messages=[{"role": "user", "content": prompt}]
@@ -508,14 +513,18 @@ Return as JSON array with format:
 ]
 """
                 
+]
+\"\"\"
+                
+                # Get model from database configuration
+                model = get_ai_model(provider=\"anthropic\")
+                
                 response = anthropic_client.messages.create(
-                    model=CLAUDE_MODEL,
+                    model=model,
                     max_tokens=800,  # Reduced for faster JSON responses
                     temperature=0.5,  # More focused for structured output
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                
-                ai_content = response.content[0].text
+                    messages=[{\"role\": \"user\", \"content\": prompt}]
+                )                ai_content = response.content[0].text
                 # Try to parse JSON from response
                 import re
                 json_match = re.search(r'\[[\s\S]*\]', ai_content)
