@@ -8,14 +8,16 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY requirements.txt .
+COPY voice-processor/requirements.txt .
 
 # Install Python packages
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy shared modules
+COPY shared /app/shared
+
 # Copy application code
-COPY main.py .
-COPY storage_manager.py .
+COPY voice-processor/*.py .
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

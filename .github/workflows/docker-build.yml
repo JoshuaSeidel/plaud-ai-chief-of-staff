@@ -187,16 +187,16 @@ jobs:
       matrix:
         service:
           - name: ai-intelligence
-            context: ./services/ai-intelligence
+            context: ./services
             dockerfile: ./services/ai-intelligence/Dockerfile
           - name: pattern-recognition
-            context: ./services/pattern-recognition
+            context: ./services
             dockerfile: ./services/pattern-recognition/Dockerfile
           - name: nl-parser
-            context: ./services/nl-parser
+            context: ./services
             dockerfile: ./services/nl-parser/Dockerfile
           - name: voice-processor
-            context: ./services/voice-processor
+            context: ./services
             dockerfile: ./services/voice-processor/Dockerfile
           - name: context-service
             context: ./services/context-service

@@ -240,8 +240,8 @@ services:
   aicos-voice-processor:
     container_name: aicos-voice-processor
     build:
-      context: ./services/voice-processor
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: voice-processor/Dockerfile
     ports:
       - "8004:8004"
     environment:
