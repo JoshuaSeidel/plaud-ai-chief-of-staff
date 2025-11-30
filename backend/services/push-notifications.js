@@ -142,8 +142,8 @@ async function sendTaskReminder(task) {
     const tag = `task-${task.id}`;
     
     // Get max notification repeat limit from config (default 3)
-    const { getConfigValue } = require('../config/manager');
-    const maxRepeats = parseInt(await getConfigValue('notification_max_repeats') || '3', 10);
+    const maxRepeatsRow = await db.get('SELECT value FROM config WHERE key = ?', ['notification_max_repeat']);
+    const maxRepeats = parseInt(maxRepeatsRow?.value || '3', 10);
     
     // Check if this task notification was dismissed
     const dismissed = await db.get(
@@ -230,9 +230,10 @@ async function sendOverdueNotification(count) {
     const tag = 'overdue-tasks';
     
     // Get max notification repeat limit from config (default 3)
-    const { getConfigValue } = require('../config/manager');
-    const maxRepeats = parseInt(await getConfigValue('notification_max_repeats') || '3', 10);
-    const cooldownHours = parseInt(await getConfigValue('notification_cooldown_hours') || '24', 10);
+    const maxRepeatsRow = await db.get('SELECT value FROM config WHERE key = ?', ['notification_max_repeat']);
+    const cooldownHoursRow = await db.get('SELECT value FROM config WHERE key = ?', ['notification_repeat_interval_hours']);
+    const maxRepeats = parseInt(maxRepeatsRow?.value || '3', 10);
+    const cooldownHours = parseInt(cooldownHoursRow?.value || '24', 10);
     
     // Check if this notification was recently dismissed
     const dismissed = await db.get(
