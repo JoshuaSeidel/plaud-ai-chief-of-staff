@@ -455,7 +455,13 @@ function Configuration() {
         <select
           value={currentModel}
           onChange={(e) => onModelChange(e.target.value)}
-          style={{ flex: 1, minWidth: 0 }}
+          style={{ 
+            flex: 1, 
+            minWidth: 0,
+            minHeight: '44px',
+            fontSize: '16px',
+            padding: '0.5rem'
+          }}
           disabled={loadingModels[provider]}
         >
           {provider === 'anthropic' && (
@@ -529,16 +535,16 @@ function Configuration() {
             title="Refresh model list"
             style={{
               padding: '0',
-              fontSize: '1.1rem',
+              fontSize: '0.9rem',
               background: '#3b82f6',
               border: 'none',
               borderRadius: '4px',
               color: 'white',
               cursor: loadingModels[provider] ? 'not-allowed' : 'pointer',
               opacity: loadingModels[provider] ? 0.6 : 1,
-              minWidth: '44px',
-              width: '44px',
-              height: '44px',
+              minWidth: '36px',
+              width: '36px',
+              minHeight: '44px',
               flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
