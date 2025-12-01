@@ -528,16 +528,18 @@ function Configuration() {
             disabled={loadingModels[provider]}
             title="Refresh model list"
             style={{
-              padding: '0.5rem',
-              fontSize: '1rem',
+              padding: '0',
+              fontSize: '1.1rem',
               background: '#3b82f6',
               border: 'none',
               borderRadius: '4px',
               color: 'white',
               cursor: loadingModels[provider] ? 'not-allowed' : 'pointer',
               opacity: loadingModels[provider] ? 0.6 : 1,
-              minWidth: '36px',
-              height: '36px',
+              minWidth: '44px',
+              width: '44px',
+              height: '44px',
+              flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'

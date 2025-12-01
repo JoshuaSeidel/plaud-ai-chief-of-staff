@@ -424,7 +424,8 @@ function Commitments() {
             <button
               onClick={() => setShowCreateModal(true)}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.625rem 1rem',
+                minHeight: '44px',
                 backgroundColor: '#10b981',
                 color: 'white',
                 border: 'none',
@@ -433,7 +434,8 @@ function Commitments() {
                 fontSize: '0.9rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem'
+                gap: '0.5rem',
+                whiteSpace: 'nowrap'
               }}
               title="Create a new task"
             >
@@ -443,7 +445,8 @@ function Commitments() {
               onClick={handleSmartGroup}
               disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.625rem 1rem',
+                minHeight: '44px',
                 backgroundColor: clusteringTasks ? '#6e6e73' : '#8b5cf6',
                 color: 'white',
                 border: 'none',
@@ -452,7 +455,8 @@ function Commitments() {
                 fontSize: '0.9rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem'
+                gap: '0.5rem',
+                whiteSpace: 'nowrap'
               }}
               title="AI-powered task grouping"
             >
@@ -463,7 +467,8 @@ function Commitments() {
                 onClick={handleSyncToMicrosoft} 
                 disabled={syncingMicrosoft || loading}
                 style={{
-                  padding: '0.5rem 1rem',
+                  padding: '0.625rem 1rem',
+                  minHeight: '44px',
                   backgroundColor: syncingMicrosoft ? '#6e6e73' : '#0078d4',
                   color: 'white',
                   border: 'none',
@@ -472,7 +477,8 @@ function Commitments() {
                   fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.5rem'
+                  gap: '0.5rem',
+                  whiteSpace: 'nowrap'
                 }}
                 title="Sync tasks to Microsoft Planner"
               >
@@ -485,7 +491,8 @@ function Commitments() {
                   onClick={handleSyncToJira} 
                   disabled={syncingJira || loading}
                   style={{
-                    padding: '0.5rem 1rem',
+                    padding: '0.625rem 1rem',
+                    minHeight: '44px',
                     backgroundColor: syncingJira ? '#6e6e73' : '#0052CC',
                     color: 'white',
                     border: 'none',
@@ -494,7 +501,8 @@ function Commitments() {
                     fontSize: '0.9rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem'
+                    gap: '0.5rem',
+                    whiteSpace: 'nowrap'
                   }}
                   title="Sync tasks to Jira"
                 >
@@ -505,7 +513,8 @@ function Commitments() {
                     onClick={handleSyncFailedToJira} 
                     disabled={syncingJira || loading}
                     style={{
-                      padding: '0.5rem 1rem',
+                      padding: '0.625rem 1rem',
+                      minHeight: '44px',
                       backgroundColor: syncingJira ? '#6e6e73' : '#f59e0b',
                       color: 'white',
                       border: 'none',
@@ -514,7 +523,8 @@ function Commitments() {
                       fontSize: '0.9rem',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.5rem'
+                      gap: '0.5rem',
+                      whiteSpace: 'nowrap'
                     }}
                     title="Retry syncing failed/pending tasks to Jira"
                   >
