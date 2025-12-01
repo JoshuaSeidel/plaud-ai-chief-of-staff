@@ -163,7 +163,7 @@ async function sendTaskReminder(task) {
     const recentCount = await db.get(
       `SELECT COUNT(*) as count FROM notification_history 
        WHERE notification_tag = ? 
-       AND sent_date >= datetime('now', '-24 hours')
+       AND sent_date >= ${db.constructor.name === 'Database' ? "datetime('now', '-24 hours')" : "NOW() - INTERVAL '24 hours'"}
        AND dismissed = ${db.constructor.name === 'Database' ? '0' : 'FALSE'}`,
       [tag]
     );
@@ -258,7 +258,7 @@ async function sendOverdueNotification(count) {
     const recentCount = await db.get(
       `SELECT COUNT(*) as count FROM notification_history 
        WHERE notification_tag = ? 
-       AND sent_date >= datetime('now', '-7 days')
+       AND sent_date >= ${db.constructor.name === 'Database' ? "datetime('now', '-7 days')" : "NOW() - INTERVAL '7 days'"}
        AND dismissed = ${db.constructor.name === 'Database' ? '0' : 'FALSE'}`,
       [tag]
     );

@@ -205,7 +205,7 @@ function Commitments() {
     setError(null);
     try {
       const response = await commitmentsAPI.getAll(filter);
-      setCommitments(response.data);
+      setCommitments(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load commitments');
     } finally {

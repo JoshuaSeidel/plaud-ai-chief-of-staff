@@ -32,7 +32,7 @@ function Transcripts() {
   const loadTranscripts = async () => {
     try {
       const response = await transcriptsAPI.getAll();
-      const loadedTranscripts = response.data;
+      const loadedTranscripts = Array.isArray(response.data) ? response.data : [];
       setTranscripts(loadedTranscripts);
       
       // Check if any transcripts are processing and start polling if needed
