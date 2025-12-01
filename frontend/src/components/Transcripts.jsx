@@ -762,6 +762,15 @@ function Transcripts() {
                           <button
                             className="secondary"
                             style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                            onClick={() => handleViewTranscript(transcript.id)}
+                            disabled={isProcessing || isFailed}
+                            title="View AI-generated meeting recap"
+                          >
+                            📝 Meeting Recap
+                          </button>
+                          <button
+                            className="secondary"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
                             onClick={() => handleReprocess(transcript.id, transcript.filename)}
                             disabled={uploading || isProcessing}
                             title="Re-extract commitments and action items"
