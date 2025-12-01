@@ -1412,7 +1412,7 @@ table {
   font-size: 16px;
   padding: 0.5rem;
   box-sizing: border-box;
-  line-height: 1.2; /* tighter line height to match button */
+  line-height: 1.4; /* readable line-height without affecting height */
   border: 1px solid #3f3f46;
   background: #18181b;
   color: white;
@@ -1420,8 +1420,7 @@ table {
   appearance: none;
   -webkit-appearance: none; /* iOS Safari */
   -moz-appearance: none;
-  display: flex;
-  align-items: center; /* vertically center text */
+  display: block; /* select should be block for consistent layout */
 }
 
 .model-refresh-btn,

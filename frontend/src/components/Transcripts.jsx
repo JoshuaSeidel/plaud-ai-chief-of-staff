@@ -573,7 +573,7 @@ function Transcripts() {
                 type="date"
                 value={fileMeetingDate}
                 onChange={(e) => setFileMeetingDate(e.target.value)}
-                className="mb-md"
+                className="form-input mb-md"
                 max={new Date().toISOString().split('T')[0]}
               />
               <p className="text-sm-gray-mt-negative-mb-md">
@@ -630,7 +630,7 @@ function Transcripts() {
               value={pasteData.meetingDate}
               onChange={(e) => setPasteData({ ...pasteData, meetingDate: e.target.value })}
               max={new Date().toISOString().split('T')[0]}
-              className="mb-sm"
+              className="form-input mb-sm"
             />
             <p className="text-sm-gray-mt-negative-mb-md">
               Enter the date the meeting occurred (helps AI set accurate deadlines)
