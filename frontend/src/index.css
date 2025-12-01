@@ -1253,26 +1253,26 @@ table {
   /* === CONFIGURATION PAGE FIXES === */
   
   /* Model selector containers - proper flex layout */
-  .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] {
+  .glass-panel div[style*="display"][style*="gap"] {
     display: flex !important;
     gap: 0.5rem !important;
-    align-items: stretch !important;
+    align-items: center !important;
   }
   
   /* Model dropdowns - take available space */
-  .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] select {
+  .glass-panel div[style*="display"][style*="gap"] select {
     flex: 1 !important;
     min-width: 0 !important;
-    min-height: 44px !important;
+    height: 44px !important;
     font-size: 16px !important;
     padding: 0.5rem !important;
   }
   
   /* Refresh buttons next to dropdowns - fixed size */
-  .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] button[title="Refresh model list"] {
+  .glass-panel div[style*="display"][style*="gap"] button[title="Refresh model list"] {
     flex: 0 0 36px !important;
     width: 36px !important;
-    min-height: 44px !important;
+    height: 44px !important;
     min-width: 36px !important;
     padding: 0 !important;
     font-size: 0.9rem !important;

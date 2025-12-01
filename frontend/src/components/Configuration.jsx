@@ -451,7 +451,7 @@ function Configuration() {
     const supportsRefresh = ['anthropic', 'openai', 'ollama'].includes(provider);
     
     return (
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
         <select
           value={currentModel}
           onChange={(e) => onModelChange(e.target.value)}
@@ -544,7 +544,7 @@ function Configuration() {
               opacity: loadingModels[provider] ? 0.6 : 1,
               minWidth: '36px',
               width: '36px',
-              minHeight: '44px',
+              height: '44px',
               flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
