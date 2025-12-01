@@ -400,6 +400,26 @@ async function completeTask(taskId) {
 }
 
 /**
+ * Delete a task permanently
+ */
+async function deleteTask(taskId) {
+  try {
+    const client = await getGraphClient();
+    const taskListId = await getTaskListId();
+    
+    await client
+      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .delete();
+    
+    logger.info(`Deleted Microsoft task ${taskId}`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to delete Microsoft task ${taskId}: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * List all tasks
  */
 async function listTasks(limit = 50) {
@@ -425,6 +445,7 @@ module.exports = {
   createTaskFromCommitment,
   updateTaskStatus,
   completeTask,
+  deleteTask,
   listTasks
 };
 

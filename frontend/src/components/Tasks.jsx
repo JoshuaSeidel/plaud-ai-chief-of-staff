@@ -291,6 +291,37 @@ function Commitments() {
     }
   };
 
+  const deleteTask = async (id, description) => {
+    if (!window.confirm(`Are you sure you want to delete this task?\n\n"${description}"\n\nThis will also remove it from Google Calendar, Jira, and Microsoft Planner if synced.`)) {
+      return;
+    }
+    
+    try {
+      const response = await commitmentsAPI.delete(id);
+      
+      // Show detailed results if available
+      if (response.data?.deletionResults) {
+        const results = response.data.deletionResults;
+        let message = '✅ Task deleted successfully';
+        
+        if (results.calendar === 'success') message += '\n📅 Calendar event removed';
+        if (results.jira === 'success') message += '\n🎫 Jira issue deleted';
+        if (results.microsoft === 'success') message += '\n📋 Microsoft task deleted';
+        
+        if (results.calendar === 'failed' || results.jira === 'failed' || results.microsoft === 'failed') {
+          message += '\n\n⚠️ Some external deletions failed (check logs)';
+        }
+        
+        alert(message);
+      }
+      
+      loadCommitments();
+    } catch (err) {
+      setError('Failed to delete task: ' + (err.response?.data?.message || err.message));
+      alert('❌ Failed to delete task: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const isOverdue = (commitment) => {
     if (!commitment.deadline || commitment.status === 'completed') return false;
     return new Date(commitment.deadline) < new Date();
@@ -742,10 +773,10 @@ function Commitments() {
                       borderRadius: '6px',
                       cursor: 'pointer',
                       flex: 1,
-                      minWidth: '120px'
+                      minWidth: '100px'
                     }}
                   >
-                    ✅ Confirm (It's Mine)
+                    ✅ Confirm
                   </button>
                   <button
                     onClick={() => confirmTask(commitment.id, false)}
@@ -758,10 +789,25 @@ function Commitments() {
                       borderRadius: '6px',
                       cursor: 'pointer',
                       flex: 1,
-                      minWidth: '120px'
+                      minWidth: '100px'
                     }}
                   >
-                    ❌ Reject (Not Mine)
+                    ❌ Reject
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      minWidth: '80px'
+                    }}
+                  >
+                    🗑️ Delete
                   </button>
                 </div>
               </div>
@@ -812,18 +858,36 @@ function Commitments() {
                     <span>📅 Due: {formatDate(commitment.deadline)}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateStatus(commitment.id, 'completed')}
-                  className="task-card-button"
-                  style={{ 
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.85rem',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                >
-                  Mark Complete
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => updateStatus(commitment.id, 'completed')}
+                    className="task-card-button"
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    ✅ Complete
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -873,18 +937,36 @@ function Commitments() {
                     <span>📅 {formatDate(commitment.deadline)}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateStatus(commitment.id, 'completed')}
-                  className="secondary task-card-button"
-                  style={{ 
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.85rem',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                >
-                  Mark Complete
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => updateStatus(commitment.id, 'completed')}
+                    className="secondary task-card-button"
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    ✅ Complete
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -935,18 +1017,36 @@ function Commitments() {
                     <span>✓ Completed: {formatDate(commitment.completed_date)}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateStatus(commitment.id, 'pending')}
-                  className="secondary task-card-button"
-                  style={{ 
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.85rem',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                >
-                  Reopen
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => updateStatus(commitment.id, 'pending')}
+                    className="secondary task-card-button"
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    ↩️ Reopen
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}

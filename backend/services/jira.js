@@ -331,6 +331,20 @@ async function closeIssue(issueKey) {
 }
 
 /**
+ * Delete a Jira issue permanently
+ */
+async function deleteIssue(issueKey) {
+  try {
+    await jiraRequest(`/issue/${issueKey}`, 'DELETE');
+    logger.info(`Deleted Jira issue ${issueKey}`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to delete Jira issue ${issueKey}: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Create issue from commitment
  */
 async function createIssueFromCommitment(commitment) {
@@ -396,6 +410,7 @@ module.exports = {
   createIssue,
   createIssueFromCommitment,
   closeIssue,
+  deleteIssue,
   getIssue,
   listIssues
 };
