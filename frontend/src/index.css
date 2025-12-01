@@ -1412,11 +1412,16 @@ table {
   font-size: 16px;
   padding: 0.5rem;
   box-sizing: border-box;
-  line-height: 1.5;
+  line-height: 1.2; /* tighter line height to match button */
   border: 1px solid #3f3f46;
   background: #18181b;
   color: white;
   border-radius: 4px;
+  appearance: none;
+  -webkit-appearance: none; /* iOS Safari */
+  -moz-appearance: none;
+  display: flex;
+  align-items: center; /* vertically center text */
 }
 
 .model-refresh-btn,
@@ -2811,11 +2816,11 @@ table {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.8);
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* start, then offset with padding to clear nav */
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
-  padding-top: 80px;
+  padding-top: 88px; /* ensure clear of navbar incl. shadow */
 }
 
 @media (max-width: 768px) {
@@ -2841,6 +2846,7 @@ body.modal-open {
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   border: 1px solid #3f3f46;
+  margin-top: 0; /* rely on overlay padding for vertical placement */
 }
 
 .modal-large {
@@ -3127,6 +3133,16 @@ summary {
   button,
   .btn {
     min-height: 44px;
+  }
+
+  /* Mobile alignment for icon button rows */
+  .flex.gap-sm.items-center .btn-icon-square,
+  .flex.gap-sm.items-center .glass-button.btn-icon-square,
+  .flex.gap-sm.items-center .glass-button-primary.btn-icon-square {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
   }
   
   /* Keep model refresh button square */
