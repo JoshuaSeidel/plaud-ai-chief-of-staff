@@ -1266,6 +1266,8 @@ table {
     height: 44px !important;
     font-size: 16px !important;
     padding: 0.5rem !important;
+    box-sizing: border-box !important;
+    line-height: normal !important;
   }
   
   /* Refresh buttons next to dropdowns - fixed size */
@@ -1274,8 +1276,11 @@ table {
     width: 36px !important;
     height: 44px !important;
     min-width: 36px !important;
+    max-height: 44px !important;
     padding: 0 !important;
     font-size: 0.9rem !important;
+    box-sizing: border-box !important;
+    line-height: 44px !important;
   }
   
   /* === TASK MANAGEMENT PAGE FIXES === */

@@ -11,19 +11,48 @@ function Dashboard({ setActiveTab }) {
   const [stats, setStats] = useState(null);
   const [productivityInsights, setProductivityInsights] = useState(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [lastInsightsDate, setLastInsightsDate] = useState(null);
+  const [lastCompletedCount, setLastCompletedCount] = useState(null);
 
   useEffect(() => {
     loadTodaysBrief();
     loadProductivityInsights();
   }, []);
 
-  const loadProductivityInsights = async () => {
+  const loadProductivityInsights = async (forceRefresh = false) => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Check if we need to refresh insights
+    const cachedInsights = localStorage.getItem('productivityInsights');
+    const cachedDate = localStorage.getItem('productivityInsightsDate');
+    const cachedCompletedCount = localStorage.getItem('productivityCompletedCount');
+    
+    if (!forceRefresh && cachedInsights && cachedDate === today) {
+      // Use cached insights if date hasn't changed
+      try {
+        const cached = JSON.parse(cachedInsights);
+        setProductivityInsights(cached);
+        setLastInsightsDate(cachedDate);
+        setLastCompletedCount(parseInt(cachedCompletedCount || '0'));
+        console.log('Using cached productivity insights from', cachedDate);
+        return;
+      } catch (err) {
+        console.error('Error parsing cached insights:', err);
+      }
+    }
+    
     setLoadingInsights(true);
     try {
       const response = await intelligenceAPI.analyzePatterns(null, '7d');
       console.log('Pattern analysis response:', response.data);
       if (response.data && response.data.success) {
         setProductivityInsights(response.data);
+        // Cache the insights
+        localStorage.setItem('productivityInsights', JSON.stringify(response.data));
+        localStorage.setItem('productivityInsightsDate', today);
+        localStorage.setItem('productivityCompletedCount', response.data.stats?.completed?.toString() || '0');
+        setLastInsightsDate(today);
+        setLastCompletedCount(response.data.stats?.completed || 0);
       } else if (response.data) {
         // Set error state with response data
         setProductivityInsights({ error: true, message: response.data.note || response.data.error || 'No data available' });
@@ -62,6 +91,12 @@ function Dashboard({ setActiveTab }) {
       setBrief(response.data.brief);
       setLastGenerated(response.data.generatedAt);
       setStats(response.data.stats);
+      
+      // Check if completed count changed - if so, refresh insights
+      if (response.data.stats?.commitmentCount !== lastCompletedCount) {
+        console.log('Completed task count changed, refreshing insights');
+        loadProductivityInsights(true);
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to generate brief';
       setError(errorMessage);

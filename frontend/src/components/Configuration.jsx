@@ -458,9 +458,10 @@ function Configuration() {
           style={{ 
             flex: 1, 
             minWidth: 0,
-            minHeight: '44px',
+            height: '44px',
             fontSize: '16px',
-            padding: '0.5rem'
+            padding: '0.5rem',
+            boxSizing: 'border-box'
           }}
           disabled={loadingModels[provider]}
         >
@@ -1517,7 +1518,7 @@ function Configuration() {
                 onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, radicale: e.target.checked })}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📆 Radicale CalDAV (Local Calendar Server)</span>
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📆 CalDAV (Radicale, Nextcloud, etc.)</span>
             </label>
           </div>
         </div>
@@ -2071,7 +2072,7 @@ function Configuration() {
 
         {enabledIntegrations.radicale && (
         <div style={{ marginBottom: '2rem' }}>
-          <h3>📆 Radicale CalDAV Integration</h3>
+          <h3>📆 CalDAV Integration</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2082,22 +2083,22 @@ function Configuration() {
           }}>
             <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
               <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📆</span>
-              Radicale (Local/Self-Hosted Calendar Server)
+              CalDAV Server (Radicale, Nextcloud, etc.)
             </h4>
             
             <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
-              Connect your Radicale CalDAV server for privacy-focused local calendar synchronization.
-              Perfect for self-hosted environments and on-premise deployments.
+              Connect any CalDAV-compatible calendar server including Radicale, Nextcloud, Baikal, or other self-hosted solutions.
+              Perfect for privacy-focused local calendar synchronization and on-premise deployments.
             </p>
             
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-              Radicale Server URL
+              CalDAV Server URL
             </label>
             <input
               type="url"
-              value={config.radicaleUrl || 'http://localhost:5232'}
+              value={config.radicaleUrl || ''}
               onChange={(e) => handleChange('radicaleUrl', e.target.value)}
-              placeholder="http://localhost:5232"
+              placeholder="http://localhost:5232 (Radicale) or https://nextcloud.example.com/remote.php/dav"
               style={{ 
                 width: '100%',
                 padding: '0.75rem',
@@ -2111,7 +2112,7 @@ function Configuration() {
               }}
             />
             <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-              Default: http://localhost:5232 (adjust if running on different host/port)
+              Examples: http://localhost:5232 (Radicale), https://nextcloud.example.com/remote.php/dav (Nextcloud)
             </p>
             
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
@@ -2121,7 +2122,7 @@ function Configuration() {
               type="text"
               value={config.radicaleUsername || ''}
               onChange={(e) => handleChange('radicaleUsername', e.target.value)}
-              placeholder="Your Radicale username"
+              placeholder="Your CalDAV username"
               style={{ 
                 width: '100%',
                 padding: '0.75rem',
@@ -2142,7 +2143,7 @@ function Configuration() {
               type="password"
               value={config.radicalePassword || ''}
               onChange={(e) => handleChange('radicalePassword', e.target.value)}
-              placeholder="Your Radicale password"
+              placeholder="Your CalDAV password or app-specific password"
               style={{ 
                 width: '100%',
                 padding: '0.75rem',
