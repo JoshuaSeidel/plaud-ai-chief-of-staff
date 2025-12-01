@@ -517,8 +517,7 @@ function Transcripts() {
                 {!isRecording && !audioBlob && (
                   <button 
                     onClick={startRecording}
-                    className="primary glass-button-primary"
-                    className="btn-large-padding"
+                    className="primary glass-button-primary btn-large-padding"
                   >
                     <span className="recording-button-icon">⏺</span>
                     Start Recording
@@ -528,8 +527,7 @@ function Transcripts() {
                 {isRecording && (
                   <button 
                     onClick={stopRecording}
-                    className="glass-button-stop"
-                    className="btn-large-padding"
+                    className="glass-button-stop btn-large-padding"
                   >
                     <span className="recording-button-icon">⏹</span>
                     Stop
@@ -541,15 +539,13 @@ function Transcripts() {
                     <button 
                       onClick={handleRecordingUpload}
                       disabled={uploading}
-                      className="primary glass-button-primary"
-                      className="btn-large-padding"
+                      className="primary glass-button-primary btn-large-padding"
                     >
                       {uploading ? '⏳ Processing...' : '✓ Upload & Transcribe'}
                     </button>
                     <button 
                       onClick={cancelRecording}
-                      className="secondary glass-button"
-                      className="btn-padding-lg"
+                      className="secondary glass-button btn-padding-lg"
                     >
                       ✕ Cancel
                     </button>
@@ -691,7 +687,7 @@ function Transcripts() {
         ) : (
           <>
             {/* Desktop table view */}
-            <div className="transcripts-table-desktop" className="overflow-x-auto">
+            <div className="transcripts-table-desktop overflow-x-auto">
               <table className="table-full">
                 <thead>
                   <tr className="table-header-row">
