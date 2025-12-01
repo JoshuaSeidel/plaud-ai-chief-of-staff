@@ -260,9 +260,8 @@ def get_api_key(provider: str) -> Optional[str]:
         
         if row and row[0]:
             api_key = row[0].strip()
-            # Log only first/last 4 chars for security
-            masked = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "****"
-            logger.info(f"Loaded {provider} API key from database: {masked}")
+            # Log without revealing any part of the key for security
+            logger.info(f"Loaded {provider} API key from database (length: {len(api_key)})")
             return api_key
         else:
             logger.warning(f"No API key configured in database for {provider}")

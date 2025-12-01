@@ -1252,14 +1252,76 @@ table {
   
   /* === CONFIGURATION PAGE FIXES === */
   
-  /* Model selector containers - proper flex layout */
+  /* Model Selector Components */
+  .model-selector-container {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .model-dropdown {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    font-size: 16px;
+    padding: 0.5rem;
+    box-sizing: border-box;
+  }
+
+  .model-refresh-btn {
+    padding: 0;
+    font-size: 0.9rem;
+    background: #3b82f6;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .model-refresh-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  /* Calendar Button Row */
+  .calendar-button-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .icon-button {
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+
+  /* Date Input */
+  .date-input {
+    width: 100%;
+    max-width: 200px;
+    margin-bottom: 1rem;
+  }
+  
+  /* Legacy fallback rules - can be removed after component update */
   .glass-panel div[style*="display"][style*="gap"] {
     display: flex !important;
     gap: 0.5rem !important;
     align-items: center !important;
   }
   
-  /* Model dropdowns - take available space */
   .glass-panel div[style*="display"][style*="gap"] select {
     flex: 1 !important;
     min-width: 0 !important;
@@ -1270,7 +1332,6 @@ table {
     line-height: normal !important;
   }
   
-  /* Refresh buttons next to dropdowns - fixed size */
   .glass-panel div[style*="display"][style*="gap"] button[title="Refresh model list"] {
     flex: 0 0 36px !important;
     width: 36px !important;

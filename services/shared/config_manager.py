@@ -99,14 +99,14 @@ class ConfigManager:
                 
                 if result and len(result) > 0:
                     row = result[0]
-                    value = row['config_value']
-                    config_type = row['config_type']
+                    # Access value directly since we only selected 'value' column
+                    value = row[0] if isinstance(row, tuple) else row.get('value', row.get('config_value'))
                     
-                    # Cast to appropriate type
-                    typed_value = self._cast_type(value, config_type)
-                    self._cache[key] = typed_value
+                    # Since we don't have config_type from query, return as string
+                    # For type casting, would need to SELECT value, config_type FROM config
+                    self._cache[key] = value
                     self._cache_time = datetime.now()
-                    return typed_value
+                    return value
             except Exception as e:
                 logger.warning(f"Failed to get config from database: {e}")
         

@@ -451,18 +451,11 @@ function Configuration() {
     const supportsRefresh = ['anthropic', 'openai', 'ollama'].includes(provider);
     
     return (
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <div className="model-selector-container">
         <select
+          className="model-dropdown"
           value={currentModel}
           onChange={(e) => onModelChange(e.target.value)}
-          style={{ 
-            flex: 1, 
-            minWidth: 0,
-            height: '44px',
-            fontSize: '16px',
-            padding: '0.5rem',
-            boxSizing: 'border-box'
-          }}
           disabled={loadingModels[provider]}
         >
           {provider === 'anthropic' && (
@@ -530,27 +523,11 @@ function Configuration() {
         </select>
         {supportsRefresh && (
           <button
+            className="model-refresh-btn"
             type="button"
             onClick={() => loadModelsForProvider(provider)}
             disabled={loadingModels[provider]}
             title="Refresh model list"
-            style={{
-              padding: '0',
-              fontSize: '0.9rem',
-              background: '#3b82f6',
-              border: 'none',
-              borderRadius: '4px',
-              color: 'white',
-              cursor: loadingModels[provider] ? 'not-allowed' : 'pointer',
-              opacity: loadingModels[provider] ? 0.6 : 1,
-              minWidth: '36px',
-              width: '36px',
-              height: '44px',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
           >
             {loadingModels[provider] ? '⏳' : '🔄'}
           </button>

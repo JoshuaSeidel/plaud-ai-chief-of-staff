@@ -414,23 +414,13 @@ function Transcripts() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>Upload Transcript</h2>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="calendar-button-row">
             <button 
               onClick={() => {
                 setShowRecording(!showRecording);
                 setShowPasteForm(false);
               }}
-              className="secondary glass-button"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.2rem'
-              }}
+              className="secondary glass-button icon-button"
             >
               {showRecording ? '📁' : '🎤'}
             </button>
@@ -439,17 +429,7 @@ function Transcripts() {
                 setShowPasteForm(!showPasteForm);
                 setShowRecording(false);
               }}
-              className="secondary glass-button"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.2rem'
-              }}
+              className="secondary glass-button icon-button"
             >
               {showPasteForm ? '📁' : '📝'}
             </button>
@@ -613,10 +593,10 @@ function Transcripts() {
                 Meeting Date (Optional)
               </label>
               <input
+                className="date-input"
                 type="date"
                 value={fileMeetingDate}
                 onChange={(e) => setFileMeetingDate(e.target.value)}
-                style={{ marginBottom: '1rem' }}
                 max={new Date().toISOString().split('T')[0]}
               />
               <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem', marginBottom: '1rem' }}>
@@ -674,11 +654,11 @@ function Transcripts() {
               Meeting Date (Optional)
             </label>
             <input
+              className="date-input"
               type="date"
               value={pasteData.meetingDate}
               onChange={(e) => setPasteData({ ...pasteData, meetingDate: e.target.value })}
               max={new Date().toISOString().split('T')[0]}
-              style={{ marginBottom: '0.5rem' }}
             />
             <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem', marginBottom: '1rem' }}>
               Enter the date the meeting occurred (helps AI set accurate deadlines)
