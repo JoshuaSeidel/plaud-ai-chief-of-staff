@@ -2753,9 +2753,9 @@ table {
 .transcript-status-badge {
   background-color: #09090b;
   padding: 0.35rem 0.65rem;
-  borderRadius: 8px;
-  fontSize: 0.8rem;
-  fontWeight: 600;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
