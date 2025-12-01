@@ -1407,12 +1407,12 @@ table {
 .model-dropdown,
 .model-selector {
   flex: 1;
-  min-width: 0;
+  min-width: 160px; /* ensure visible width */
   height: 44px;
   font-size: 16px;
   padding: 0.5rem;
   box-sizing: border-box;
-  line-height: 1.4; /* readable line-height without affecting height */
+  line-height: 1.3; /* better vertical centering */
   border: 1px solid #3f3f46;
   background: #18181b;
   color: white;
@@ -1420,7 +1420,8 @@ table {
   appearance: none;
   -webkit-appearance: none; /* iOS Safari */
   -moz-appearance: none;
-  display: block; /* select should be block for consistent layout */
+  display: block;
+  width: 100%;
 }
 
 .model-refresh-btn,
@@ -1660,6 +1661,30 @@ table {
   box-sizing: border-box;
   line-height: 1;
   vertical-align: middle;
+}
+/* Unified icon-only button style */
+.glass-button.btn-icon-square,
+.glass-button-primary.btn-icon-square,
+.secondary.btn-icon-square,
+.glass-button-stop.btn-icon-square,
+.btn-icon-square {
+  padding: 0 !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+}
+
+@media (max-width: 768px) {
+  .flex.gap-sm.items-center > .glass-button.btn-icon-square,
+  .flex.gap-sm.items-center > .glass-button-primary.btn-icon-square,
+  .flex.gap-sm.items-center > .secondary.btn-icon-square {
+    margin: 0;
+  }
 }
 
 /* === TASK BADGES === */
