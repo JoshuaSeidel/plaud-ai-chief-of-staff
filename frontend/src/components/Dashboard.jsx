@@ -597,51 +597,25 @@ function Dashboard({ setActiveTab }) {
               // Fallback: Render entire brief with markdown (if table parsing failed)
               <ReactMarkdown
                 components={{
-                  h1: ({node, children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
-                  h2: ({node, children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
-                  h3: ({node, children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
-                  strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
-                  em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
-                  ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                  ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                  li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
-                  p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
+                  h1: ({node, children, ...props}) => <h1 className="md-h1" {...props}>{children || ''}</h1>,
+                  h2: ({node, children, ...props}) => <h2 className="md-h2" {...props}>{children || ''}</h2>,
+                  h3: ({node, children, ...props}) => <h3 className="md-h3" {...props}>{children || ''}</h3>,
+                  strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
+                  em: ({node, ...props}) => <em className="md-em" {...props} />,
+                  ul: ({node, ...props}) => <ul className="md-list" {...props} />,
+                  ol: ({node, ...props}) => <ol className="md-list" {...props} />,
+                  li: ({node, ...props}) => <li className="md-li" {...props} />,
+                  p: ({node, ...props}) => <p className="md-p" {...props} />,
                   table: ({node, ...props}) => (
-                    <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem' }}>
-                      <table style={{
-                        width: '100%',
-                        borderCollapse: 'collapse',
-                        backgroundColor: '#18181b',
-                        border: '1px solid #3f3f46',
-                        minWidth: '600px'
-                      }} {...props} />
+                    <div className="md-table-wrapper">
+                      <table className="md-table" {...props} />
                     </div>
                   ),
-                  thead: ({node, ...props}) => <thead style={{ backgroundColor: '#27272a', borderBottom: '2px solid #60a5fa' }} {...props} />,
+                  thead: ({node, ...props}) => <thead className="md-thead" {...props} />,
                   tbody: ({node, ...props}) => <tbody {...props} />,
-                  tr: ({node, ...props}) => <tr style={{ borderBottom: '1px solid #3f3f46' }} {...props} />,
-                  th: ({node, ...props}) => (
-                    <th style={{
-                      padding: '0.875rem 1rem',
-                      textAlign: 'left',
-                      color: '#fff',
-                      fontWeight: '600',
-                      fontSize: '0.875rem',
-                      whiteSpace: 'nowrap',
-                      borderRight: '1px solid #3f3f46'
-                    }} {...props} />
-                  ),
-                  td: ({node, ...props}) => (
-                    <td style={{
-                      padding: '0.875rem 1rem',
-                      color: '#e5e5e7',
-                      fontSize: '0.875rem',
-                      verticalAlign: 'top',
-                      wordBreak: 'break-word',
-                      lineHeight: '1.5',
-                      borderRight: '1px solid #3f3f46'
-                    }} {...props} />
-                  )
+                  tr: ({node, ...props}) => <tr className="md-tr" {...props} />,
+                  th: ({node, ...props}) => <th className="md-th" {...props} />,
+                  td: ({node, ...props}) => <td className="md-td" {...props} />
                 }}
               >
                 {brief}
@@ -661,8 +635,8 @@ function Dashboard({ setActiveTab }) {
           >
             <span className="stat-large-icon">📋</span>
             <div>
-              <div style={{ fontWeight: '600' }}>View All Tasks</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Manage commitments & actions</div>
+              <div className="quick-action-title">View All Tasks</div>
+              <div className="quick-action-subtitle">Manage commitments & actions</div>
             </div>
           </button>
 
@@ -672,8 +646,8 @@ function Dashboard({ setActiveTab }) {
           >
             <span className="stat-large-icon">📝</span>
             <div>
-              <div style={{ fontWeight: '600' }}>Upload Transcript</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Add meeting notes</div>
+              <div className="quick-action-title">Upload Transcript</div>
+              <div className="quick-action-subtitle">Add meeting notes</div>
             </div>
           </button>
 
@@ -683,8 +657,8 @@ function Dashboard({ setActiveTab }) {
           >
             <span className="stat-large-icon">📅</span>
             <div>
-              <div style={{ fontWeight: '600' }}>View Calendar</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>See upcoming events</div>
+              <div className="quick-action-title">View Calendar</div>
+              <div className="quick-action-subtitle">See upcoming events</div>
             </div>
           </button>
 
@@ -694,8 +668,8 @@ function Dashboard({ setActiveTab }) {
           >
             <span className="stat-large-icon">⚙️</span>
             <div>
-              <div style={{ fontWeight: '600' }}>Settings</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Configure app</div>
+              <div className="quick-action-title">Settings</div>
+              <div className="quick-action-subtitle">Configure app</div>
             </div>
           </button>
         </div>

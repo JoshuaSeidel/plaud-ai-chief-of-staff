@@ -2603,6 +2603,50 @@ table {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Markdown Table Classes */
+.md-table-wrapper {
+  overflow-x: auto;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #18181b;
+  border: 1px solid #3f3f46;
+  min-width: 600px;
+}
+
+.md-thead {
+  background-color: #27272a;
+  border-bottom: 2px solid #60a5fa;
+}
+
+.md-tr {
+  border-bottom: 1px solid #3f3f46;
+}
+
+.md-th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  border-right: 1px solid #3f3f46;
+}
+
+.md-td {
+  padding: 0.875rem 1rem;
+  color: #e5e5e7;
+  font-size: 0.875rem;
+  vertical-align: top;
+  word-break: break-word;
+  line-height: 1.5;
+  border-right: 1px solid #3f3f46;
+}
+
 .resize-vertical {
   resize: vertical;
 }
@@ -2741,6 +2785,17 @@ table {
 
 .mr-sm {
   margin-right: 0.5rem;
+}
+
+/* Quick Action Button Text */
+.quick-action-title {
+  font-weight: 600;
+}
+
+.quick-action-subtitle {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  margin-top: 0.25rem;
 }
 
 /* === TASK CARDS === */
