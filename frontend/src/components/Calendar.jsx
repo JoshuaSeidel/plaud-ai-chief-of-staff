@@ -126,18 +126,41 @@ function Calendar() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="calendar">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2>📅 Calendar</h2>
-          <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0 }}>📅 Calendar</h2>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button 
               onClick={loadEvents} 
               disabled={loading}
-              className="secondary"
+              className="glass-button"
+              style={{ 
+                minWidth: '44px',
+                width: '44px',
+                height: '44px',
+                padding: '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem'
+              }}
             >
-              {loading ? 'Loading...' : '🔄 Refresh'}
+              {loading ? '⏳' : '🔄'}
             </button>
-            <button onClick={() => setShowCreateForm(!showCreateForm)}>
-              {showCreateForm ? 'Cancel' : '➕ Create Time Block'}
+            <button 
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="glass-button-primary"
+              style={{ 
+                minWidth: '44px',
+                width: '44px',
+                height: '44px',
+                padding: '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem'
+              }}
+            >
+              {showCreateForm ? '✕' : '➕'}
             </button>
           </div>
         </div>

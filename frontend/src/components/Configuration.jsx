@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { configAPI } from '../services/api';
+import { configAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 // Version info component
@@ -69,13 +69,23 @@ function VersionInfo() {
       <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
         <strong style={{ color: '#e5e5e7' }}>Backend:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.backendVersion || version.version || 'Unknown'}</span>
       </p>
-      {version.commitHash && version.commitHash !== 'unknown' && (
-        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', fontFamily: 'monospace', marginTop: '0.25rem' }}>
-          <strong style={{ color: '#e5e5e7' }}>Commit:</strong> <code style={{ color: '#60a5fa' }}>{version.commitHash}</code>
-        </p>
+      {version.microservices && Object.keys(version.microservices).length > 0 && (
+        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #3f3f46' }}>
+          <p style={{ color: '#e5e5e7', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: '500' }}>
+            Microservices:
+          </p>
+          {Object.entries(version.microservices).map(([name, ver]) => (
+            <p key={name} style={{ color: '#a1a1aa', fontSize: '0.85rem', marginBottom: '0.25rem', marginLeft: '1rem' }}>
+              <strong style={{ color: '#e5e5e7' }}>{name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}:</strong>{' '}
+              <span style={{ color: ver === 'unavailable' ? '#ef4444' : '#60a5fa', fontFamily: 'monospace' }}>
+                {ver}
+              </span>
+            </p>
+          ))}
+        </div>
       )}
       {version.buildDate && (
-        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #3f3f46' }}>
           <strong style={{ color: '#e5e5e7' }}>Build Date:</strong> {new Date(version.buildDate).toLocaleString()}
         </p>
       )}
@@ -103,6 +113,7 @@ function Configuration() {
     microsoftClientId: '',
     microsoftClientSecret: '',
     microsoftRedirectUri: '',
+    microsoftCalendarId: '',
     microsoftTaskListId: '',
     jiraBaseUrl: '',
     jiraEmail: '',
@@ -115,6 +126,13 @@ function Configuration() {
     postgresDb: '',
     postgresUser: '',
     postgresPassword: '',
+    storageType: 'local',
+    storagePath: '/app/data/voice-recordings',
+    s3Bucket: '',
+    s3Region: 'us-east-1',
+    s3AccessKeyId: '',
+    s3SecretAccessKey: '',
+    s3Endpoint: '',
   });
   
   // Track which fields have been loaded from server (to know which ones to skip on save)
@@ -122,9 +140,10 @@ function Configuration() {
   
   // Integration toggles
   const [enabledIntegrations, setEnabledIntegrations] = useState({
-    googleCalendar: true,
-    microsoftPlanner: false,
-    jira: false
+    googleCalendar: false,
+    microsoft: false, // Combined Microsoft Calendar + Planner
+    jira: false,
+    radicale: false
   });
   
   const [saving, setSaving] = useState(false);
@@ -136,18 +155,41 @@ function Configuration() {
   const [jiraConnected, setJiraConnected] = useState(false);
   const [checkingJira, setCheckingJira] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [microservicesExpanded, setMicroservicesExpanded] = useState(false);
+  const [notificationMaxRepeat, setNotificationMaxRepeat] = useState(3);
+  const [notificationRepeatIntervalHours, setNotificationRepeatIntervalHours] = useState(24);
   const [microsoftTaskLists, setMicrosoftTaskLists] = useState([]);
   const [loadingTaskLists, setLoadingTaskLists] = useState(false);
   const [prompts, setPrompts] = useState([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
   const [editingPrompt, setEditingPrompt] = useState(null);
+  const [servicesHealth, setServicesHealth] = useState(null);
+  const [showServicesHealth, setShowServicesHealth] = useState(false);
+  
+  // Model lists from API providers
+  const [availableModels, setAvailableModels] = useState({
+    anthropic: [],
+    openai: [],
+    ollama: []
+  });
+  const [loadingModels, setLoadingModels] = useState({
+    anthropic: false,
+    openai: false,
+    ollama: false
+  });
 
   useEffect(() => {
     loadConfig();
+    loadServicesHealth();
     checkGoogleCalendarStatus();
     checkMicrosoftPlannerStatus();
     checkJiraStatus();
     loadPrompts();
+    
+    // Load available models for all providers on mount
+    loadModelsForProvider('anthropic');
+    loadModelsForProvider('openai');
+    loadModelsForProvider('ollama');
     
     // Set initial integration toggles based on configuration
     // This will be updated when status checks complete
@@ -161,6 +203,18 @@ function Configuration() {
       setNotificationsEnabled(Notification.permission === 'granted');
     }
     
+    // Load notification limits from config
+    configAPI.getAll().then(config => {
+      if (config.notification_max_repeat !== undefined) {
+        setNotificationMaxRepeat(parseInt(config.notification_max_repeat) || 3);
+      }
+      if (config.notification_repeat_interval_hours !== undefined) {
+        setNotificationRepeatIntervalHours(parseInt(config.notification_repeat_interval_hours) || 24);
+      }
+    }).catch(err => {
+      console.error('Failed to load notification config:', err);
+    });
+    
     // Check for URL parameters (success/error messages from OAuth redirects)
     const hash = window.location.hash;
     const hashParams = new URLSearchParams(hash.split('?')[1] || '');
@@ -168,19 +222,19 @@ function Configuration() {
     const success = hashParams.get('success');
     const errorDetails = hashParams.get('error_details');
     
-    if (success === 'microsoft_planner_connected') {
-      setMessage({ type: 'success', text: '✅ Microsoft Planner connected successfully!' });
+    if (success === 'microsoft_planner_connected' || success === 'microsoft_calendar_connected' || success === 'microsoft_integration_connected') {
+      setMessage({ type: 'success', text: '✅ Microsoft Integration connected successfully! (Calendar + Planner)' });
       checkMicrosoftPlannerStatus(); // Refresh connection status
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
     } else if (error === 'microsoft_oauth_failed') {
-      setMessage({ type: 'error', text: '❌ Failed to connect Microsoft Planner. Please try again.' });
+      setMessage({ type: 'error', text: '❌ Failed to connect Microsoft Integration. Please try again.' });
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
     } else if (error === 'microsoft_oauth_access_denied') {
-      setMessage({ type: 'error', text: '❌ Microsoft Planner connection was cancelled. Please try again if you want to connect.' });
+      setMessage({ type: 'error', text: '❌ Microsoft Integration connection was cancelled. Please try again if you want to connect.' });
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
@@ -194,13 +248,29 @@ function Configuration() {
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
     } else if (error === 'microsoft_oauth_exchange_failed') {
-      setMessage({ type: 'error', text: '❌ Failed to complete Microsoft Planner connection. Please check your credentials and try again.' });
+      setMessage({ type: 'error', text: '❌ Failed to complete Microsoft Integration connection. Please check your credentials and try again.' });
       // Clean up URL
       const cleanHash = hash.split('?')[0];
       window.history.replaceState({}, '', window.location.pathname + cleanHash);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  
+  const loadServicesHealth = async () => {
+    try {
+      const response = await intelligenceAPI.checkHealth();
+      console.log('Health check response:', response);
+      if (response && response.data) {
+        setServicesHealth(response.data);
+      } else {
+        console.warn('Health check response missing data:', response);
+        setServicesHealth(null);
+      }
+    } catch (err) {
+      console.error('Microservices health check error:', err);
+      setServicesHealth(null);
+    }
+  };
   
   const loadPrompts = async () => {
     try {
@@ -323,6 +393,7 @@ function Configuration() {
         microsoftClientId: appData.microsoftClientId || '',
         microsoftClientSecret: appData.microsoftClientSecret ? '••••••••' : '',
         microsoftRedirectUri: appData.microsoftRedirectUri || '',
+        microsoftCalendarId: appData.microsoftCalendarId || '',
         microsoftTaskListId: appData.microsoftTaskListId || '',
         jiraBaseUrl: appData.jiraBaseUrl || '',
         jiraEmail: appData.jiraEmail || '',
@@ -349,6 +420,145 @@ function Configuration() {
     await checkGoogleCalendarStatus();
   };
 
+  const loadModelsForProvider = async (provider) => {
+    if (!provider) return;
+    
+    setLoadingModels(prev => ({ ...prev, [provider]: true }));
+    
+    try {
+      const response = await configAPI.getModels(provider);
+      const models = response.data.models || [];
+      
+      setAvailableModels(prev => ({
+        ...prev,
+        [provider]: models
+      }));
+      
+      console.log(`Loaded ${models.length} models for ${provider}:`, models);
+    } catch (err) {
+      console.error(`Failed to load ${provider} models:`, err);
+      setAvailableModels(prev => ({
+        ...prev,
+        [provider]: []
+      }));
+    } finally {
+      setLoadingModels(prev => ({ ...prev, [provider]: false }));
+    }
+  };
+
+  // Helper to render model dropdown with refresh button
+  const renderModelSelector = (provider, currentModel, onModelChange) => {
+    const supportsRefresh = ['anthropic', 'openai', 'ollama'].includes(provider);
+    
+    return (
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <select
+          value={currentModel}
+          onChange={(e) => onModelChange(e.target.value)}
+          style={{ 
+            flex: 1, 
+            minWidth: 0,
+            height: '44px',
+            fontSize: '16px',
+            padding: '0.5rem',
+            boxSizing: 'border-box'
+          }}
+          disabled={loadingModels[provider]}
+        >
+          {provider === 'anthropic' && (
+            <>
+              {availableModels.anthropic.length > 0 ? (
+                availableModels.anthropic.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                  <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                </>
+              )}
+            </>
+          )}
+          {provider === 'openai' && (
+            <>
+              {availableModels.openai.length > 0 ? (
+                availableModels.openai.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                  <option value="gpt-4">GPT-4</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  <option value="whisper-1">Whisper-1</option>
+                </>
+              )}
+            </>
+          )}
+          {provider === 'ollama' && (
+            <>
+              {availableModels.ollama.length > 0 ? (
+                availableModels.ollama.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="mistral:latest">Mistral Latest</option>
+                  <option value="llama3.1:latest">Llama 3.1 Latest</option>
+                  <option value="llama2:latest">Llama 2 Latest</option>
+                  <option value="codellama:latest">Code Llama Latest</option>
+                  <option value="whisper:latest">Whisper Latest</option>
+                </>
+              )}
+            </>
+          )}
+          {provider === 'bedrock' && (
+            <>
+              <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+              <option value="anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet</option>
+            </>
+          )}
+        </select>
+        {supportsRefresh && (
+          <button
+            type="button"
+            onClick={() => loadModelsForProvider(provider)}
+            disabled={loadingModels[provider]}
+            title="Refresh model list"
+            style={{
+              padding: '0',
+              fontSize: '0.9rem',
+              background: '#3b82f6',
+              border: 'none',
+              borderRadius: '4px',
+              color: 'white',
+              cursor: loadingModels[provider] ? 'not-allowed' : 'pointer',
+              opacity: loadingModels[provider] ? 0.6 : 1,
+              minWidth: '36px',
+              width: '36px',
+              height: '44px',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {loadingModels[provider] ? '⏳' : '🔄'}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   const checkGoogleCalendarStatus = async () => {
     try {
       const response = await fetch('/api/calendar/google/status');
@@ -363,16 +573,18 @@ function Configuration() {
 
   const checkMicrosoftPlannerStatus = async () => {
     try {
+      // Check Microsoft status (shared token for Calendar and Planner)
       const response = await fetch('/api/planner/microsoft/status');
       const data = await response.json();
       setMicrosoftConnected(data.connected);
       
-      // If connected, load available task lists
+      // If connected, load available task lists and enable integration
       if (data.connected) {
         loadMicrosoftTaskLists();
+        setEnabledIntegrations(prev => ({ ...prev, microsoft: true }));
       }
     } catch (err) {
-      console.error('Failed to check Microsoft Planner status:', err);
+      console.error('Failed to check Microsoft status:', err);
     } finally {
       setCheckingMicrosoft(false);
     }
@@ -465,27 +677,30 @@ function Configuration() {
 
   const handleMicrosoftConnect = async () => {
     try {
+      // Use planner route for auth (it uses microsoft-calendar service which includes both scopes)
       const response = await fetch('/api/planner/microsoft/auth');
       const data = await response.json();
       if (data.authUrl) {
         window.location.href = data.authUrl;
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to initiate Microsoft Planner connection' });
+      setMessage({ type: 'error', text: 'Failed to initiate Microsoft Integration connection' });
     }
   };
 
   const handleMicrosoftDisconnect = async () => {
-    if (!window.confirm('Are you sure you want to disconnect Microsoft Planner?')) {
+    if (!window.confirm('Are you sure you want to disconnect Microsoft Integration? This will disconnect both Calendar and Planner.')) {
       return;
     }
     
     try {
+      // Disconnect from planner route (removes shared token)
       await fetch('/api/planner/microsoft/disconnect', { method: 'POST' });
       setMicrosoftConnected(false);
-      setMessage({ type: 'success', text: 'Microsoft Planner disconnected successfully' });
+      setEnabledIntegrations(prev => ({ ...prev, microsoft: false }));
+      setMessage({ type: 'success', text: 'Microsoft Integration disconnected successfully (Calendar + Planner)' });
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to disconnect Microsoft Planner' });
+      setMessage({ type: 'error', text: 'Failed to disconnect Microsoft Integration' });
     }
   };
 
@@ -575,11 +790,46 @@ function Configuration() {
       if (config.microsoftRedirectUri) {
         appUpdates.microsoftRedirectUri = config.microsoftRedirectUri;
       }
+      if (config.microsoftCalendarId) {
+        appUpdates.microsoftCalendarId = config.microsoftCalendarId;
+      } else if (!config.microsoftCalendarId && loadedFields.microsoftCalendarId) {
+        appUpdates.microsoftCalendarId = '';
+      }
       if (config.googleCalendarId) {
         appUpdates.googleCalendarId = config.googleCalendarId;
       }
       if (config.userNames) {
         appUpdates.userNames = config.userNames;
+      }
+      
+      // Save integration toggles
+      appUpdates.googleCalendarEnabled = enabledIntegrations.googleCalendar;
+      appUpdates.microsoftEnabled = enabledIntegrations.microsoft;
+      appUpdates.jiraEnabled = enabledIntegrations.jira;
+      
+      // AI Model Configuration (per-service)
+      if (config.aiIntelligenceProvider) appUpdates.aiIntelligenceProvider = config.aiIntelligenceProvider;
+      if (config.aiIntelligenceModel) appUpdates.aiIntelligenceModel = config.aiIntelligenceModel;
+      if (config.voiceProcessorProvider) appUpdates.voiceProcessorProvider = config.voiceProcessorProvider;
+      if (config.voiceProcessorModel) appUpdates.voiceProcessorModel = config.voiceProcessorModel;
+      if (config.patternRecognitionProvider) appUpdates.patternRecognitionProvider = config.patternRecognitionProvider;
+      if (config.patternRecognitionModel) appUpdates.patternRecognitionModel = config.patternRecognitionModel;
+      if (config.nlParserProvider) appUpdates.nlParserProvider = config.nlParserProvider;
+      if (config.nlParserModel) appUpdates.nlParserModel = config.nlParserModel;
+      
+      // AI API Keys
+      if (config.anthropicApiKey && !config.anthropicApiKey.includes('•')) {
+        appUpdates.anthropicApiKey = config.anthropicApiKey;
+      }
+      if (config.openaiApiKey && !config.openaiApiKey.includes('•')) {
+        appUpdates.openaiApiKey = config.openaiApiKey;
+      }
+      if (config.ollamaBaseUrl) appUpdates.ollamaBaseUrl = config.ollamaBaseUrl;
+      if (config.awsAccessKeyId && !config.awsAccessKeyId.includes('•')) {
+        appUpdates.awsAccessKeyId = config.awsAccessKeyId;
+      }
+      if (config.awsSecretAccessKey && !config.awsSecretAccessKey.includes('•')) {
+        appUpdates.awsSecretAccessKey = config.awsSecretAccessKey;
       }
       
       // Jira configuration
@@ -596,6 +846,20 @@ function Configuration() {
       }
       if (config.jiraProjectKey) {
         appUpdates.jiraProjectKey = config.jiraProjectKey;
+      }
+      
+      // Radicale CalDAV configuration
+      appUpdates.radicaleEnabled = enabledIntegrations.radicale;
+      if (config.radicaleUrl) {
+        appUpdates.radicaleUrl = config.radicaleUrl;
+      }
+      if (config.radicaleUsername) {
+        appUpdates.radicaleUsername = config.radicaleUsername;
+      }
+      if (config.radicalePassword && !config.radicalePassword.includes('•')) {
+        appUpdates.radicalePassword = config.radicalePassword;
+      } else if (!config.radicalePassword && loadedFields.radicalePassword) {
+        appUpdates.radicalePassword = '';
       }
       
       // System configuration (stored in /app/data/config.json)
@@ -665,217 +929,7 @@ function Configuration() {
           </div>
         )}
 
-        <details style={{ marginBottom: '2rem' }}>
-          <summary style={{ 
-            cursor: 'pointer', 
-            fontWeight: 'bold',
-            padding: '0.5rem',
-            color: '#e5e5e7',
-            fontSize: '1.125rem',
-            marginBottom: '0.5rem'
-          }}>
-            🤖 AI Provider Configuration
-          </summary>
-          <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            AI Provider
-          </label>
-          <select
-            value={config.aiProvider}
-            onChange={(e) => handleChange('aiProvider', e.target.value)}
-            style={{ 
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #3f3f46',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              marginBottom: '1.5rem',
-              backgroundColor: '#18181b',
-              color: '#e5e5e7'
-            }}
-          >
-            <option value="anthropic">Anthropic (Claude)</option>
-            <option value="openai">OpenAI (GPT)</option>
-            <option value="ollama">Ollama (Local/Private)</option>
-          </select>
-
-          {/* Anthropic Configuration */}
-          {config.aiProvider === 'anthropic' && (
-            <>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Anthropic API Key (Required)
-              </label>
-              <input
-                type="password"
-                value={config.anthropicApiKey}
-                onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
-                placeholder="sk-ant-..."
-              />
-              {config.anthropicApiKey.includes('•') && (
-                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
-                  ✓ API key is configured (change to update)
-                </p>
-              )}
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.anthropicApiKey.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
-                Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>
-              </p>
-
-              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Claude Model
-              </label>
-              <select
-                value={config.claudeModel}
-                onChange={(e) => handleChange('claudeModel', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #3f3f46',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontFamily: 'inherit',
-                  marginBottom: '1rem',
-                  backgroundColor: '#18181b',
-                  color: '#e5e5e7'
-                }}
-              >
-                <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest - Recommended)</option>
-                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-              </select>
-            </>
-          )}
-
-          {/* OpenAI Configuration */}
-          {config.aiProvider === 'openai' && (
-            <>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                OpenAI API Key (Required)
-              </label>
-              <input
-                type="password"
-                value={config.openaiApiKey}
-                onChange={(e) => handleChange('openaiApiKey', e.target.value)}
-                placeholder="sk-..."
-              />
-              {config.openaiApiKey.includes('•') && (
-                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
-                  ✓ API key is configured (change to update)
-                </p>
-              )}
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.openaiApiKey.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
-                Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">platform.openai.com</a>
-              </p>
-
-              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                OpenAI Model
-              </label>
-              <select
-                value={config.openaiModel}
-                onChange={(e) => handleChange('openaiModel', e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #3f3f46',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontFamily: 'inherit',
-                  marginBottom: '1rem',
-                  backgroundColor: '#18181b',
-                  color: '#e5e5e7'
-                }}
-              >
-                <option value="gpt-4o">GPT-4o (Latest - Recommended)</option>
-                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                <option value="gpt-4">GPT-4</option>
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-              </select>
-            </>
-          )}
-
-          {/* Ollama Configuration */}
-          {config.aiProvider === 'ollama' && (
-            <>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Ollama Base URL
-              </label>
-              <input
-                type="url"
-                value={config.ollamaBaseUrl}
-                onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
-                placeholder="http://localhost:11434"
-              />
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                URL where your Ollama instance is running. Default: http://localhost:11434
-              </p>
-
-              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Ollama Model
-              </label>
-              <input
-                type="text"
-                value={config.ollamaModel}
-                onChange={(e) => handleChange('ollamaModel', e.target.value)}
-                placeholder="llama3.1"
-              />
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                Model name as it appears in Ollama. Common: llama3.1, mistral, codellama, etc.
-              </p>
-            </>
-          )}
-
-          {/* Shared Max Tokens */}
-          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            Max Tokens (Response Length)
-          </label>
-          <select
-            value={config.aiMaxTokens}
-            onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
-            style={{ 
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #3f3f46',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              marginBottom: '1rem',
-              backgroundColor: '#18181b',
-              color: '#e5e5e7'
-            }}
-          >
-            <option value="2048">2048 - Short meetings (cheaper)</option>
-            <option value="4096">4096 - Normal meetings (recommended)</option>
-            <option value="6144">6144 - Long meetings</option>
-            <option value="8192">8192 - Very long meetings (max)</option>
-          </select>
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-            Maximum tokens for AI responses. Higher = longer/complete responses but more cost.
-          </p>
-          
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-            Your Name(s) (Comma-separated)
-          </label>
-          <input
-            type="text"
-            value={config.userNames}
-            onChange={(e) => handleChange('userNames', e.target.value)}
-            placeholder="John Smith"
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #d2d2d7',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              marginBottom: '1rem'
-            }}
-          />
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
-            Enter your name(s) as they appear in meeting transcripts. Tasks assigned to you will be automatically added. Others will require confirmation.
-          </p>
-          </div>
-        </details>
+        {/* Old AI Provider Configuration section removed - now consolidated in AI Models & Providers below */}
 
         {/* Plaud Integration - Hidden until implemented */}
         {false && (
@@ -911,6 +965,501 @@ function Configuration() {
           </div>
         )}
 
+        {/* AI Configuration - Per Service */}
+        <details open style={{ marginBottom: '2rem' }}>
+          <summary style={{ cursor: 'pointer', fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>🤖 AI Models & Providers</span>
+          </summary>
+          <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1.5rem' }}>
+            Configure AI providers and models for the main application and each microservice. Each service can use a different provider/model combination.
+          </p>
+          
+          {/* Main Application AI Configuration */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem', border: '2px solid #3b82f6' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem', color: '#60a5fa' }}>
+              🏠 Main Application
+            </h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Primary AI provider for transcript processing, daily briefs, and task extraction
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.aiProvider || 'anthropic'}
+                  onChange={(e) => {
+                    const newProvider = e.target.value;
+                    handleChange('aiProvider', newProvider);
+                    // Load models for new provider if API key is configured
+                    if (newProvider === 'anthropic' || newProvider === 'openai' || newProvider === 'ollama') {
+                      loadModelsForProvider(newProvider);
+                    }
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.aiProvider || 'anthropic',
+                  config.claudeModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('claudeModel', value)
+                )}
+              </div>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Max Tokens (Response Length)
+                </label>
+                <select
+                  value={config.aiMaxTokens || '4096'}
+                  onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="2048">2048 - Short meetings (cheaper)</option>
+                  <option value="4096">4096 - Normal meetings (recommended)</option>
+                  <option value="6144">6144 - Long meetings</option>
+                  <option value="8192">8192 - Very long meetings (max)</option>
+                </select>
+                <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                  Higher = longer/complete responses but more cost
+                </p>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Your Name(s) (Comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={config.userNames || ''}
+                  onChange={(e) => handleChange('userNames', e.target.value)}
+                  placeholder="John Smith, J. Smith"
+                  style={{ width: '100%' }}
+                />
+                <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                  For automatic task assignment from transcripts
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div style={{ marginTop: '2rem', marginBottom: '1rem' }}>
+            <h4 
+              onClick={() => setMicroservicesExpanded(!microservicesExpanded)}
+              style={{ 
+                fontSize: '1rem', 
+                color: '#a1a1aa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                userSelect: 'none'
+              }}
+            >
+              <span style={{ transform: microservicesExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                ▶
+              </span>
+              Microservices Configuration (Optional)
+            </h4>
+          </div>
+          
+          {microservicesExpanded && (
+            <>
+              {/* AI Intelligence Service */}
+              <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🧠 AI Intelligence Service</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Task effort estimation, energy classification, and task clustering
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.aiIntelligenceProvider || 'anthropic'}
+                  onChange={(e) => handleChange('aiIntelligenceProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.aiIntelligenceProvider || 'anthropic',
+                  config.aiIntelligenceModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('aiIntelligenceModel', value)
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Voice Processor Service */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🎤 Voice Processor Service</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Audio transcription and voice-to-text
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.voiceProcessorProvider || 'openai'}
+                  onChange={(e) => handleChange('voiceProcessorProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="openai">OpenAI Whisper</option>
+                  <option value="ollama">Ollama Whisper</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.voiceProcessorProvider || 'openai',
+                  config.voiceProcessorModel || 'whisper-1',
+                  (value) => handleChange('voiceProcessorModel', value)
+                )}
+              </div>
+            </div>
+            
+            {/* Voice Storage Configuration */}
+            <div style={{ borderTop: '1px solid rgba(161, 161, 170, 0.2)', paddingTop: '1rem', marginTop: '1rem' }}>
+              <h5 style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1rem' }}>💾 Storage Configuration</h5>
+              <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                Configure where voice recordings are stored
+              </p>
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Storage Type
+                </label>
+                <select
+                  value={config.storageType || 'local'}
+                  onChange={(e) => handleChange('storageType', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="local">Local Filesystem</option>
+                  <option value="s3">S3 Compatible (AWS S3, MinIO, etc.)</option>
+                </select>
+              </div>
+              
+              {config.storageType === 'local' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    Local Storage Path
+                  </label>
+                  <input
+                    type="text"
+                    value={config.storagePath || '/app/data/voice-recordings'}
+                    onChange={(e) => handleChange('storagePath', e.target.value)}
+                    placeholder="/app/data/voice-recordings"
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+              )}
+              
+              {config.storageType === 's3' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Bucket Name
+                    </label>
+                    <input
+                      type="text"
+                      value={config.s3Bucket || ''}
+                      onChange={(e) => handleChange('s3Bucket', e.target.value)}
+                      placeholder="my-voice-recordings"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Region
+                    </label>
+                    <input
+                      type="text"
+                      value={config.s3Region || 'us-east-1'}
+                      onChange={(e) => handleChange('s3Region', e.target.value)}
+                      placeholder="us-east-1"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Access Key ID
+                    </label>
+                    <input
+                      type="password"
+                      value={config.s3AccessKeyId || ''}
+                      onChange={(e) => handleChange('s3AccessKeyId', e.target.value)}
+                      placeholder="AKIA..."
+                      style={{ width: '100%', fontFamily: 'monospace' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Secret Access Key
+                    </label>
+                    <input
+                      type="password"
+                      value={config.s3SecretAccessKey || ''}
+                      onChange={(e) => handleChange('s3SecretAccessKey', e.target.value)}
+                      placeholder="..."
+                      style={{ width: '100%', fontFamily: 'monospace' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Endpoint (Optional - for MinIO or custom S3)
+                    </label>
+                    <input
+                      type="url"
+                      value={config.s3Endpoint || ''}
+                      onChange={(e) => handleChange('s3Endpoint', e.target.value)}
+                      placeholder="https://minio.example.com"
+                      style={{ width: '100%' }}
+                    />
+                    <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                      Leave empty for AWS S3
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Pattern Recognition Service */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>📊 Pattern Recognition Service</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Behavioral patterns and productivity insights
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.patternRecognitionProvider || 'anthropic'}
+                  onChange={(e) => handleChange('patternRecognitionProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                <select
+                  value={config.patternRecognitionModel || 'claude-sonnet-4-5-20250929'}
+                  onChange={(e) => handleChange('patternRecognitionModel', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {(config.patternRecognitionProvider || 'anthropic') === 'anthropic' && (
+                    <>
+                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    </>
+                  )}
+                  {(config.patternRecognitionProvider || 'anthropic') === 'openai' && (
+                    <>
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    </>
+                  )}
+                  {(config.patternRecognitionProvider || 'anthropic') === 'ollama' && (
+                    <>
+                      <option value="mistral:latest">Mistral Latest</option>
+                      <option value="llama2:latest">Llama 2 Latest</option>
+                    </>
+                  )}
+                  {(config.patternRecognitionProvider || 'anthropic') === 'bedrock' && (
+                    <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* NL Parser Service */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>💬 Natural Language Parser</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Parse natural language into structured tasks
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.nlParserProvider || 'anthropic'}
+                  onChange={(e) => handleChange('nlParserProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                <select
+                  value={config.nlParserModel || 'claude-sonnet-4-5-20250929'}
+                  onChange={(e) => handleChange('nlParserModel', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {(config.nlParserProvider || 'anthropic') === 'anthropic' && (
+                    <>
+                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    </>
+                  )}
+                  {(config.nlParserProvider || 'anthropic') === 'openai' && (
+                    <>
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    </>
+                  )}
+                  {(config.nlParserProvider || 'anthropic') === 'ollama' && (
+                    <>
+                      <option value="mistral:latest">Mistral Latest</option>
+                      <option value="llama2:latest">Llama 2 Latest</option>
+                    </>
+                  )}
+                  {(config.nlParserProvider || 'anthropic') === 'bedrock' && (
+                    <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+            </>
+          )}
+          
+          {/* API Keys Section */}
+          <div className="glass-panel">
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🔑 API Keys</h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Configure API keys for AI providers. Keys are stored securely and never displayed in full.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Anthropic API Key
+                </label>
+                <input
+                  type="password"
+                  value={config.anthropicApiKey || ''}
+                  onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
+                  placeholder="sk-ant-..."
+                  style={{ width: '100%', fontFamily: 'monospace' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  OpenAI API Key
+                </label>
+                <input
+                  type="password"
+                  value={config.openaiApiKey || ''}
+                  onChange={(e) => handleChange('openaiApiKey', e.target.value)}
+                  placeholder="sk-..."
+                  style={{ width: '100%', fontFamily: 'monospace' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Ollama Base URL (for local deployment)
+                </label>
+                <input
+                  type="url"
+                  value={config.ollamaBaseUrl || 'http://localhost:11434'}
+                  onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
+                  placeholder="http://localhost:11434"
+                  style={{ width: '100%' }}
+                />
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    AWS Access Key ID (for Bedrock)
+                  </label>
+                  <input
+                    type="password"
+                    value={config.awsAccessKeyId || ''}
+                    onChange={(e) => handleChange('awsAccessKeyId', e.target.value)}
+                    placeholder="AKIA..."
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    AWS Secret Access Key
+                  </label>
+                  <input
+                    type="password"
+                    value={config.awsSecretAccessKey || ''}
+                    onChange={(e) => handleChange('awsSecretAccessKey', e.target.value)}
+                    placeholder="..."
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
         <div style={{ marginBottom: '2rem' }}>
           <h3>🔌 Integrations</h3>
           <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1rem' }}>
@@ -940,11 +1489,16 @@ function Configuration() {
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
               <input
                 type="checkbox"
-                checked={enabledIntegrations.microsoftPlanner}
-                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, microsoftPlanner: e.target.checked })}
+                checked={enabledIntegrations.microsoft}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setEnabledIntegrations({ ...enabledIntegrations, microsoft: newValue });
+                  // When Microsoft Integration is enabled/disabled, both Calendar and Planner are affected
+                  // They can't be enabled/disabled separately
+                }}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📋 Microsoft Planner/To Do</span>
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📅 Microsoft Integration (Calendar + Planner)</span>
             </label>
             
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
@@ -955,6 +1509,16 @@ function Configuration() {
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
               <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>🎯 Jira</span>
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enabledIntegrations.radicale}
+                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, radicale: e.target.checked })}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📆 CalDAV (Radicale, Nextcloud, etc.)</span>
             </label>
           </div>
         </div>
@@ -1125,9 +1689,9 @@ function Configuration() {
         </div>
         )}
 
-        {enabledIntegrations.microsoftPlanner && (
+        {enabledIntegrations.microsoft && (
         <div style={{ marginBottom: '2rem' }}>
-          <h3>📋 Microsoft Planner/To Do Integration</h3>
+          <h3>📅 Microsoft Integration (Calendar + Planner)</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -1137,8 +1701,8 @@ function Configuration() {
             marginBottom: '1.5rem'
           }}>
             <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📋</span>
-              Microsoft Planner (Recommended)
+              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📅</span>
+              Microsoft Outlook Calendar & Planner
             </h4>
             
             {checkingMicrosoft ? (
@@ -1156,7 +1720,7 @@ function Configuration() {
                   justifyContent: 'space-between'
                 }}>
                   <span>
-                    <strong>✓ Connected</strong> - Tasks will be created automatically in Microsoft To Do
+                    <strong>✓ Connected</strong> - Calendar events and tasks will be created automatically
                   </span>
                   <button 
                     onClick={handleMicrosoftDisconnect}
@@ -1174,7 +1738,21 @@ function Configuration() {
                   </button>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
-                  Tasks with deadlines will automatically create Microsoft To Do tasks. Tasks sync across all your devices.
+                  Commitments with deadlines will automatically create Outlook Calendar events and Microsoft To Do tasks. Both sync across all your devices.
+                </p>
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  Calendar ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={config.microsoftCalendarId || ''}
+                  onChange={(e) => handleChange('microsoftCalendarId', e.target.value)}
+                  placeholder="Leave blank for default calendar"
+                  style={{ marginBottom: '1rem' }}
+                />
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                  Leave blank to use your default Outlook calendar. To find calendar IDs, use the Microsoft Graph API or Outlook web interface.
                 </p>
                 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
@@ -1237,8 +1815,8 @@ function Configuration() {
             ) : (
               <div>
                 <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
-                  Connect your Microsoft Planner/To Do to automatically create tasks for commitments with deadlines.
-                  One-click setup with OAuth.
+                  Connect your Microsoft account to automatically create Outlook Calendar events and Microsoft To Do tasks for commitments with deadlines.
+                  One-click setup with OAuth. Both Calendar and Planner are enabled together.
                 </p>
                 
                 {!config.microsoftClientId || !config.microsoftClientSecret || !config.microsoftTenantId ? (
@@ -1315,6 +1893,7 @@ function Configuration() {
                         </li>
                         <li>Go to <strong>API permissions</strong> → Add:
                           <ul style={{ marginTop: '0.25rem', listStyleType: 'circle' }}>
+                            <li><code style={{ fontSize: '0.8rem' }}>Calendars.ReadWrite</code> (Outlook Calendar)</li>
                             <li><code style={{ fontSize: '0.8rem' }}>Tasks.ReadWrite</code> (Microsoft To Do)</li>
                             <li><code style={{ fontSize: '0.8rem' }}>User.Read</code></li>
                           </ul>
@@ -1345,7 +1924,7 @@ function Configuration() {
                     }}
                   >
                     <span style={{ fontSize: '1.2rem' }}>🔗</span>
-                    Connect Microsoft Planner
+                    Connect Microsoft Integration
                   </button>
                 )}
               </div>
@@ -1491,6 +2070,107 @@ function Configuration() {
         </div>
         )}
 
+        {enabledIntegrations.radicale && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>📆 CalDAV Integration</h3>
+          
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '2px solid #3f3f46', 
+            borderRadius: '12px', 
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📆</span>
+              CalDAV Server (Radicale, Nextcloud, etc.)
+            </h4>
+            
+            <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
+              Connect any CalDAV-compatible calendar server including Radicale, Nextcloud, Baikal, or other self-hosted solutions.
+              Perfect for privacy-focused local calendar synchronization and on-premise deployments.
+            </p>
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              CalDAV Server URL
+            </label>
+            <input
+              type="url"
+              value={config.radicaleUrl || ''}
+              onChange={(e) => handleChange('radicaleUrl', e.target.value)}
+              placeholder="http://localhost:5232 (Radicale) or https://nextcloud.example.com/remote.php/dav"
+              style={{ 
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #3f3f46',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                marginBottom: '1rem',
+                backgroundColor: '#18181b',
+                color: '#e5e5e7'
+              }}
+            />
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+              Examples: http://localhost:5232 (Radicale), https://nextcloud.example.com/remote.php/dav (Nextcloud)
+            </p>
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Username
+            </label>
+            <input
+              type="text"
+              value={config.radicaleUsername || ''}
+              onChange={(e) => handleChange('radicaleUsername', e.target.value)}
+              placeholder="Your CalDAV username"
+              style={{ 
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #3f3f46',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                marginBottom: '1rem',
+                backgroundColor: '#18181b',
+                color: '#e5e5e7'
+              }}
+            />
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={config.radicalePassword || ''}
+              onChange={(e) => handleChange('radicalePassword', e.target.value)}
+              placeholder="Your CalDAV password or app-specific password"
+              style={{ 
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #3f3f46',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                marginBottom: '1rem',
+                backgroundColor: '#18181b',
+                color: '#e5e5e7'
+              }}
+            />
+            {config.radicalePassword && config.radicalePassword.includes('•') && (
+              <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                ✓ Password is configured
+              </p>
+            )}
+            
+            <p style={{ fontSize: '0.85rem', color: '#60a5fa', marginTop: '1rem', padding: '0.75rem', backgroundColor: '#1a2433', borderRadius: '6px' }}>
+              💡 Radicale is a lightweight CalDAV server. Install with: <code style={{ backgroundColor: '#18181b', padding: '0.25rem 0.5rem', borderRadius: '4px', fontFamily: 'monospace' }}>pip install radicale</code><br />
+              Run with: <code style={{ backgroundColor: '#18181b', padding: '0.25rem 0.5rem', borderRadius: '4px', fontFamily: 'monospace' }}>python -m radicale</code><br />
+              More info: <a href="https://radicale.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>radicale.org</a>
+            </p>
+          </div>
+        </div>
+        )}
+
         <details style={{ marginBottom: '2rem' }}>
           <summary style={{ 
             cursor: 'pointer', 
@@ -1604,48 +2284,108 @@ function Configuration() {
         </p>
         
         <button 
-          onClick={() => {
+          onClick={async () => {
             if ('Notification' in window) {
-              if (Notification.permission === 'granted') {
-                alert('Notifications are already enabled for this device!');
-              } else {
-                Notification.requestPermission().then(async (permission) => {
-                  if (permission === 'granted') {
-                    setNotificationsEnabled(true); // Update state immediately
-                    try {
-                      const registration = await navigator.serviceWorker.ready;
-                      const response = await fetch('/api/notifications/vapid-public-key');
-                      if (response.ok) {
-                        const { publicKey } = await response.json();
-                        const urlBase64ToUint8Array = (base64String) => {
-                          const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                          const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-                          const rawData = window.atob(base64);
-                          const outputArray = new Uint8Array(rawData.length);
-                          for (let i = 0; i < rawData.length; ++i) {
-                            outputArray[i] = rawData.charCodeAt(i);
-                          }
-                          return outputArray;
-                        };
-                        const subscription = await registration.pushManager.subscribe({
-                          userVisibleOnly: true,
-                          applicationServerKey: urlBase64ToUint8Array(publicKey)
-                        });
-                        await fetch('/api/notifications/subscribe', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ subscription })
-                        });
-                        alert('✅ Notifications enabled successfully!');
-                      } else {
-                        alert('⚠️ Notifications enabled, but server needs VAPID keys configured.');
-                      }
-                    } catch (error) {
-                      console.error('Error:', error);
-                      alert('⚠️ Notifications enabled, but push subscription failed.');
+              // If already enabled, ask to disable
+              if (notificationsEnabled) {
+                if (window.confirm('Disable push notifications?\n\nYou can re-enable them anytime to re-register this device.')) {
+                  try {
+                    const registration = await navigator.serviceWorker.ready;
+                    const subscription = await registration.pushManager.getSubscription();
+                    if (subscription) {
+                      await subscription.unsubscribe();
+                      // Optionally notify backend to remove subscription
+                      await fetch('/api/notifications/unsubscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ endpoint: subscription.endpoint })
+                      });
                     }
+                    setNotificationsEnabled(false);
+                    alert('✅ Notifications disabled. Click again to re-enable.');
+                  } catch (error) {
+                    console.error('Error unsubscribing:', error);
+                    setNotificationsEnabled(false);
+                    alert('⚠️ Notifications disabled locally.');
                   }
-                });
+                }
+              } else {
+                // Enable notifications
+                if (Notification.permission === 'granted') {
+                  // Already have permission, just subscribe
+                  try {
+                    setNotificationsEnabled(true);
+                    const registration = await navigator.serviceWorker.ready;
+                    const response = await fetch('/api/notifications/vapid-public-key');
+                    if (response.ok) {
+                      const { publicKey } = await response.json();
+                      const urlBase64ToUint8Array = (base64String) => {
+                        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                        const rawData = window.atob(base64);
+                        const outputArray = new Uint8Array(rawData.length);
+                        for (let i = 0; i < rawData.length; ++i) {
+                          outputArray[i] = rawData.charCodeAt(i);
+                        }
+                        return outputArray;
+                      };
+                      const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(publicKey)
+                      });
+                      await fetch('/api/notifications/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ subscription })
+                      });
+                      alert('✅ Notifications enabled successfully!');
+                    } else {
+                      alert('⚠️ Notifications enabled, but server needs VAPID keys configured.');
+                    }
+                  } catch (error) {
+                    console.error('Error:', error);
+                    alert('⚠️ Push subscription failed: ' + error.message);
+                  }
+                } else {
+                  // Request permission first
+                  Notification.requestPermission().then(async (permission) => {
+                    if (permission === 'granted') {
+                      setNotificationsEnabled(true);
+                      try {
+                        const registration = await navigator.serviceWorker.ready;
+                        const response = await fetch('/api/notifications/vapid-public-key');
+                        if (response.ok) {
+                          const { publicKey } = await response.json();
+                          const urlBase64ToUint8Array = (base64String) => {
+                            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                            const rawData = window.atob(base64);
+                            const outputArray = new Uint8Array(rawData.length);
+                            for (let i = 0; i < rawData.length; ++i) {
+                              outputArray[i] = rawData.charCodeAt(i);
+                            }
+                            return outputArray;
+                          };
+                          const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(publicKey)
+                          });
+                          await fetch('/api/notifications/subscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ subscription })
+                          });
+                          alert('✅ Notifications enabled successfully!');
+                        } else {
+                          alert('⚠️ Notifications enabled, but server needs VAPID keys configured.');
+                        }
+                      } catch (error) {
+                        console.error('Error:', error);
+                        alert('⚠️ Notifications enabled, but push subscription failed.');
+                      }
+                    }
+                  });
+                }
               }
             } else {
               alert('❌ This browser does not support notifications');
@@ -1653,7 +2393,7 @@ function Configuration() {
           }}
           style={{ marginBottom: '1rem' }}
         >
-          {notificationsEnabled ? '✅ Notifications Enabled' : '🔔 Enable Notifications'}
+          {notificationsEnabled ? '✅ Notifications Enabled - Click to Disable' : '🔔 Enable Notifications'}
         </button>
 
         <button 
@@ -1666,9 +2406,120 @@ function Configuration() {
             }
           }}
           className="secondary"
+          style={{ marginRight: '0.5rem' }}
         >
           🧪 Send Test Notification
         </button>
+
+        <button 
+          onClick={async () => {
+            if (!window.confirm('⚠️ Regenerating VAPID keys will invalidate all existing push subscriptions.\n\nAll users will need to re-enable notifications.\n\nContinue?')) {
+              return;
+            }
+            
+            try {
+              const response = await fetch('/api/notifications/regenerate-vapid', { method: 'POST' });
+              const data = await response.json();
+              
+              if (response.ok) {
+                alert('✅ VAPID keys regenerated successfully!\n\n' + data.note);
+                // Disable notifications as current subscription is now invalid
+                setNotificationsEnabled(false);
+              } else {
+                alert('❌ Failed to regenerate VAPID keys: ' + data.message);
+              }
+            } catch (error) {
+              alert('❌ Error regenerating VAPID keys: ' + error.message);
+            }
+          }}
+          className="secondary"
+          style={{ 
+            backgroundColor: '#dc2626',
+            borderColor: '#dc2626'
+          }}
+        >
+          🔄 Regenerate VAPID Keys
+        </button>
+
+        {/* Notification Repeat Limits */}
+        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #3f3f46' }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#e4e4e7' }}>
+            Notification Repeat Limits
+          </h3>
+          <p style={{ color: '#a1a1aa', marginBottom: '1rem', fontSize: '0.9rem' }}>
+            Control how many times you'll be notified about the same overdue task to prevent notification spam.
+          </p>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e4e4e7' }}>
+              Maximum Repeat Notifications (per task):
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={notificationMaxRepeat}
+              onChange={(e) => setNotificationMaxRepeat(parseInt(e.target.value) || 3)}
+              style={{ 
+                width: '100px',
+                padding: '0.5rem',
+                backgroundColor: '#18181b',
+                border: '1px solid #3f3f46',
+                borderRadius: '4px',
+                color: '#e4e4e7'
+              }}
+            />
+            <span style={{ marginLeft: '0.5rem', color: '#a1a1aa', fontSize: '0.9rem' }}>
+              notifications
+            </span>
+            <p style={{ color: '#6e6e73', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+              After reaching this limit, you won't receive more notifications for that task until it's updated.
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#e4e4e7' }}>
+              Minimum Hours Between Repeat Notifications:
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="168"
+              value={notificationRepeatIntervalHours}
+              onChange={(e) => setNotificationRepeatIntervalHours(parseInt(e.target.value) || 24)}
+              style={{ 
+                width: '100px',
+                padding: '0.5rem',
+                backgroundColor: '#18181b',
+                border: '1px solid #3f3f46',
+                borderRadius: '4px',
+                color: '#e4e4e7'
+              }}
+            />
+            <span style={{ marginLeft: '0.5rem', color: '#a1a1aa', fontSize: '0.9rem' }}>
+              hours ({Math.round(notificationRepeatIntervalHours / 24 * 10) / 10} days)
+            </span>
+            <p style={{ color: '#6e6e73', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+              Wait at least this long before sending another notification for the same task.
+            </p>
+          </div>
+
+          <button
+            onClick={async () => {
+              try {
+                await configAPI.set('notification_max_repeat', notificationMaxRepeat.toString());
+                await configAPI.set('notification_repeat_interval_hours', notificationRepeatIntervalHours.toString());
+                alert('✅ Notification limits saved successfully!');
+              } catch (error) {
+                console.error('Failed to save notification limits:', error);
+                alert('❌ Failed to save notification limits: ' + error.message);
+              }
+            }}
+            style={{ marginTop: '0.5rem' }}
+          >
+            💾 Save Notification Limits
+          </button>
+        </div>
 
         <div style={{ 
           marginTop: '1.5rem', 
@@ -1683,8 +2534,8 @@ function Configuration() {
             <li>Daily overdue task alerts</li>
             <li>Sync success notifications</li>
           </ul>
-          <p style={{ fontSize: '0.85rem', color: '#bfdbfe', marginTop: '1rem' }}>
-            <strong>Server setup:</strong> VAPID keys required. See README for instructions.
+          <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '1rem' }}>
+            ✓ VAPID keys are automatically generated on server startup - no manual configuration needed!
           </p>
         </div>
       </div>
@@ -1857,6 +2708,119 @@ function Configuration() {
               </div>
             </details>
           ))
+        )}
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ margin: 0 }}>AI Services Status</h2>
+          <button
+            onClick={loadServicesHealth}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3f3f46',
+              color: '#e4e4e7',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.85rem'
+            }}
+          >
+            🔄 Refresh
+          </button>
+        </div>
+        {servicesHealth ? (
+          <div style={{ 
+            border: '1px solid #52525b', 
+            borderRadius: '8px', 
+            overflow: 'hidden',
+            marginTop: '1rem'
+          }}>
+            <button
+              onClick={() => setShowServicesHealth(!showServicesHealth)}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                backgroundColor: '#3f3f46',
+                color: '#e4e4e7',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}
+            >
+              <span>
+                🤖 Microservices Health 
+                <span style={{ 
+                  marginLeft: '0.5rem', 
+                  fontSize: '0.8rem',
+                  color: servicesHealth.status === 'healthy' ? '#34c759' : '#ff9500'
+                }}>
+                  {servicesHealth.status === 'healthy' ? '✓ All Healthy' : '⚠ Degraded'}
+                </span>
+              </span>
+              <span>{showServicesHealth ? '▼' : '▶'}</span>
+            </button>
+            
+            {showServicesHealth && (
+              <div style={{ 
+                padding: '1rem', 
+                backgroundColor: '#27272a',
+                fontSize: '0.85rem'
+              }}>
+                {Object.entries(servicesHealth.services || {}).map(([name, service]) => (
+                  <div key={name} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    padding: '0.5rem 0',
+                    borderBottom: '1px solid #3f3f46'
+                  }}>
+                    <span style={{ color: '#a1a1aa' }}>
+                      {name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </span>
+                    <span style={{ 
+                      color: service.status === 'healthy' ? '#34c759' : '#ff3b30',
+                      fontWeight: '500'
+                    }}>
+                      {service.status === 'healthy' ? '✓ Online' : '✗ Offline'}
+                    </span>
+                  </div>
+                ))}
+                <div style={{ 
+                  marginTop: '0.75rem', 
+                  paddingTop: '0.75rem', 
+                  borderTop: '1px solid #52525b',
+                  color: '#71717a',
+                  fontSize: '0.75rem'
+                }}>
+                  Microservices provide AI-powered task analysis, voice transcription, pattern recognition, and context management.
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ marginTop: '1rem' }}>
+            <p style={{ color: '#a1a1aa', marginBottom: '0.5rem' }}>
+              Microservices health information unavailable. Services may not be running.
+            </p>
+            <button
+              onClick={loadServicesHealth}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.85rem'
+              }}
+            >
+              🔄 Check Again
+            </button>
+          </div>
         )}
       </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { commitmentsAPI } from '../services/api';
+import { commitmentsAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 function Commitments() {
@@ -22,6 +22,9 @@ function Commitments() {
     deadline: '',
     priority: 'medium'
   });
+  const [showClusters, setShowClusters] = useState(false);
+  const [clusters, setClusters] = useState(null);
+  const [clusteringTasks, setClusteringTasks] = useState(false);
 
   useEffect(() => {
     loadCommitments();
@@ -214,6 +217,62 @@ function Commitments() {
     await loadCommitments();
   };
 
+  const handleSmartGroup = async () => {
+    const pendingTasks = filteredCommitments.filter(c => c.status !== 'completed');
+    if (pendingTasks.length < 2) {
+      alert('Need at least 2 pending tasks to group');
+      return;
+    }
+    
+    setClusteringTasks(true);
+    try {
+      const tasks = pendingTasks.map((c, i) => ({
+        id: i + 1,
+        description: c.description,
+        deadline: c.deadline,
+        commitment_id: c.id  // Keep track of actual DB ID
+      }));
+      
+      const response = await intelligenceAPI.clusterTasks(tasks);
+      if (response.data && response.data.clusters) {
+        setClusters(response.data);
+        
+        // Save cluster assignments to database
+        let updatedCount = 0;
+        for (const cluster of response.data.clusters) {
+          for (const taskIndex of cluster.task_indices) {
+            const task = tasks[taskIndex - 1];  // task_indices are 1-based
+            if (task && task.commitment_id) {
+              try {
+                await commitmentsAPI.update(task.commitment_id, { 
+                  cluster_group: cluster.name 
+                });
+                updatedCount++;
+                console.log(`Updated task ${task.commitment_id} with cluster: ${cluster.name}`);
+              } catch (updateErr) {
+                console.error(`Failed to update cluster for task ${task.commitment_id}:`, updateErr);
+              }
+            }
+          }
+        }
+        
+        // Reload commitments to show updated groups
+        await loadCommitments();
+        
+        // Show success message with cluster info
+        setShowClusters(true);
+        alert(`✅ Grouped ${updatedCount} tasks into ${response.data.clusters.length} clusters!\n\nCheck the task list to see group labels.`);
+      } else {
+        alert('No clusters identified - tasks are too different to group');
+      }
+    } catch (err) {
+      console.error('Clustering failed:', err);
+      alert('Smart grouping unavailable: ' + err.message);
+    } finally {
+      setClusteringTasks(false);
+    }
+  };
+
   const updateStatus = async (id, newStatus) => {
     try {
       await commitmentsAPI.update(id, { status: newStatus });
@@ -229,6 +288,37 @@ function Commitments() {
       loadCommitments();
     } catch (err) {
       setError('Failed to confirm/reject task');
+    }
+  };
+
+  const deleteTask = async (id, description) => {
+    if (!window.confirm(`Are you sure you want to delete this task?\n\n"${description}"\n\nThis will also remove it from Google Calendar, Jira, and Microsoft Planner if synced.`)) {
+      return;
+    }
+    
+    try {
+      const response = await commitmentsAPI.delete(id);
+      
+      // Show detailed results if available
+      if (response.data?.deletionResults) {
+        const results = response.data.deletionResults;
+        let message = '✅ Task deleted successfully';
+        
+        if (results.calendar === 'success') message += '\n📅 Calendar event removed';
+        if (results.jira === 'success') message += '\n🎫 Jira issue deleted';
+        if (results.microsoft === 'success') message += '\n📋 Microsoft task deleted';
+        
+        if (results.calendar === 'failed' || results.jira === 'failed' || results.microsoft === 'failed') {
+          message += '\n\n⚠️ Some external deletions failed (check logs)';
+        }
+        
+        alert(message);
+      }
+      
+      loadCommitments();
+    } catch (err) {
+      setError('Failed to delete task: ' + (err.response?.data?.message || err.message));
+      alert('❌ Failed to delete task: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -314,6 +404,28 @@ function Commitments() {
     };
   };
 
+  // Apply filters to get filtered commitments
+  const getFilteredCommitments = () => {
+    let filtered = commitments;
+    
+    // Apply status filter
+    if (filter === 'overdue') {
+      filtered = filtered.filter(c => isOverdue(c));
+    } else if (filter === 'pending') {
+      filtered = filtered.filter(c => c.status === 'pending' && !isOverdue(c));
+    } else if (filter === 'completed') {
+      filtered = filtered.filter(c => c.status === 'completed');
+    }
+    
+    // Apply type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(c => (c.task_type || 'commitment') === typeFilter);
+    }
+    
+    return filtered;
+  };
+
+  const filteredCommitments = getFilteredCommitments();
   const grouped = groupByStatus();
   const byType = groupByType();
   
@@ -336,43 +448,60 @@ function Commitments() {
     <>
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="commitments">
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2>📋 Tasks</h2>
+            <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <h2 style={{ margin: 0 }}>Task Management</h2>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowCreateModal(true)}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.625rem 1rem',
+                minHeight: '44px',
                 backgroundColor: '#10b981',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
+                whiteSpace: 'nowrap'
               }}
               title="Create a new task"
             >
               ➕ Create Task
+            </button>
+            <button
+              onClick={handleSmartGroup}
+              disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
+              style={{
+                padding: '0.625rem 1rem',
+                minHeight: '44px',
+                backgroundColor: clusteringTasks ? '#6e6e73' : '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: clusteringTasks || filteredCommitments.filter(c => c.status !== 'completed').length < 2 ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                textAlign: 'center',
+                wordBreak: 'break-word'
+              }}
+              title="AI-powered task grouping"
+            >
+              {clusteringTasks ? '⏳ Analyzing Tasks...' : '🤖 Analyze & Group Tasks'}
             </button>
             {microsoftConnected && (
               <button 
                 onClick={handleSyncToMicrosoft} 
                 disabled={syncingMicrosoft || loading}
                 style={{
-                  padding: '0.5rem 1rem',
+                  padding: '0.625rem 1rem',
+                  minHeight: '44px',
                   backgroundColor: syncingMicrosoft ? '#6e6e73' : '#0078d4',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: syncingMicrosoft ? 'not-allowed' : 'pointer',
                   fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
+                  whiteSpace: 'nowrap'
                 }}
                 title="Sync tasks to Microsoft Planner"
               >
@@ -385,16 +514,15 @@ function Commitments() {
                   onClick={handleSyncToJira} 
                   disabled={syncingJira || loading}
                   style={{
-                    padding: '0.5rem 1rem',
+                    padding: '0.625rem 1rem',
+                    minHeight: '44px',
                     backgroundColor: syncingJira ? '#6e6e73' : '#0052CC',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
                     cursor: syncingJira ? 'not-allowed' : 'pointer',
                     fontSize: '0.9rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
+                    whiteSpace: 'nowrap'
                   }}
                   title="Sync tasks to Jira"
                 >
@@ -405,16 +533,15 @@ function Commitments() {
                     onClick={handleSyncFailedToJira} 
                     disabled={syncingJira || loading}
                     style={{
-                      padding: '0.5rem 1rem',
+                      padding: '0.625rem 1rem',
+                      minHeight: '44px',
                       backgroundColor: syncingJira ? '#6e6e73' : '#f59e0b',
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
                       cursor: syncingJira ? 'not-allowed' : 'pointer',
                       fontSize: '0.9rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
+                      whiteSpace: 'nowrap'
                     }}
                     title="Retry syncing failed/pending tasks to Jira"
                   >
@@ -600,9 +727,24 @@ function Commitments() {
                   border: '1px solid #f59e0b40'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fbbf24', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
@@ -631,10 +773,10 @@ function Commitments() {
                       borderRadius: '6px',
                       cursor: 'pointer',
                       flex: 1,
-                      minWidth: '120px'
+                      minWidth: '100px'
                     }}
                   >
-                    ✅ Confirm (It's Mine)
+                    ✅ Confirm
                   </button>
                   <button
                     onClick={() => confirmTask(commitment.id, false)}
@@ -647,10 +789,25 @@ function Commitments() {
                       borderRadius: '6px',
                       cursor: 'pointer',
                       flex: 1,
-                      minWidth: '120px'
+                      minWidth: '100px'
                     }}
                   >
-                    ❌ Reject (Not Mine)
+                    ❌ Reject
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      minWidth: '80px'
+                    }}
+                  >
+                    🗑️ Delete
                   </button>
                 </div>
               </div>
@@ -675,8 +832,23 @@ function Commitments() {
             >
               <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fca5a5', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
@@ -686,18 +858,36 @@ function Commitments() {
                     <span>📅 Due: {formatDate(commitment.deadline)}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateStatus(commitment.id, 'completed')}
-                  className="task-card-button"
-                  style={{ 
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.85rem',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                >
-                  Mark Complete
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => updateStatus(commitment.id, 'completed')}
+                    className="task-card-button"
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    ✅ Complete
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -721,8 +911,23 @@ function Commitments() {
             >
               <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
@@ -732,18 +937,36 @@ function Commitments() {
                     <span>📅 {formatDate(commitment.deadline)}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateStatus(commitment.id, 'completed')}
-                  className="secondary task-card-button"
-                  style={{ 
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.85rem',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                >
-                  Mark Complete
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => updateStatus(commitment.id, 'completed')}
+                    className="secondary task-card-button"
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    ✅ Complete
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -768,8 +991,23 @@ function Commitments() {
             >
               <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', textDecoration: 'line-through', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
@@ -779,18 +1017,36 @@ function Commitments() {
                     <span>✓ Completed: {formatDate(commitment.completed_date)}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => updateStatus(commitment.id, 'pending')}
-                  className="secondary task-card-button"
-                  style={{ 
-                    padding: '0.5rem 1rem', 
-                    fontSize: '0.85rem',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                >
-                  Reopen
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => updateStatus(commitment.id, 'pending')}
+                    className="secondary task-card-button"
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    ↩️ Reopen
+                  </button>
+                  <button
+                    onClick={() => deleteTask(commitment.id, commitment.description)}
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      fontSize: '0.85rem',
+                      backgroundColor: '#71717a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -989,6 +1245,103 @@ function Commitments() {
                 {creating ? 'Creating...' : 'Create Task'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Smart Groups Modal */}
+      {showClusters && clusters && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#18181b',
+            borderRadius: '12px',
+            padding: '2rem',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            color: '#e5e5e7'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: '#e5e5e7' }}>🤖 AI-Grouped Tasks</h3>
+              <button
+                onClick={() => setShowClusters(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#a1a1aa'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {clusters.clusters && clusters.clusters.map((cluster, idx) => (
+              <div key={idx} style={{
+                marginBottom: '1rem',
+                padding: '1rem',
+                backgroundColor: '#09090b',
+                borderRadius: '8px',
+                border: '1px solid #3f3f46'
+              }}>
+                <h4 style={{ color: '#3b82f6', marginTop: 0, marginBottom: '0.5rem' }}>{cluster.name}</h4>
+                {cluster.reasoning && (
+                  <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{cluster.reasoning}</p>
+                )}
+                {cluster.suggested_order && (
+                  <p style={{ color: '#22c55e', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                    <strong>Order:</strong> {cluster.suggested_order}
+                  </p>
+                )}
+                <p style={{ color: '#71717a', fontSize: '0.85rem', margin: 0 }}>
+                  Tasks: {(cluster.tasks || cluster.task_indices || []).join(', ')}
+                </p>
+              </div>
+            ))}
+            
+            {clusters.recommendations && (
+              <div style={{
+                marginTop: '1.5rem',
+                padding: '1rem',
+                backgroundColor: '#1a2e1a',
+                borderRadius: '8px',
+                border: '1px solid #22c55e'
+              }}>
+                <h4 style={{ color: '#22c55e', marginTop: 0, marginBottom: '0.5rem' }}>💡 Recommendations</h4>
+                <p style={{ color: '#e5e5e7', fontSize: '0.9rem', margin: 0 }}>{clusters.recommendations}</p>
+              </div>
+            )}
+            
+            <button
+              onClick={() => setShowClusters(false)}
+              style={{
+                marginTop: '1.5rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                width: '100%',
+                fontSize: '1rem'
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

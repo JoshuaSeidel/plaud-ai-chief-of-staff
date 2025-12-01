@@ -144,6 +144,11 @@ router.put('/:id', async (req, res) => {
       params.push(description);
     }
     
+    if (req.body.cluster_group !== undefined) {
+      updates.push('cluster_group = ?');
+      params.push(req.body.cluster_group);
+    }
+    
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
@@ -212,7 +217,7 @@ router.put('/:id', async (req, res) => {
 });
 
 /**
- * Delete a commitment
+ * Delete a commitment and remove from external services
  */
 router.delete('/:id', async (req, res) => {
   const id = req.params.id;
@@ -220,18 +225,76 @@ router.delete('/:id', async (req, res) => {
   
   try {
     const db = getDb();
-    const result = await db.run(
-      'DELETE FROM commitments WHERE id = ?',
-      [id]
-    );
     
-    if (result.changes === 0) {
+    // Get task data before deleting to cleanup external integrations
+    const task = await db.get('SELECT * FROM commitments WHERE id = ?', [id]);
+    
+    if (!task) {
       logger.warn(`Commitment not found: ${id}`);
       return res.status(404).json({ error: 'Commitment not found' });
     }
     
-    logger.info(`Commitment ${id} deleted successfully`);
-    res.json({ message: 'Commitment deleted successfully' });
+    const deletionResults = {
+      database: false,
+      calendar: null,
+      jira: null,
+      microsoft: null
+    };
+    
+    // Delete from Google Calendar if event exists
+    if (task.calendar_event_id) {
+      try {
+        const isConnected = await googleCalendar.isConnected();
+        if (isConnected) {
+          await googleCalendar.deleteEvent(task.calendar_event_id);
+          deletionResults.calendar = 'success';
+          logger.info(`Deleted calendar event ${task.calendar_event_id}`);
+        }
+      } catch (calError) {
+        deletionResults.calendar = 'failed';
+        logger.warn(`Failed to delete calendar event: ${calError.message}`);
+      }
+    }
+    
+    // Delete from Jira if issue exists
+    if (task.jira_task_id) {
+      try {
+        const isJiraConnected = await jira.isConnected();
+        if (isJiraConnected) {
+          await jira.deleteIssue(task.jira_task_id);
+          deletionResults.jira = 'success';
+          logger.info(`Deleted Jira issue ${task.jira_task_id}`);
+        }
+      } catch (jiraError) {
+        deletionResults.jira = 'failed';
+        logger.warn(`Failed to delete Jira issue: ${jiraError.message}`);
+      }
+    }
+    
+    // Delete from Microsoft Planner if task exists
+    if (task.microsoft_task_id) {
+      try {
+        const isMicrosoftConnected = await microsoftPlanner.isConnected();
+        if (isMicrosoftConnected) {
+          await microsoftPlanner.deleteTask(task.microsoft_task_id);
+          deletionResults.microsoft = 'success';
+          logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);
+        }
+      } catch (msError) {
+        deletionResults.microsoft = 'failed';
+        logger.warn(`Failed to delete Microsoft task: ${msError.message}`);
+      }
+    }
+    
+    // Delete from database
+    const result = await db.run('DELETE FROM commitments WHERE id = ?', [id]);
+    deletionResults.database = result.changes > 0;
+    
+    logger.info(`Commitment ${id} deleted successfully. Results:`, deletionResults);
+    res.json({ 
+      message: 'Commitment deleted successfully',
+      deletionResults
+    });
   } catch (err) {
     logger.error(`Error deleting commitment ${id}:`, err);
     res.status(500).json({ 
@@ -353,6 +416,48 @@ router.post('/', async (req, res) => {
       urgency: finalPriority,
       suggested_approach: suggested_approach || null
     };
+    
+    // Auto-enhance task with AI intelligence (async, don't block)
+    (async () => {
+      try {
+        const axios = require('axios');
+        const baseURL = process.env.API_BASE_URL || 'http://localhost:3001';
+        
+        // Get effort estimation
+        try {
+          const effortResponse = await axios.post(`${baseURL}/api/intelligence/estimate-effort`, {
+            description,
+            context: `Task type: ${taskType}, Priority: ${finalPriority}`
+          }, { timeout: 5000 });
+          
+          if (effortResponse.data && effortResponse.data.estimated_time) {
+            await db.run(
+              'UPDATE commitments SET suggested_approach = ? WHERE id = ?',
+              [`AI Estimate: ${effortResponse.data.estimated_time}. ${effortResponse.data.reasoning || ''}`.substring(0, 500), insertedId]
+            );
+            logger.info(`Auto-estimated effort for task ${insertedId}: ${effortResponse.data.estimated_time}`);
+          }
+        } catch (effortErr) {
+          logger.debug('Effort estimation unavailable:', effortErr.message);
+        }
+        
+        // Get energy classification
+        try {
+          const energyResponse = await axios.post(`${baseURL}/api/intelligence/classify-energy`, {
+            description
+          }, { timeout: 5000 });
+          
+          if (energyResponse.data && energyResponse.data.energy_level) {
+            logger.info(`Auto-classified energy for task ${insertedId}: ${energyResponse.data.energy_level}`);
+            // Could store this in a new column or in metadata
+          }
+        } catch (energyErr) {
+          logger.debug('Energy classification unavailable:', energyErr.message);
+        }
+      } catch (err) {
+        logger.debug('AI enhancement failed:', err.message);
+      }
+    })();
     
     // Create calendar event if applicable (only for user tasks with deadlines, not risks)
     if (taskType !== 'risk' && deadline && isUserTask && !requiresConfirmation) {
