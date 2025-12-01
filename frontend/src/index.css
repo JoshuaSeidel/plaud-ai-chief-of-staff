@@ -1263,17 +1263,19 @@ table {
   .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] select {
     flex: 1 !important;
     min-width: 0 !important;
-    height: 44px !important;
+    min-height: 44px !important;
+    font-size: 16px !important;
+    padding: 0.5rem !important;
   }
   
   /* Refresh buttons next to dropdowns - fixed size */
   .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] button[title="Refresh model list"] {
-    flex: 0 0 44px !important;
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-height: 44px !important;
+    min-width: 36px !important;
     padding: 0 !important;
-    font-size: 1.2rem !important;
+    font-size: 0.9rem !important;
   }
   
   /* === TASK MANAGEMENT PAGE FIXES === */

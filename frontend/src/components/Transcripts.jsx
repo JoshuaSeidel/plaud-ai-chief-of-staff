@@ -32,7 +32,7 @@ function Transcripts() {
   const loadTranscripts = async () => {
     try {
       const response = await transcriptsAPI.getAll();
-      const loadedTranscripts = Array.isArray(response.data) ? response.data : [];
+      const loadedTranscripts = response.data;
       setTranscripts(loadedTranscripts);
       
       // Check if any transcripts are processing and start polling if needed
@@ -414,7 +414,7 @@ function Transcripts() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>Upload Transcript</h2>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
               onClick={() => {
                 setShowRecording(!showRecording);
