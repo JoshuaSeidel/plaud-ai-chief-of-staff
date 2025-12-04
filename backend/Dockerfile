@@ -23,8 +23,8 @@ RUN npm install --production
 # Copy backend files
 COPY . .
 
-# Copy certificate generation script
-COPY ../scripts/generate-service-cert.sh /usr/local/bin/
+# Copy certificate generation script (must be in build context)
+COPY generate-service-cert.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/generate-service-cert.sh
 
 # Get version and commit hash from build args
