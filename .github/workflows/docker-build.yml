@@ -230,6 +230,9 @@ jobs:
           - name: context-service
             context: ./services/context-service
             dockerfile: ./services/context-service/Dockerfile
+          - name: integrations
+            context: ./services/integrations
+            dockerfile: ./services/integrations/Dockerfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -289,3 +292,4 @@ jobs:
           echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-nl-parser:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-voice-processor:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-context-service:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-integrations:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
