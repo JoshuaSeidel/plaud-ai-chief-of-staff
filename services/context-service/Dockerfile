@@ -22,7 +22,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o context-service m
 # Final stage
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates || \
+    (apk update && apk add --no-cache --force-broken-world ca-certificates)
 
 WORKDIR /app
 
