@@ -39,21 +39,372 @@ router.post('/calendar/google/event', async (req, res) => {
 ## 📋 TODO - Frontend Configuration UI
 Add Trello and Monday.com configuration sections to `frontend/src/components/Configuration.jsx`:
 
-### Trello Section:
-- API Key input
-- Token input  
-- Board selection dropdown (fetch from `/api/tasks/trello/boards`)
-- List selection dropdown (fetch from `/api/tasks/trello/boards/{boardId}/lists`)
-- Test connection button
+### Required Changes:
 
-### Monday.com Section:
-- API Token input
-- Board selection dropdown (fetch from `/api/tasks/monday/boards`)
-- Group selection dropdown (fetch from `/api/tasks/monday/boards/{boardId}/groups`)
-- Test connection button
+#### 1. Add State Variables (around line 150)
+```javascript
+const [trelloConnected, setTrelloConnected] = useState(false);
+const [checkingTrello, setCheckingTrello] = useState(true);
+const [mondayConnected, setMondayConnected] = useState(false);
+const [checkingMonday, setCheckingMonday] = useState(true);
+const [trelloBoards, setTrelloBoards] = useState([]);
+const [trelloLists, setTrelloLists] = useState([]);
+const [mondayBoards, setMondayBoards] = useState([]);
+const [mondayGroups, setMondayGroups] = useState([]);
+```
 
-### Pattern:
-Follow existing Jira/Planner configuration patterns for consistency.
+#### 2. Add Config Fields (around line 111)
+```javascript
+trelloApiKey: '',
+trelloToken: '',
+trelloBoardId: '',
+trelloListId: '',
+mondayApiToken: '',
+mondayBoardId: '',
+mondayGroupId: '',
+```
+
+#### 3. Add Enabled Integration Flags (around line 138)
+```javascript
+trello: false,
+monday: false,
+```
+
+#### 4. Add Status Check Functions (after line 600)
+```javascript
+const checkTrelloStatus = async () => {
+  try {
+    setCheckingTrello(true);
+    const response = await fetch('/api/integrations/tasks/trello/status');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    setTrelloConnected(data.connected || false);
+    const hasConfig = config.trelloApiKey && config.trelloToken && config.trelloBoardId;
+    if (hasConfig || data.connected) {
+      setEnabledIntegrations(prev => ({ ...prev, trello: true }));
+    }
+  } catch (err) {
+    console.error('Failed to check Trello status:', err);
+    setTrelloConnected(false);
+  } finally {
+    setCheckingTrello(false);
+  }
+};
+
+const checkMondayStatus = async () => {
+  try {
+    setCheckingMonday(true);
+    const response = await fetch('/api/integrations/tasks/monday/status');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    setMondayConnected(data.connected || false);
+    const hasConfig = config.mondayApiToken && config.mondayBoardId;
+    if (hasConfig || data.connected) {
+      setEnabledIntegrations(prev => ({ ...prev, monday: true }));
+    }
+  } catch (err) {
+    console.error('Failed to check Monday status:', err);
+    setMondayConnected(false);
+  } finally {
+    setCheckingMonday(false);
+  }
+};
+
+const handleTrelloDisconnect = async () => {
+  if (!window.confirm('Disconnect Trello?')) return;
+  try {
+    const response = await fetch('/api/integrations/tasks/trello/disconnect', { method: 'POST' });
+    const data = await response.json();
+    if (data.success) {
+      setMessage({ type: 'success', text: '✅ Trello disconnected' });
+      await checkTrelloStatus();
+    }
+  } catch (err) {
+    setMessage({ type: 'error', text: `❌ Failed: ${err.message}` });
+  }
+};
+
+const handleMondayDisconnect = async () => {
+  if (!window.confirm('Disconnect Monday.com?')) return;
+  try {
+    const response = await fetch('/api/integrations/tasks/monday/disconnect', { method: 'POST' });
+    const data = await response.json();
+    if (data.success) {
+      setMessage({ type: 'success', text: '✅ Monday.com disconnected' });
+      await checkMondayStatus();
+    }
+  } catch (err) {
+    setMessage({ type: 'error', text: `❌ Failed: ${err.message}` });
+  }
+};
+
+const loadTrelloBoards = async () => {
+  try {
+    const response = await fetch('/api/integrations/tasks/trello/boards');
+    if (!response.ok) throw new Error('Failed to fetch boards');
+    const data = await response.json();
+    setTrelloBoards(data.boards || []);
+  } catch (err) {
+    console.error('Failed to load Trello boards:', err);
+  }
+};
+
+const loadTrelloLists = async (boardId) => {
+  try {
+    const response = await fetch(`/api/integrations/tasks/trello/boards/${boardId}/lists`);
+    if (!response.ok) throw new Error('Failed to fetch lists');
+    const data = await response.json();
+    setTrelloLists(data.lists || []);
+  } catch (err) {
+    console.error('Failed to load Trello lists:', err);
+  }
+};
+
+const loadMondayBoards = async () => {
+  try {
+    const response = await fetch('/api/integrations/tasks/monday/boards');
+    if (!response.ok) throw new Error('Failed to fetch boards');
+    const data = await response.json();
+    setMondayBoards(data.boards || []);
+  } catch (err) {
+    console.error('Failed to load Monday boards:', err);
+  }
+};
+
+const loadMondayGroups = async (boardId) => {
+  try {
+    const response = await fetch(`/api/integrations/tasks/monday/boards/${boardId}/groups`);
+    if (!response.ok) throw new Error('Failed to fetch groups');
+    const data = await response.json();
+    setMondayGroups(data.groups || []);
+  } catch (err) {
+    console.error('Failed to load Monday groups:', err);
+  }
+};
+```
+
+#### 5. Call Status Checks in useEffect (around line 179)
+```javascript
+checkTrelloStatus();
+checkMondayStatus();
+```
+
+#### 6. Add UI Sections (after line 2020, before CalDAV section)
+
+**Trello Section:**
+```jsx
+{enabledIntegrations.trello && (
+<div className="mb-xl">
+  <h3>📋 Trello Integration</h3>
+  
+  <div style={{ 
+    backgroundColor: '#18181b', 
+    border: '2px solid #3f3f46', 
+    borderRadius: '12px', 
+    padding: '1.5rem',
+    marginBottom: '1.5rem'
+  }}>
+    <h4 className="mt-0-mb-md-flex-center">
+      <span className="emoji-icon">📋</span>
+      Trello Board Management
+    </h4>
+    
+    {checkingTrello ? (
+      <p className="text-muted">Checking connection...</p>
+    ) : trelloConnected ? (
+      <div>
+        <div className="status-connected">
+          <span>✓ Connected - Cards will be created in Trello</span>
+          <button onClick={handleTrelloDisconnect} className="btn-disconnect">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div>
+        <p className="text-muted-mb-md-lh">
+          Connect Trello to create cards for commitments and action items.
+        </p>
+        
+        <label className="form-label-muted">Trello API Key</label>
+        <input
+          type="text"
+          value={config.trelloApiKey}
+          onChange={(e) => handleChange('trelloApiKey', e.target.value)}
+          placeholder="Your Trello API key"
+          className="mb-md"
+        />
+        <p className="text-sm-muted-mt-negative-mb-md">
+          Get your API key: <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer">https://trello.com/app-key</a>
+        </p>
+        
+        <label className="form-label-muted">Trello Token</label>
+        <input
+          type="password"
+          value={config.trelloToken}
+          onChange={(e) => handleChange('trelloToken', e.target.value)}
+          placeholder="Your Trello token"
+          className="mb-md"
+        />
+        <p className="text-sm-muted-mt-negative-mb-md">
+          Generate token from the API key page above
+        </p>
+        
+        {config.trelloApiKey && config.trelloToken && (
+          <>
+            <label className="form-label-muted">Board</label>
+            <select
+              value={config.trelloBoardId}
+              onChange={(e) => {
+                handleChange('trelloBoardId', e.target.value);
+                loadTrelloLists(e.target.value);
+              }}
+              className="mb-md"
+              onFocus={loadTrelloBoards}
+            >
+              <option value="">Select a board...</option>
+              {trelloBoards.map(board => (
+                <option key={board.id} value={board.id}>{board.name}</option>
+              ))}
+            </select>
+            
+            {config.trelloBoardId && (
+              <>
+                <label className="form-label-muted">List</label>
+                <select
+                  value={config.trelloListId}
+                  onChange={(e) => handleChange('trelloListId', e.target.value)}
+                  className="mb-md"
+                >
+                  <option value="">Select a list...</option>
+                  {trelloLists.map(list => (
+                    <option key={list.id} value={list.id}>{list.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    )}
+  </div>
+</div>
+)}
+```
+
+**Monday.com Section:**
+```jsx
+{enabledIntegrations.monday && (
+<div className="mb-xl">
+  <h3>📊 Monday.com Integration</h3>
+  
+  <div style={{ 
+    backgroundColor: '#18181b', 
+    border: '2px solid #3f3f46', 
+    borderRadius: '12px', 
+    padding: '1.5rem',
+    marginBottom: '1.5rem'
+  }}>
+    <h4 className="mt-0-mb-md-flex-center">
+      <span className="emoji-icon">📊</span>
+      Monday.com Workspace
+    </h4>
+    
+    {checkingMonday ? (
+      <p className="text-muted">Checking connection...</p>
+    ) : mondayConnected ? (
+      <div>
+        <div className="status-connected">
+          <span>✓ Connected - Items will be created in Monday.com</span>
+          <button onClick={handleMondayDisconnect} className="btn-disconnect">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div>
+        <p className="text-muted-mb-md-lh">
+          Connect Monday.com to create items for commitments and action items.
+        </p>
+        
+        <label className="form-label-muted">API Token</label>
+        <input
+          type="password"
+          value={config.mondayApiToken}
+          onChange={(e) => handleChange('mondayApiToken', e.target.value)}
+          placeholder="Your Monday.com API token"
+          className="mb-md"
+        />
+        <p className="text-sm-muted-mt-negative-mb-md">
+          Get your token: Monday.com → Profile → API → Generate API Token
+        </p>
+        
+        {config.mondayApiToken && (
+          <>
+            <label className="form-label-muted">Board</label>
+            <select
+              value={config.mondayBoardId}
+              onChange={(e) => {
+                handleChange('mondayBoardId', e.target.value);
+                loadMondayGroups(e.target.value);
+              }}
+              className="mb-md"
+              onFocus={loadMondayBoards}
+            >
+              <option value="">Select a board...</option>
+              {mondayBoards.map(board => (
+                <option key={board.id} value={board.id}>{board.name}</option>
+              ))}
+            </select>
+            
+            {config.mondayBoardId && (
+              <>
+                <label className="form-label-muted">Group</label>
+                <select
+                  value={config.mondayGroupId}
+                  onChange={(e) => handleChange('mondayGroupId', e.target.value)}
+                  className="mb-md"
+                >
+                  <option value="">Select a group...</option>
+                  {mondayGroups.map(group => (
+                    <option key={group.id} value={group.id}>{group.title}</option>
+                  ))}
+                </select>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    )}
+  </div>
+</div>
+)}
+```
+
+#### 7. Add Integration Checkboxes (find section with Microsoft/Jira/Google checkboxes around line 1700)
+Add these after existing integration checkboxes:
+```jsx
+<label className="checkbox-label">
+  <input
+    type="checkbox"
+    checked={enabledIntegrations.trello}
+    onChange={(e) => setEnabledIntegrations(prev => ({ ...prev, trello: e.target.checked }))}
+  />
+  <span className="checkbox-text">📋 Trello</span>
+</label>
+
+<label className="checkbox-label">
+  <input
+    type="checkbox"
+    checked={enabledIntegrations.monday}
+    onChange={(e) => setEnabledIntegrations(prev => ({ ...prev, monday: e.target.checked }))}
+  />
+  <span className="checkbox-text">📊 Monday.com</span>
+</label>
+```
+
+### Pattern Reference:
+Look at Jira integration (lines 1886-2020) for exact styling patterns to follow.
 
 ## 🔒 TODO - TLS/SSL Encryption Between Containers
 
