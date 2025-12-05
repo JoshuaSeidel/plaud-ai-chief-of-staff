@@ -1,6 +1,6 @@
 {
   "name": "ai-chief-of-staff-backend",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "description": "AI-powered personal productivity assistant backend",
   "main": "server.js",
   "scripts": {
@@ -29,7 +29,7 @@
     "node-ical": "^0.22.1",
     "openai": "^4.70.0",
     "pg": "^8.13.1",
-    "sqlite3": "^5.1.6",
+    "sqlite3": "^5.1.7",
     "web-push": "^3.6.7",
     "winston": "^3.18.3"
   },

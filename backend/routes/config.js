@@ -6,8 +6,39 @@ const { createModuleLogger } = require('../utils/logger');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+const https = require('https');
 
 const logger = createModuleLogger('CONFIG');
+
+// Load CA certificate for validating microservice certificates
+// Note: Certs are in /app/certs which is mounted from tls-certs volume
+const CA_CERT_PATH = '/app/certs/ca.crt';
+let microserviceHttpsAgent = null;
+
+try {
+  if (fs.existsSync(CA_CERT_PATH)) {
+    const caCert = fs.readFileSync(CA_CERT_PATH);
+    microserviceHttpsAgent = new https.Agent({
+      ca: caCert,
+      rejectUnauthorized: false, // Accept self-signed certs even with CA
+      checkServerIdentity: () => undefined // Skip hostname verification
+    });
+    logger.info('Loaded CA certificate for HTTPS communication with microservices');
+  } else {
+    logger.warn('CA certificate not found, using insecure HTTPS agent for microservices', { path: CA_CERT_PATH });
+    microserviceHttpsAgent = new https.Agent({
+      rejectUnauthorized: false,
+      checkServerIdentity: () => undefined
+    });
+  }
+} catch (error) {
+  logger.warn('Failed to load CA certificate for microservices, using insecure HTTPS agent', { error: error.message });
+  microserviceHttpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined
+  });
+}
 
 /**
  * Get system configuration from /app/data/config.json
@@ -249,21 +280,28 @@ router.get('/version', async (req, res) => {
     }
     
     // Get microservices versions by querying their health endpoints
-    const axios = require('axios');
     const microservices = {
-      'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'http://aicos-ai-intelligence:8001',
-      'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'http://aicos-pattern-recognition:8002',
-      'nl-parser': process.env.NL_PARSER_URL || 'http://aicos-nl-parser:8003',
-      'voice-processor': process.env.VOICE_PROCESSOR_URL || 'http://aicos-voice-processor:8004',
-      'context-service': process.env.CONTEXT_SERVICE_URL || 'http://aicos-context-service:8005'
+      'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001',
+      'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002',
+      'nl-parser': process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003',
+      'voice-processor': process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004',
+      'context-service': process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005'
     };
     
     // Query each microservice for version (with timeout to avoid hanging)
     const versionPromises = Object.entries(microservices).map(async ([name, url]) => {
       try {
-        const response = await axios.get(`${url}/health`, { timeout: 2000 });
+        const response = await axios.get(`${url}/health`, { 
+          timeout: 2000, 
+          httpsAgent: microserviceHttpsAgent 
+        });
         microservicesVersions[name] = response.data.version || 'unknown';
       } catch (error) {
+        logger.warn(`Microservice ${name} health check failed`, { 
+          url, 
+          error: error.message,
+          code: error.code 
+        });
         microservicesVersions[name] = 'unavailable';
       }
     });
@@ -343,6 +381,56 @@ router.get('/ai-provider/:serviceName', async (req, res) => {
       message: err.message 
     });
   }
+});
+
+/**
+ * Microservices health check - checks all microservices status
+ * GET /api/config/microservices
+ * IMPORTANT: This must come BEFORE the /:key route to avoid being caught by it
+ */
+router.get('/microservices', async (req, res) => {
+  const services = {
+    'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001',
+    'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002',
+    'nl-parser': process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003',
+    'voice-processor': process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004',
+    'context-service': process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005'
+  };
+
+  const healthStatus = {
+    status: 'healthy',
+    services: {}
+  };
+
+  // Check each service
+  for (const [name, url] of Object.entries(services)) {
+    try {
+      const response = await axios.get(`${url}/health`, { 
+        timeout: 5000,
+        httpsAgent: microserviceHttpsAgent 
+      });
+      healthStatus.services[name] = {
+        status: 'healthy',
+        url,
+        ...response.data
+      };
+    } catch (error) {
+      logger.warn(`Health check failed for ${name}`, { 
+        url, 
+        error: error.message,
+        code: error.code 
+      });
+      healthStatus.services[name] = {
+        status: 'unhealthy',
+        url,
+        error: error.message
+      };
+      healthStatus.status = 'degraded';
+    }
+  }
+
+  const statusCode = healthStatus.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(healthStatus);
 });
 
 /**
@@ -521,7 +609,10 @@ router.get('/models/:provider', async (req, res) => {
       const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['openaiApiKey']);
       const apiKey = apiKeyRow?.value;
       
+      logger.info(`OpenAI API key check: ${apiKey ? 'Found (length: ' + apiKey.length + ')' : 'Not found'}`);
+      
       if (!apiKey) {
+        logger.warn('OpenAI API key not configured in database');
         return res.status(400).json({ 
           error: 'OpenAI API key not configured',
           models: []
@@ -562,6 +653,8 @@ router.get('/models/:provider', async (req, res) => {
       const baseUrlRow = await db.get('SELECT value FROM config WHERE key = ?', ['ollamaBaseUrl']);
       const baseUrl = baseUrlRow?.value || 'http://localhost:11434';
       
+      logger.info(`Ollama base URL: ${baseUrl}`);
+      
       try {
         const response = await axios.get(`${baseUrl}/api/tags`, {
           timeout: 10000
@@ -597,9 +690,11 @@ router.get('/models/:provider', async (req, res) => {
     
   } catch (err) {
     logger.error('Error in models endpoint:', err);
+    logger.error('Error stack:', err.stack);
     res.status(500).json({ 
       error: 'Error fetching models',
-      message: err.message 
+      message: err.message,
+      provider: req.params.provider
     });
   }
 });

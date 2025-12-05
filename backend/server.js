@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const path = require('path');
@@ -171,6 +173,7 @@ async function startServer() {
     const calendarRoutes = require('./routes/calendar');
     const commitmentsRoutes = require('./routes/commitments');
     const webhookRoutes = require('./routes/webhook');
+    const integrationsProxyRoutes = require('./routes/integrations-proxy');
     
     app.use('/api/brief', briefRoutes);
     app.use('/api/transcripts', transcriptRoutes);
@@ -183,6 +186,7 @@ async function startServer() {
     app.use('/api/notifications', require('./routes/notifications'));
     app.use('/api/webhook', webhookRoutes);
     app.use('/api/intelligence', require('./routes/intelligence'));
+    app.use('/api/integrations', integrationsProxyRoutes); // Proxy to integrations microservice
     
     serverLogger.info('API routes initialized');
     
@@ -247,13 +251,39 @@ async function startServer() {
     const taskScheduler = require('./services/task-scheduler');
     taskScheduler.startScheduler();
     
-    // Start server
-    app.listen(PORT, () => {
-      serverLogger.info('=================================');
-      serverLogger.info(`Server running on port ${PORT}`);
-      serverLogger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
-      serverLogger.info('=================================');
-    });
+    // Start server with HTTPS support for internal container communication
+    const CERT_DIR = path.join(__dirname, 'certs');
+    const CERT_PATH = path.join(CERT_DIR, 'aicos-backend.crt');
+    const KEY_PATH = path.join(CERT_DIR, 'aicos-backend.key');
+    
+    // Check if certificates exist for HTTPS
+    if (fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH)) {
+      // Start HTTPS server for encrypted internal communication
+      const httpsOptions = {
+        cert: fs.readFileSync(CERT_PATH),
+        key: fs.readFileSync(KEY_PATH)
+      };
+      
+      https.createServer(httpsOptions, app).listen(PORT, () => {
+        serverLogger.info('=================================');
+        serverLogger.info(`Server running on port ${PORT} (HTTPS)`);
+        serverLogger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
+        serverLogger.info(`Certificate: ${CERT_PATH}`);
+        serverLogger.info('=================================');
+      });
+    } else {
+      // Fallback to HTTP if certificates don't exist
+      serverLogger.warn('TLS certificates not found, falling back to HTTP');
+      serverLogger.warn(`Expected cert at: ${CERT_PATH}`);
+      serverLogger.warn(`Expected key at: ${KEY_PATH}`);
+      
+      app.listen(PORT, () => {
+        serverLogger.info('=================================');
+        serverLogger.info(`Server running on port ${PORT} (HTTP - INSECURE)`);
+        serverLogger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
+        serverLogger.info('=================================');
+      });
+    }
     
   } catch (err) {
     serverLogger.error('Failed to start server', { error: err.message, stack: err.stack });

@@ -114,10 +114,13 @@ export const intelligenceAPI = {
     api.get('/intelligence/context/rolling'),
   searchContext: (query, category = null, limit = null) => 
     api.post('/intelligence/context/search', { query, category, limit }),
-  
-  // Health check
+};
+
+// Microservices health check (moved to config API where it belongs)
+export const microservicesAPI = {
   checkHealth: () => 
-    api.get('/intelligence/health'),
+    api.get('/config/microservices'),
 };
 
 export default api;
+// Version 2.0.0 - Force rebuild

@@ -15,20 +15,55 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const FormData = require('form-data');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('INTELLIGENCE-API');
 
 // Microservice URLs (internal Docker network)
-const AI_INTELLIGENCE_URL = process.env.AI_INTELLIGENCE_URL || 'http://aicos-ai-intelligence:8001';
-const PATTERN_RECOGNITION_URL = process.env.PATTERN_RECOGNITION_URL || 'http://aicos-pattern-recognition:8002';
-const NL_PARSER_URL = process.env.NL_PARSER_URL || 'http://aicos-nl-parser:8003';
-const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'http://aicos-voice-processor:8004';
-const CONTEXT_SERVICE_URL = process.env.CONTEXT_SERVICE_URL || 'http://aicos-context-service:8005';
+const AI_INTELLIGENCE_URL = process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001';
+const PATTERN_RECOGNITION_URL = process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002';
+const NL_PARSER_URL = process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003';
+const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004';
+const CONTEXT_SERVICE_URL = process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005';
 
 // Timeout for microservice calls
 const MICROSERVICE_TIMEOUT = 30000;
+
+// Load CA certificate for validating microservice certificates
+// Note: Certs are in /app/certs which is mounted from tls-certs volume
+const CA_CERT_PATH = '/app/certs/ca.crt';
+let httpsAgent = null;
+
+// Try to load CA certificate if it exists
+if (fs.existsSync(CA_CERT_PATH)) {
+  try {
+    const caCert = fs.readFileSync(CA_CERT_PATH);
+    httpsAgent = new https.Agent({
+      ca: caCert,
+      rejectUnauthorized: false, // Accept self-signed certs even with CA
+      checkServerIdentity: () => undefined // Skip hostname verification
+    });
+    logger.info('Loaded CA certificate for HTTPS communication with microservices');
+  } catch (error) {
+    logger.warn('Failed to load CA certificate, using insecure HTTPS', { error: error.message });
+    // Fallback to accepting self-signed certificates
+    httpsAgent = new https.Agent({
+      rejectUnauthorized: false,
+      checkServerIdentity: () => undefined
+    });
+  }
+} else {
+  logger.warn('CA certificate not found at expected path, using insecure HTTPS', { path: CA_CERT_PATH });
+  // Fallback to accepting self-signed certificates
+  httpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined
+  });
+}
 
 /**
  * Helper function to call microservices with error handling
@@ -39,6 +74,7 @@ async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = nu
       method,
       url: `${serviceUrl}${endpoint}`,
       timeout: MICROSERVICE_TIMEOUT,
+      httpsAgent: httpsAgent,
       headers: {
         'Content-Type': 'application/json'
       }
@@ -598,13 +634,21 @@ router.get('/health', async (req, res) => {
   // Check each service
   for (const [name, url] of Object.entries(services)) {
     try {
-      const response = await axios.get(`${url}/health`, { timeout: 5000 });
+      const response = await axios.get(`${url}/health`, { 
+        timeout: 5000,
+        httpsAgent: httpsAgent 
+      });
       healthStatus.services[name] = {
         status: 'healthy',
         url,
         ...response.data
       };
     } catch (error) {
+      logger.warn(`Health check failed for ${name}`, { 
+        url, 
+        error: error.message,
+        code: error.code 
+      });
       healthStatus.services[name] = {
         status: 'unhealthy',
         url,

@@ -1,0 +1,38 @@
+{
+  "name": "aicos-integrations-service",
+  "version": "1.0.0",
+  "description": "External integrations microservice for AI Chief of Staff - handles calendar and task management platforms",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "integrations",
+    "calendar",
+    "task-management",
+    "trello",
+    "monday",
+    "jira",
+    "google-calendar"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "pg": "^8.11.3",
+    "sqlite3": "^5.1.6",
+    "node-fetch": "^2.7.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@azure/identity": "^4.0.0",
+    "googleapis": "^126.0.1",
+    "ical-generator": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1886,12 +1886,6 @@ table {
   color: #a1a1aa;
 }
 
-.text-sm-muted-mb-md {
-  font-size: 0.9rem;
-  color: #a1a1aa;
-  margin-bottom: 1rem;
-}
-
 .mt-0-mb-md-flex-center {
   margin-top: 0;
   margin-bottom: 1rem;
@@ -2504,6 +2498,19 @@ table {
 .text-sm-gray-mt-negative-mb-md {
   font-size: 0.85rem;
   color: #6e6e73;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+}
+
+.text-sm-muted-mb-md {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  margin-bottom: 1rem;
+}
+
+.text-sm-muted-mt-negative-mb-md {
+  font-size: 0.85rem;
+  color: #a1a1aa;
   margin-top: -0.5rem;
   margin-bottom: 1rem;
 }
