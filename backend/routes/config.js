@@ -6,8 +6,39 @@ const { createModuleLogger } = require('../utils/logger');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+const https = require('https');
 
 const logger = createModuleLogger('CONFIG');
+
+// Load CA certificate for validating microservice certificates
+// Note: Certs are in /app/certs which is mounted from tls-certs volume
+const CA_CERT_PATH = '/app/certs/ca.crt';
+let microserviceHttpsAgent = null;
+
+try {
+  if (fs.existsSync(CA_CERT_PATH)) {
+    const caCert = fs.readFileSync(CA_CERT_PATH);
+    microserviceHttpsAgent = new https.Agent({
+      ca: caCert,
+      rejectUnauthorized: false, // Accept self-signed certs even with CA
+      checkServerIdentity: () => undefined // Skip hostname verification
+    });
+    logger.info('Loaded CA certificate for HTTPS communication with microservices');
+  } else {
+    logger.warn('CA certificate not found, using insecure HTTPS agent for microservices', { path: CA_CERT_PATH });
+    microserviceHttpsAgent = new https.Agent({
+      rejectUnauthorized: false,
+      checkServerIdentity: () => undefined
+    });
+  }
+} catch (error) {
+  logger.warn('Failed to load CA certificate for microservices, using insecure HTTPS agent', { error: error.message });
+  microserviceHttpsAgent = new https.Agent({
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined
+  });
+}
 
 /**
  * Get system configuration from /app/data/config.json
@@ -249,39 +280,7 @@ router.get('/version', async (req, res) => {
     }
     
     // Get microservices versions by querying their health endpoints
-    const axios = require('axios');
-    const https = require('https');
-    const fs = require('fs');
-    const path = require('path');
-    
-// Load CA certificate for validating microservice certificates
-// Note: Certs are in /app/certs which is mounted from tls-certs volume
-const CA_CERT_PATH = '/app/certs/ca.crt';
-let microserviceHttpsAgent = null;
-
-try {
-  if (fs.existsSync(CA_CERT_PATH)) {
-    const caCert = fs.readFileSync(CA_CERT_PATH);
-    microserviceHttpsAgent = new https.Agent({
-      ca: caCert,
-      rejectUnauthorized: false, // Accept self-signed certs even with CA
-      checkServerIdentity: () => undefined // Skip hostname verification
-    });
-    logger.info('Loaded CA certificate for microservice health checks');
-  } else {
-    logger.warn('CA certificate not found at expected path for microservice health checks', { path: CA_CERT_PATH });
-    microserviceHttpsAgent = new https.Agent({
-      rejectUnauthorized: false,
-      checkServerIdentity: () => undefined
-    });
-  }
-} catch (error) {
-  logger.warn('Failed to load CA certificate for microservice health checks', { error: error.message });
-  microserviceHttpsAgent = new https.Agent({
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined
-  });
-}    const microservices = {
+    const microservices = {
       'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001',
       'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002',
       'nl-parser': process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003',
