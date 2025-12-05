@@ -634,13 +634,21 @@ router.get('/health', async (req, res) => {
   // Check each service
   for (const [name, url] of Object.entries(services)) {
     try {
-      const response = await axios.get(`${url}/health`, { timeout: 5000 });
+      const response = await axios.get(`${url}/health`, { 
+        timeout: 5000,
+        httpsAgent: httpsAgent 
+      });
       healthStatus.services[name] = {
         status: 'healthy',
         url,
         ...response.data
       };
     } catch (error) {
+      logger.warn(`Health check failed for ${name}`, { 
+        url, 
+        error: error.message,
+        code: error.code 
+      });
       healthStatus.services[name] = {
         status: 'unhealthy',
         url,

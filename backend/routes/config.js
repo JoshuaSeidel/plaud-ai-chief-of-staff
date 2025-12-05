@@ -292,9 +292,17 @@ try {
     // Query each microservice for version (with timeout to avoid hanging)
     const versionPromises = Object.entries(microservices).map(async ([name, url]) => {
       try {
-        const response = await axios.get(`${url}/health`, { timeout: 2000, httpsAgent });
+        const response = await axios.get(`${url}/health`, { 
+          timeout: 2000, 
+          httpsAgent: microserviceHttpsAgent 
+        });
         microservicesVersions[name] = response.data.version || 'unknown';
       } catch (error) {
+        logger.warn(`Microservice ${name} health check failed`, { 
+          url, 
+          error: error.message,
+          code: error.code 
+        });
         microservicesVersions[name] = 'unavailable';
       }
     });
