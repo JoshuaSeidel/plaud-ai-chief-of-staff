@@ -2,7 +2,7 @@ name: Create Release
 
 on:
   workflow_run:
-    workflows: ["Build and Push Docker Image"]
+    workflows: ["Build and Push Docker Images (Microservices)"]
     types:
       - completed
     branches:
