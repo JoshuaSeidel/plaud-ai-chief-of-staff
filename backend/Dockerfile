@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install build dependencies for sqlite3 (native module) and runtime deps
 RUN apk update && apk upgrade --no-cache && \
-    apk add --no-cache \
+    apk add --no-cache --no-scripts \
     python3 \
     make \
     g++ \
