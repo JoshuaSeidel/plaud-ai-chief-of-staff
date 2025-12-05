@@ -229,7 +229,7 @@ func initRedis() {
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"service": "context-service",
-		"version": "1.0.0",
+		"version": "1.1.0",
 		"status":  "running",
 	}
 	respondJSON(w, http.StatusOK, response)
@@ -239,7 +239,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	health := HealthResponse{
 		Status:         "healthy",
 		Service:        "context-service",
-		Version:        "1.0.0",
+		Version:        "1.1.0",
 		DBConnected:    db != nil && db.Ping() == nil,
 		RedisConnected: false,
 	}

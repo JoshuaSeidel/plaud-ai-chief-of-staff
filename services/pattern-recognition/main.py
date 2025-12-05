@@ -35,9 +35,8 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI(
     title="Pattern Recognition Service",
-    description="Detects behavioral patterns and provides productivity insights",
-    version="1.0.0"
-)
+    description="Behavioral pattern detection and productivity insights",
+    version="1.1.0"
 
 # Middleware for request logging
 @app.middleware("http")

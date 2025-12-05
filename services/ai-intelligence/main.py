@@ -39,9 +39,8 @@ logging.basicConfig(
 
 app = FastAPI(
     title="AI Intelligence Service",
-    version="1.0.0",
-    description="Task analysis and intelligence using Claude AI"
-)
+    description="Task effort estimation, energy classification, and clustering",
+    version="1.1.0",
 
 # Middleware for request logging
 @app.middleware("http")
