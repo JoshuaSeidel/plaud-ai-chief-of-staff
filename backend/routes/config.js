@@ -539,7 +539,10 @@ router.get('/models/:provider', async (req, res) => {
       const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['openaiApiKey']);
       const apiKey = apiKeyRow?.value;
       
+      logger.info(`OpenAI API key check: ${apiKey ? 'Found (length: ' + apiKey.length + ')' : 'Not found'}`);
+      
       if (!apiKey) {
+        logger.warn('OpenAI API key not configured in database');
         return res.status(400).json({ 
           error: 'OpenAI API key not configured',
           models: []
@@ -580,6 +583,8 @@ router.get('/models/:provider', async (req, res) => {
       const baseUrlRow = await db.get('SELECT value FROM config WHERE key = ?', ['ollamaBaseUrl']);
       const baseUrl = baseUrlRow?.value || 'http://localhost:11434';
       
+      logger.info(`Ollama base URL: ${baseUrl}`);
+      
       try {
         const response = await axios.get(`${baseUrl}/api/tags`, {
           timeout: 10000
@@ -615,9 +620,11 @@ router.get('/models/:provider', async (req, res) => {
     
   } catch (err) {
     logger.error('Error in models endpoint:', err);
+    logger.error('Error stack:', err.stack);
     res.status(500).json({ 
       error: 'Error fetching models',
-      message: err.message 
+      message: err.message,
+      provider: req.params.provider
     });
   }
 });
