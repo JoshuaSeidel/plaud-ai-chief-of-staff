@@ -40,6 +40,12 @@ docker-compose -f docker-compose.microservices.yml up -d
 # Access at http://localhost:3001
 ```
 
+**Multi-Architecture Support:**
+- ✅ **AMD64** - Windows, Linux, Intel Macs, most servers
+- ✅ **ARM64** - Apple Silicon Macs (M1/M2/M3), Raspberry Pi 4/5, ARM servers
+
+Docker automatically pulls the correct architecture for your system. All images are built for both platforms.
+
 **Includes:**
 - Main Application (Backend + Frontend)
 - PostgreSQL Database
@@ -236,6 +242,13 @@ Full microservices stack with:
 - PostgreSQL 15 (persistent data)
 - Redis (caching and rate limiting)
 - All AI microservices
+
+**Multi-Architecture Images:**
+All services are built for both **AMD64** (x86_64) and **ARM64** (aarch64) platforms:
+- GitHub Actions automatically builds both architectures on push
+- Images tagged with `latest` or `dev` include both platforms
+- `docker-compose` pulls the correct architecture for your system
+- Pre-built images available on GitHub Container Registry: `ghcr.io/joshuaseidel/ai-chief-of-staff`
 
 **Persistent volumes:**
 - `backend-data` - Configuration (config.json) and logs
