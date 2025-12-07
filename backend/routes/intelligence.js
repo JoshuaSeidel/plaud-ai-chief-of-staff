@@ -280,7 +280,7 @@ router.post('/analyze-patterns', async (req, res) => {
       
       // Fall back to local implementation
       const { analyzeTaskPatterns } = require('./intelligence-local');
-      const result = await analyzeTaskPatterns(time_range);
+      const result = await analyzeTaskPatterns(req, time_range);
       return res.json(result);
     }
 
@@ -317,7 +317,7 @@ router.get('/insights', async (req, res) => {
       logger.info('Falling back to local implementation');
       // Use analyze patterns as fallback for insights
       const { analyzeTaskPatterns } = require('./intelligence-local');
-      const result = await analyzeTaskPatterns('30d');
+      const result = await analyzeTaskPatterns(req, '30d');
       return res.json(result);
     }
 
@@ -529,7 +529,7 @@ router.get('/context', async (req, res) => {
       logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
       logger.info('Falling back to local implementation');
       const { getContext } = require('./intelligence-local');
-      const result = await getContext(category, source, limit || 50, active_only !== 'false');
+      const result = await getContext(req, category, source, limit || 50, active_only !== 'false');
       return res.json(result);
     }
 
@@ -600,7 +600,7 @@ router.post('/context/search', async (req, res) => {
       logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
       logger.info('Falling back to local implementation');
       const { searchContext } = require('./intelligence-local');
-      const result = await searchContext(query, category, limit || 20);
+      const result = await searchContext(req, query, category, limit || 20);
       return res.json(result);
     }
 

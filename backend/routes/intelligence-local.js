@@ -14,7 +14,7 @@ const logger = createModuleLogger('INTELLIGENCE-LOCAL');
 /**
  * Analyze task completion patterns from database
  */
-async function analyzeTaskPatterns(time_range = '30d') {
+async function analyzeTaskPatterns(req, time_range = '30d') {
   try {
     const db = getDb();
     
@@ -28,27 +28,27 @@ async function analyzeTaskPatterns(time_range = '30d') {
     
     // Get all commitments (tasks) created in time range
     const allTasks = await db.all(
-      'SELECT * FROM commitments WHERE created_date >= ? ORDER BY created_date DESC',
-      [startDate.toISOString()]
+      'SELECT * FROM commitments WHERE created_date >= ? AND profile_id = ? ORDER BY created_date DESC',
+      [startDate.toISOString(), req.profileId]
     );
     
     // Get completed tasks (only those created AND completed in time range)
     const completedTasks = await db.all(
-      'SELECT * FROM commitments WHERE status = ? AND created_date >= ? AND completed_date >= ? ORDER BY completed_date DESC',
-      ['completed', startDate.toISOString(), startDate.toISOString()]
+      'SELECT * FROM commitments WHERE status = ? AND created_date >= ? AND completed_date >= ? AND profile_id = ? ORDER BY completed_date DESC',
+      ['completed', startDate.toISOString(), startDate.toISOString(), req.profileId]
     );
     
     // Get pending tasks
     const pendingTasks = await db.all(
-      'SELECT * FROM commitments WHERE status = ? AND created_date >= ? ORDER BY created_date DESC',
-      ['pending', startDate.toISOString()]
+      'SELECT * FROM commitments WHERE status = ? AND created_date >= ? AND profile_id = ? ORDER BY created_date DESC',
+      ['pending', startDate.toISOString(), req.profileId]
     );
     
     // Get overdue tasks
     const now = new Date().toISOString();
     const overdueTasks = await db.all(
-      'SELECT * FROM commitments WHERE status != ? AND deadline < ? AND deadline IS NOT NULL',
-      ['completed', now]
+      'SELECT * FROM commitments WHERE status != ? AND deadline < ? AND deadline IS NOT NULL AND profile_id = ?',
+      ['completed', now, req.profileId]
     );
     
     logger.info(`Found ${allTasks.length} total tasks, ${completedTasks.length} completed, ${pendingTasks.length} pending, ${overdueTasks.length} overdue`);
@@ -430,14 +430,14 @@ Respond with JSON:
 /**
  * Get context from database (fallback for context-service)
  */
-async function getContext(category = null, source = null, limit = 50, active_only = true) {
+async function getContext(req, category = null, source = null, limit = 50, active_only = true) {
   try {
     const db = getDb();
     logger.info(`Getting context: category=${category}, source=${source}, limit=${limit}`);
     
     // Query transcripts and commitments
-    let query = 'SELECT * FROM transcripts WHERE 1=1';
-    const params = [];
+    let query = 'SELECT * FROM transcripts WHERE profile_id = ?';
+    const params = [req.profileId];
     
     if (active_only) {
       const twoWeeksAgo = new Date();
@@ -453,8 +453,8 @@ async function getContext(category = null, source = null, limit = 50, active_onl
     
     // Get related commitments
     const commitments = await db.all(
-      'SELECT * FROM commitments ORDER BY created_date DESC LIMIT ?',
-      [limit]
+      'SELECT * FROM commitments WHERE profile_id = ? ORDER BY created_date DESC LIMIT ?',
+      [req.profileId, limit]
     );
     
     return {
@@ -484,7 +484,7 @@ async function getContext(category = null, source = null, limit = 50, active_onl
 /**
  * Search context (fallback for context-service)
  */
-async function searchContext(query, category = null, limit = 20) {
+async function searchContext(req, query, category = null, limit = 20) {
   try {
     const db = getDb();
     logger.info(`Searching context for: ${query}`);
@@ -492,16 +492,16 @@ async function searchContext(query, category = null, limit = 20) {
     // Simple text search in transcripts and commitments
     const transcripts = await db.all(
       `SELECT * FROM transcripts 
-       WHERE transcript_text LIKE ? 
+       WHERE transcript_text LIKE ? AND profile_id = ?
        ORDER BY created_date DESC LIMIT ?`,
-      [`%${query}%`, limit]
+      [`%${query}%`, req.profileId, limit]
     );
     
     const commitments = await db.all(
       `SELECT * FROM commitments 
-       WHERE description LIKE ? 
+       WHERE description LIKE ? AND profile_id = ?
        ORDER BY created_date DESC LIMIT ?`,
-      [`%${query}%`, limit]
+      [`%${query}%`, req.profileId, limit]
     );
     
     return {
