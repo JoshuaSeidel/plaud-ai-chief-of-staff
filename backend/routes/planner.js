@@ -141,7 +141,9 @@ router.post('/microsoft/sync', async (req, res) => {
        WHERE status != 'completed' 
        AND (microsoft_task_id IS NULL OR microsoft_task_id = '')
        AND (task_type IS NULL OR task_type != 'risk')
-       ORDER BY created_date DESC`
+       AND profile_id = ?
+       ORDER BY created_date DESC`,
+      [req.profileId]
     );
     
     logger.info(`Syncing ${tasks.length} tasks to Microsoft Planner`);
@@ -158,8 +160,8 @@ router.post('/microsoft/sync', async (req, res) => {
         
         // Store Microsoft task ID
         await db.run(
-          'UPDATE commitments SET microsoft_task_id = ? WHERE id = ?',
-          [microsoftTask.id, task.id]
+          'UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?',
+          [microsoftTask.id, task.id, req.profileId]
         );
         
         results.success++;
@@ -335,7 +337,9 @@ router.post('/jira/sync', async (req, res) => {
        WHERE status != 'completed' 
        AND (jira_task_id IS NULL OR jira_task_id = '')
        AND (task_type IS NULL OR task_type != 'risk')
-       ORDER BY created_date DESC`
+       AND profile_id = ?
+       ORDER BY created_date DESC`,
+      [req.profileId]
     );
     
     logger.info(`Syncing ${tasks.length} tasks to Jira`);
@@ -352,8 +356,8 @@ router.post('/jira/sync', async (req, res) => {
         
         // Store Jira issue key (e.g., PROJ-123)
         await db.run(
-          'UPDATE commitments SET jira_task_id = ? WHERE id = ?',
-          [jiraIssue.key, task.id]
+          'UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?',
+          [jiraIssue.key, task.id, req.profileId]
         );
         
         results.success++;
@@ -417,8 +421,8 @@ router.post('/jira/sync-failed', async (req, res) => {
         
         // Store Jira issue key (e.g., PROJ-123)
         await db.run(
-          'UPDATE commitments SET jira_task_id = ? WHERE id = ?',
-          [jiraIssue.key, task.id]
+          'UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?',
+          [jiraIssue.key, task.id, req.profileId]
         );
         
         results.success++;
