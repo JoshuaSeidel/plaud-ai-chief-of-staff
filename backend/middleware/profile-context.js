@@ -18,12 +18,13 @@ async function profileContext(req, res, next) {
   try {
     const db = getDb();
     
-    // Get profile ID from various sources
-    const profileId = parseInt(
+    // Extract profile_id from multiple sources (header > query > cookie)
+    // Default to 2 (Work) as existing system is work-focused
+    let profileId = parseInt(
       req.headers['x-profile-id'] || 
       req.query.profile_id || 
       req.cookies?.currentProfileId ||
-      '1' // Default to Personal profile
+      '2' // Default to Work profile
     );
 
     // Validate that profile exists
@@ -41,7 +42,7 @@ async function profileContext(req, res, next) {
         [true]
       );
       
-      req.profileId = defaultProfile ? defaultProfile.id : 1;
+      req.profileId = defaultProfile ? defaultProfile.id : 2;
     } else {
       req.profileId = profileId;
     }

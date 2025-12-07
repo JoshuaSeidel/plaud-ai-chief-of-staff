@@ -41,12 +41,12 @@ async function migrateSQLite(db) {
         else logger.info('✓ Created profiles table');
       });
 
-      // Insert default profiles
+      // Insert default profiles (Work is default as existing system is work-focused)
       db.run(`
         INSERT OR IGNORE INTO profiles (id, name, description, color, icon, is_default, display_order)
         VALUES 
-          (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', 'home', 1, 1),
-          (2, 'Work', 'Professional work and career commitments', '#3B82F6', 'briefcase', 0, 2)
+          (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', 'home', 0, 2),
+          (2, 'Work', 'Professional work and career commitments', '#3B82F6', 'briefcase', 1, 1)
       `, (err) => {
         if (err) logger.error('Error inserting default profiles:', err);
         else logger.info('✓ Created default profiles: Personal, Work');
@@ -134,7 +134,7 @@ async function migrateSQLite(db) {
       ];
 
       tablesToUpdate.forEach(tableName => {
-        db.run(`ALTER TABLE ${tableName} ADD COLUMN profile_id INTEGER DEFAULT 1 REFERENCES profiles(id)`, (err) => {
+        db.run(`ALTER TABLE ${tableName} ADD COLUMN profile_id INTEGER DEFAULT 2 REFERENCES profiles(id)`, (err) => {
           if (err && !err.message.includes('duplicate column')) {
             logger.error(`Error adding profile_id to ${tableName}:`, err);
           } else if (!err) {
@@ -211,12 +211,12 @@ async function migratePostgreSQL(pool) {
     `);
     logger.info('✓ Created profiles table');
 
-    // Insert default profiles
+    // Insert default profiles (Work is default as existing system is work-focused)
     await client.query(`
       INSERT INTO profiles (id, name, description, color, icon, is_default, display_order)
       VALUES 
-        (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', 'home', TRUE, 1),
-        (2, 'Work', 'Professional work and career commitments', '#3B82F6', 'briefcase', FALSE, 2)
+        (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', 'home', false, 2),
+        (2, 'Work', 'Professional work and career commitments', '#3B82F6', 'briefcase', true, 1)
       ON CONFLICT (id) DO NOTHING
     `);
     logger.info('✓ Created default profiles: Personal, Work');
@@ -298,7 +298,7 @@ async function migratePostgreSQL(pool) {
       try {
         await client.query(`
           ALTER TABLE ${tableName} 
-          ADD COLUMN IF NOT EXISTS profile_id INTEGER DEFAULT 1 REFERENCES profiles(id)
+          ADD COLUMN IF NOT EXISTS profile_id INTEGER DEFAULT 2 REFERENCES profiles(id)
         `);
         logger.info(`✓ Added profile_id to ${tableName}`);
       } catch (err) {
