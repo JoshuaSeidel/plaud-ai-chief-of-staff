@@ -1,6 +1,11 @@
 name: Create Release
 
 on:
+  # Trigger on tag pushes (v* pattern) - primary trigger
+  push:
+    tags:
+      - 'v*'
+  # Also trigger after docker build completes (for push events to main)
   workflow_run:
     workflows: ["Build and Push Docker Images (Microservices)"]
     types:
@@ -10,12 +15,15 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    # For workflow_run events, only proceed if the build succeeded
+    # For tag push events, always proceed
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     permissions:
       contents: write
       packages: read
@@ -26,13 +34,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get version
+      - name: Get version and repository info
         id: version
         run: |
           VERSION=$(node -p "require('./backend/package.json').version")
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          # For tag pushes, use the tag name; otherwise use version from package.json
+          if [ "${{ github.event_name }}" == "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+          else
+            TAG_NAME="v$VERSION"
+          fi
+          
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
+          echo "Tag: $TAG_NAME"
+          echo "Repository: $REPO_LOWER"
 
       - name: Get commit info
         id: commit-info
@@ -61,47 +81,86 @@ jobs:
       - name: Check if release already exists
         id: check-release
         run: |
+          TAG_NAME="${{ steps.version.outputs.tag }}"
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ steps.version.outputs.version }})
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG_NAME})
           
           if [ "$RESPONSE" = "200" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Release v${{ steps.version.outputs.version }} already exists"
+            echo "Release ${TAG_NAME} already exists"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Release v${{ steps.version.outputs.version }} does not exist (HTTP $RESPONSE)"
+            echo "Release ${TAG_NAME} does not exist (HTTP $RESPONSE)"
           fi
 
       - name: Create GitHub Release
         if: steps.check-release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Release v${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
           body: |
-            ## Release v${{ steps.version.outputs.version }}
+            ## Release ${{ steps.version.outputs.tag }}
 
             ### Docker Images
 
-            **Version Tag:** `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ steps.version.outputs.version }}`  
-            **Latest:** `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest`  
-            **Main Branch:** `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main`
+            All images are available at `${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}` with multi-architecture support (linux/amd64, linux/arm64):
 
-            ### Pull the image
+            #### Core Services
             ```bash
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ steps.version.outputs.version }}
+            # Backend API
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-backend:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-backend:latest
+
+            # Frontend
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-frontend:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-frontend:latest
             ```
 
-            ### Run the container
+            #### Microservices
             ```bash
-            docker run -d \
-              --name ai-chief-of-staff \
-              -p 3001:3001 \
-              -v /path/to/data:/app/data \
-              -v /path/to/uploads:/app/uploads \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ steps.version.outputs.version }}
+            # AI Intelligence Service
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-ai-intelligence:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-ai-intelligence:latest
+
+            # Pattern Recognition Service
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-pattern-recognition:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-pattern-recognition:latest
+
+            # Natural Language Parser
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-nl-parser:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-nl-parser:latest
+
+            # Voice Processor (Whisper)
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-voice-processor:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-voice-processor:latest
+
+            # Context Service (Go)
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-context-service:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-context-service:latest
+
+            # Integrations Service
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-integrations:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-integrations:latest
+            ```
+
+            #### Monolith (Legacy - Deprecated)
+            ```bash
+            # All-in-one container (being phased out in favor of microservices)
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-monolith:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ steps.version.outputs.repo_lower }}/aicos-monolith:latest
+            ```
+
+            ### Deployment
+
+            Use the `docker-compose.yml` from the repository for full microservices deployment:
+
+            ```bash
+            git clone https://github.com/${{ github.repository }}.git
+            cd ai-chief-of-staff
+            docker-compose up -d
             ```
 
             ### Recent Changes
@@ -114,4 +173,3 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
