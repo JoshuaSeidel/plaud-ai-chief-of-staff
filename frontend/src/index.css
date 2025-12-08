@@ -3681,6 +3681,96 @@ summary {
   border-color: rgba(16, 185, 129, 0.3);
 }
 
+/* Configuration Scope Badges */
+.scope-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.75rem;
+  vertical-align: middle;
+}
+
+.scope-profile {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.scope-global {
+  background: rgba(234, 179, 8, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.section-note {
+  margin: 0.75rem 0 1.5rem 0;
+  padding: 0.75rem 1rem;
+  background: rgba(251, 191, 36, 0.1);
+  border-left: 3px solid rgba(251, 191, 36, 0.6);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #fcd34d;
+  line-height: 1.5;
+}
+
+.section-note strong {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+/* Profile Context Banner */
+.profile-context-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+}
+
+.profile-context-banner .profile-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-context-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.profile-context-info strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.profile-context-note {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.profile-context-note .scope-badge {
+  margin-left: 0.25rem;
+  margin-right: 0.25rem;
+  vertical-align: baseline;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .profile-selector {

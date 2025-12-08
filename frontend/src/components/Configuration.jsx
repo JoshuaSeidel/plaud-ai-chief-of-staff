@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { configAPI, intelligenceAPI, microservicesAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import ProfileManagement from './ProfileManagement';
+import { useProfile } from '../contexts/ProfileContext';
+
+// Scope badge component
+function ScopeBadge({ scope }) {
+  if (scope === 'profile') {
+    return <span className="scope-badge scope-profile" title="This setting is specific to the current profile">👤 Profile</span>;
+  }
+  if (scope === 'global') {
+    return <span className="scope-badge scope-global" title="This setting applies to all profiles">🌐 Global</span>;
+  }
+  return null;
+}
 
 // Version info component
 function VersionInfo() {
@@ -88,6 +100,7 @@ function VersionInfo() {
 }
 
 function Configuration() {
+  const { currentProfile } = useProfile();
   const [config, setConfig] = useState({
     aiProvider: 'anthropic',
     anthropicApiKey: '',
@@ -1029,6 +1042,21 @@ function Configuration() {
         <ProfileManagement />
       </div>
 
+      {currentProfile && (
+        <div className="profile-context-banner">
+          <span className="profile-icon" style={{ backgroundColor: currentProfile.color }}>
+            {currentProfile.icon}
+          </span>
+          <div className="profile-context-info">
+            <strong>Active Profile:</strong> {currentProfile.name}
+            <span className="profile-context-note">
+              Data like transcripts, briefs, and commitments are isolated per profile. 
+              Settings marked as <span className="scope-badge scope-global">🌐 Global</span> affect all profiles.
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <h2>Configuration</h2>
         <p className="text-muted-mb-lg">
@@ -1569,7 +1597,8 @@ function Configuration() {
         </details>
 
         <div className="mb-xl">
-          <h3>🔌 Integrations</h3>
+          <h3>🔌 Integrations <ScopeBadge scope="global" /></h3>
+          <p className="section-note">⚠️ Integration settings are currently <strong>shared across all profiles</strong>. Connecting a calendar or task system will affect all profiles.</p>
           <p className="text-sm-muted-mb-md">
             Enable or disable integrations. Only enabled integrations will be shown below.
           </p>
@@ -1644,7 +1673,7 @@ function Configuration() {
 
         {enabledIntegrations.googleCalendar && (
         <div className="mb-xl">
-          <h3>📅 Calendar Integration</h3>
+          <h3>📅 Calendar Integration <ScopeBadge scope="global" /></h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -1810,7 +1839,7 @@ function Configuration() {
 
         {enabledIntegrations.microsoft && (
         <div className="mb-xl">
-          <h3>📅 Microsoft Integration (Calendar + Planner)</h3>
+          <h3>📅 Microsoft Integration (Calendar + Planner) <ScopeBadge scope="global" /></h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2054,7 +2083,7 @@ function Configuration() {
 
         {enabledIntegrations.jira && (
         <div className="mb-xl">
-          <h3>🎯 Jira Integration</h3>
+          <h3>🎯 Jira Integration <ScopeBadge scope="global" /></h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2191,7 +2220,7 @@ function Configuration() {
 
         {enabledIntegrations.trello && (
         <div className="mb-xl">
-          <h3>📋 Trello Integration</h3>
+          <h3>📋 Trello Integration <ScopeBadge scope="global" /></h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2356,7 +2385,7 @@ function Configuration() {
 
         {enabledIntegrations.monday && (
         <div className="mb-xl">
-          <h3>📊 Monday.com Integration</h3>
+          <h3>📊 Monday.com Integration <ScopeBadge scope="global" /></h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2713,7 +2742,7 @@ function Configuration() {
 
       {/* Notifications Card */}
       <div className="card">
-        <h2>🔔 Push Notifications</h2>
+        <h2>🔔 Push Notifications <ScopeBadge scope="global" /></h2>
         <p className="text-muted-mb-lg">
           Enable push notifications to receive task reminders, overdue alerts, and sync notifications on this device.
         </p>
@@ -2976,7 +3005,7 @@ function Configuration() {
 
       {/* AI Prompts Card */}
       <div className="card">
-        <h2>🤖 AI Prompts</h2>
+        <h2>🤖 AI Prompts <ScopeBadge scope="global" /></h2>
         <p className="text-muted-mb-lg">
           Customize how AI extracts tasks, generates descriptions, and creates reports. Changes take effect immediately.
         </p>
