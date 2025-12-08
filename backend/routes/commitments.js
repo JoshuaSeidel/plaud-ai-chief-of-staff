@@ -283,7 +283,13 @@ router.delete('/:id', async (req, res) => {
         if (isMicrosoftConnected) {
           await microsoftPlanner.deleteTask(task.microsoft_task_id, req.profileId);
           deletionResults.microsoft = 'success';
-          logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);\n        }\n      } catch (msError) {\n        deletionResults.microsoft = 'failed';\n        logger.warn(`Failed to delete Microsoft task: ${msError.message}`);\n      }\n    }
+          logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);
+        }
+      } catch (msError) {
+        deletionResults.microsoft = 'failed';
+        logger.warn(`Failed to delete Microsoft task: ${msError.message}`);
+      }
+    }
     
     // Delete from database
     const result = await db.run('DELETE FROM commitments WHERE id = ?', [id]);

@@ -195,7 +195,7 @@ Format as JSON:
   "reasoning": "...",
   "breakdown": ["Step 1 (30min)", "Step 2 (1hr)"],
   "risks": ["May need additional review time"]
-}";
+}`;
 
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
@@ -245,7 +245,16 @@ Respond with JSON:
 {
   "energy_level": "High|Medium|Low",
   "reasoning": "...",
-  \"best_time\": \"When to do this task for optimal results\",\n  \"duration_recommendation\": \"Suggested time block\"\n}\";\n\n    const aiResponse = await callAI(\n      [{ role: 'user', content: prompt }],\n      null,\n      512,\n      profileId\n    );
+  "best_time": "When to do this task for optimal results",
+  "duration_recommendation": "Suggested time block"
+}`;
+
+    const aiResponse = await callAI(
+      [{ role: 'user', content: prompt }],
+      null,
+      512,
+      profileId
+    );
     
     let result;
     try {
@@ -354,7 +363,7 @@ Respond with JSON:
   "priority": "High|Medium|Low",
   "tags": ["tag1", "tag2"],
   "assignee": "name" or "unassigned"
-}";
+}`;
 
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
@@ -408,7 +417,7 @@ Respond with JSON:
       "type": "deadline|meeting|event"
     }
   ]
-}";
+}`;
 
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
