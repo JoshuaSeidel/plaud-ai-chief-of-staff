@@ -26,10 +26,28 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
     
     logger.info(`Analyzing patterns for last ${days} days`);
     
-    // Get all commitments (tasks) created in time range
-    const allTasks = await db.all(
-      'SELECT * FROM commitments WHERE created_date >= ? AND profile_id = ? ORDER BY created_date DESC',
+    // Get all tasks that were either created OR completed in the time range
+    // This ensures we capture all relevant activity for accurate completion rate
+    // Use UNION to avoid duplicates if a task was both created and completed in range
+    const allTasksCreated = await db.all(
+      'SELECT * FROM commitments WHERE created_date >= ? AND profile_id = ?',
       [startDate.toISOString(), req.profileId]
+    );
+    
+    const allTasksCompleted = await db.all(
+      'SELECT * FROM commitments WHERE status = ? AND completed_date >= ? AND completed_date IS NOT NULL AND profile_id = ?',
+      ['completed', startDate.toISOString(), req.profileId]
+    );
+    
+    // Combine and deduplicate by task ID
+    const taskMap = new Map();
+    [...allTasksCreated, ...allTasksCompleted].forEach(task => {
+      if (!taskMap.has(task.id)) {
+        taskMap.set(task.id, task);
+      }
+    });
+    const allTasks = Array.from(taskMap.values()).sort((a, b) => 
+      new Date(b.created_date) - new Date(a.created_date)
     );
     
     // Get completed tasks (completed in time range, regardless of when created)
@@ -38,13 +56,13 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
       ['completed', startDate.toISOString(), req.profileId]
     );
     
-    // Get pending tasks
+    // Get pending tasks (created in time range and still pending)
     const pendingTasks = await db.all(
       'SELECT * FROM commitments WHERE status = ? AND created_date >= ? AND profile_id = ? ORDER BY created_date DESC',
       ['pending', startDate.toISOString(), req.profileId]
     );
     
-    // Get overdue tasks
+    // Get overdue tasks (all profiles, not just time range)
     const now = new Date().toISOString();
     const overdueTasks = await db.all(
       'SELECT * FROM commitments WHERE status != ? AND deadline < ? AND deadline IS NOT NULL AND profile_id = ?',
@@ -69,6 +87,7 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
     }
     
     // Calculate basic stats
+    // Completion rate = completed tasks / all tasks that were active in the time range
     const completionRate = allTasks.length > 0 ? (completedTasks.length / allTasks.length * 100).toFixed(1) : 0;
     
     // Calculate average time to completion
