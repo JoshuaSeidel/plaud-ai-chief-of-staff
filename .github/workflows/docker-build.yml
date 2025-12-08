@@ -2,7 +2,7 @@ name: Build and Push Docker Images (Microservices)
 
 # Trigger Strategy:
 # - Push to main → builds images tagged as 'latest' and 'v{version}'
-# - Push to feature/** → builds images tagged as 'dev' and 'v{version}'
+# - Push to feature/** or fix/** → builds images tagged as 'dev' and 'v{version}'
 # - Version tags (v*) → builds images tagged with that version
 # - PRs → NO BUILD (saves CI resources, PRs don't need published images)
 
@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - 'feature/**'
+      - 'fix/**'
     tags:
       - 'v*'
 
@@ -70,7 +71,7 @@ jobs:
           
           # Determine tag suffix based on branch:
           # - main branch: 'latest' and version tags
-          # - feature branches: 'dev' and version tags
+          # - feature/fix branches: 'dev' and version tags
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             TAG_SUFFIX="latest"
           else
