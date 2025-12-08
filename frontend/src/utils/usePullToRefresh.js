@@ -18,6 +18,8 @@ export function usePullToRefresh(onRefresh, options = {}) {
   const pullDistanceRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const elementRef = useRef(null);
+  const touchStartYRef = useRef(0);
+  const isPullingRef = useRef(false);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -37,34 +39,34 @@ export function usePullToRefresh(onRefresh, options = {}) {
   useEffect(() => {
     if (disabled || !onRefresh) return;
 
-    let touchStartY = 0;
-    let isPulling = false;
-
     const handleTouchStart = (e) => {
-      if (isRefreshingRef.current) return;
+      if (isRefreshingRef.current) {
+        isPullingRef.current = false;
+        return;
+      }
       
       // Don't interfere with interactive elements (buttons, links, inputs, etc.)
       const target = e.target;
       const isInteractive = target.closest('button, a, input, select, textarea, [role="button"], [onclick]');
       if (isInteractive) {
-        isPulling = false;
+        isPullingRef.current = false;
         return;
       }
       
-      touchStartY = e.touches[0].clientY;
+      touchStartYRef.current = e.touches[0].clientY;
       const atTop = checkScrollTop();
       
       // Only start if we're at the top
       if (atTop) {
-        isPulling = true;
+        isPullingRef.current = true;
         console.log('[PullToRefresh] Touch start at top, enabled');
       } else {
-        isPulling = false;
+        isPullingRef.current = false;
       }
     };
 
     const handleTouchMove = (e) => {
-      if (!isPulling || isRefreshingRef.current) return;
+      if (!isPullingRef.current || isRefreshingRef.current) return;
       
       // Don't interfere with interactive elements
       const target = e.target;
@@ -72,12 +74,12 @@ export function usePullToRefresh(onRefresh, options = {}) {
       if (isInteractive) {
         setPullDistance(0);
         pullDistanceRef.current = 0;
-        isPulling = false;
+        isPullingRef.current = false;
         return;
       }
       
       const touchY = e.touches[0].clientY;
-      const deltaY = touchY - touchStartY;
+      const deltaY = touchY - touchStartYRef.current;
       const atTop = checkScrollTop();
       
       // Check if we're in PWA mode
@@ -105,14 +107,14 @@ export function usePullToRefresh(onRefresh, options = {}) {
       } else if (deltaY <= 0 || !atTop) {
         setPullDistance(0);
         pullDistanceRef.current = 0;
-        isPulling = false;
+        isPullingRef.current = false;
       }
     };
 
     const handleTouchEnd = async () => {
-      if (!isPulling) {
+      if (!isPullingRef.current) {
         setPullDistance(0);
-        isPulling = false;
+        isPullingRef.current = false;
         return;
       }
 
@@ -148,7 +150,7 @@ export function usePullToRefresh(onRefresh, options = {}) {
         setPullDistance(0);
       }
       
-      isPulling = false;
+      isPullingRef.current = false;
     };
 
     // Attach to document for better capture
