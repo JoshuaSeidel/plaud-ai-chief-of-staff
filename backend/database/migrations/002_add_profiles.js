@@ -333,21 +333,47 @@ async function migratePostgreSQL(pool) {
       }
     }
 
-    // 6. Create indexes for performance
-    await client.query('CREATE INDEX IF NOT EXISTS idx_profile_integrations_profile ON profile_integrations(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_profile_integrations_type ON profile_integrations(integration_type)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_profile_calendar_events_profile ON profile_calendar_events(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_profile_calendar_events_external ON profile_calendar_events(integration_type, external_event_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_profile_task_integrations_profile ON profile_task_integrations(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_profile_task_integrations_external ON profile_task_integrations(integration_type, external_task_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_transcripts_profile ON transcripts(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_commitments_profile ON commitments(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_context_profile ON context(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_briefs_profile ON briefs(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_task_intelligence_profile ON task_intelligence(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_projects_profile ON projects(profile_id)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_goals_profile ON goals(profile_id)');
-    logger.info('✓ Created 13 indexes for profiles');
+    // 6. Create indexes for performance (only on tables that exist)
+    const indexesToCreate = [
+      { name: 'idx_profile_integrations_profile', table: 'profile_integrations', column: 'profile_id' },
+      { name: 'idx_profile_integrations_type', table: 'profile_integrations', column: 'integration_type' },
+      { name: 'idx_profile_calendar_events_profile', table: 'profile_calendar_events', column: 'profile_id' },
+      { name: 'idx_profile_calendar_events_external', table: 'profile_calendar_events', columns: 'integration_type, external_event_id' },
+      { name: 'idx_profile_task_integrations_profile', table: 'profile_task_integrations', column: 'profile_id' },
+      { name: 'idx_profile_task_integrations_external', table: 'profile_task_integrations', columns: 'integration_type, external_task_id' },
+      { name: 'idx_transcripts_profile', table: 'transcripts', column: 'profile_id' },
+      { name: 'idx_commitments_profile', table: 'commitments', column: 'profile_id' },
+      { name: 'idx_context_profile', table: 'context', column: 'profile_id' },
+      { name: 'idx_briefs_profile', table: 'briefs', column: 'profile_id' },
+      { name: 'idx_task_intelligence_profile', table: 'task_intelligence', column: 'profile_id' },
+      { name: 'idx_projects_profile', table: 'projects', column: 'profile_id' },
+      { name: 'idx_goals_profile', table: 'goals', column: 'profile_id' }
+    ];
+
+    let indexCount = 0;
+    for (const index of indexesToCreate) {
+      try {
+        // Check if table exists before creating index
+        const tableExists = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = $1
+          )
+        `, [index.table]);
+        
+        if (tableExists.rows[0].exists) {
+          const columns = index.columns || index.column;
+          await client.query(`CREATE INDEX IF NOT EXISTS ${index.name} ON ${index.table}(${columns})`);
+          indexCount++;
+        }
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          logger.warn(`Could not create index ${index.name}:`, err.message);
+        }
+      }
+    }
+    logger.info(`✓ Created ${indexCount} indexes for profiles`);
 
     await client.query('COMMIT');
     
