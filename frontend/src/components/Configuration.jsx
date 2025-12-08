@@ -258,8 +258,16 @@ function Configuration() {
     const success = hashParams.get('success');
     const errorDetails = hashParams.get('error_details');
     
-    if (success === 'microsoft_planner_connected' || success === 'microsoft_calendar_connected' || success === 'microsoft_integration_connected') {
+    if (success === 'google_calendar_connected') {
+      setMessage({ type: 'success', text: '✅ Google Calendar connected successfully!' });
+      setEnabledIntegrations(prev => ({ ...prev, googleCalendar: true })); // Ensure toggle is set
+      checkGoogleCalendarStatus(); // Refresh connection status
+      // Clean up URL
+      const cleanHash = hash.split('?')[0];
+      window.history.replaceState({}, '', window.location.pathname + cleanHash);
+    } else if (success === 'microsoft_planner_connected' || success === 'microsoft_calendar_connected' || success === 'microsoft_integration_connected') {
       setMessage({ type: 'success', text: '✅ Microsoft Integration connected successfully! (Calendar + Planner)' });
+      setEnabledIntegrations(prev => ({ ...prev, microsoft: true })); // Ensure toggle is set
       checkMicrosoftPlannerStatus(); // Refresh connection status
       // Clean up URL
       const cleanHash = hash.split('?')[0];
@@ -815,6 +823,11 @@ function Configuration() {
 
   const handleGoogleConnect = async () => {
     try {
+      // Save the integration toggle before redirecting
+      if (enabledIntegrations.googleCalendar) {
+        await configAPI.update('googleCalendarEnabled', 'true');
+      }
+      
       const response = await fetch('/api/calendar/google/auth');
       const data = await response.json();
       if (data.authUrl) {
@@ -841,6 +854,11 @@ function Configuration() {
 
   const handleMicrosoftConnect = async () => {
     try {
+      // Save the integration toggle before redirecting
+      if (enabledIntegrations.microsoft) {
+        await configAPI.update('microsoftEnabled', 'true');
+      }
+      
       // Use planner route for auth (it uses microsoft-calendar service which includes both scopes)
       const response = await fetch('/api/planner/microsoft/auth');
       const data = await response.json();
