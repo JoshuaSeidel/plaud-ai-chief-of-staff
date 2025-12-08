@@ -158,13 +158,13 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
     
-    params.push(id);
-    const query = `UPDATE commitments SET ${updates.join(', ')} WHERE id = ?`;
+    params.push(id, req.profileId);
+    const query = `UPDATE commitments SET ${updates.join(', ')} WHERE id = ? AND profile_id = ?`;
     
     const result = await db.run(query, params);
     
     if (result.changes === 0) {
-      logger.warn(`Commitment not found: ${id}`);
+      logger.warn(`Commitment not found: ${id} for profile ${req.profileId}`);
       return res.status(404).json({ error: 'Commitment not found' });
     }
     
@@ -291,9 +291,14 @@ router.delete('/:id', async (req, res) => {
       }
     }
     
-    // Delete from database
-    const result = await db.run('DELETE FROM commitments WHERE id = ?', [id]);
+    // Delete from database (with profile_id check for security)
+    const result = await db.run('DELETE FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
     deletionResults.database = result.changes > 0;
+    
+    if (result.changes === 0) {
+      logger.warn(`Commitment ${id} not found for profile ${req.profileId}`);
+      return res.status(404).json({ error: 'Commitment not found' });
+    }
     
     logger.info(`Commitment ${id} deleted successfully. Results:`, deletionResults);
     res.json({ 

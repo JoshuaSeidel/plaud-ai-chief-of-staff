@@ -72,7 +72,12 @@ router.post('/generate', async (req, res) => {
         const baseURL = process.env.API_BASE_URL || 'http://localhost:3001';
         const patternResponse = await axios.post(`${baseURL}/api/intelligence/analyze-patterns`, {
           time_range: '7d'
-        }, { timeout: 10000 });
+        }, { 
+          timeout: 10000,
+          headers: {
+            'X-Profile-Id': req.profileId.toString()
+          }
+        });
         
         if (patternResponse.data && patternResponse.data.success) {
           patternInsights = patternResponse.data;
