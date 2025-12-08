@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { commitmentsAPI, intelligenceAPI } from '../services/api';
+import { commitmentsAPI, intelligenceAPI, plannerAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import CompletionModal from './CompletionModal';
 
@@ -49,21 +49,21 @@ function Commitments() {
 
   const checkMicrosoftPlannerStatus = async () => {
     try {
-      const response = await fetch('/api/planner/microsoft/status');
-      const data = await response.json();
-      setMicrosoftConnected(data.connected);
+      const response = await plannerAPI.getMicrosoftStatus();
+      setMicrosoftConnected(response.data.connected);
     } catch (err) {
       console.error('Failed to check Microsoft Planner status:', err);
+      setMicrosoftConnected(false);
     }
   };
 
   const checkJiraStatus = async () => {
     try {
-      const response = await fetch('/api/planner/jira/status');
-      const data = await response.json();
-      setJiraConnected(data.connected);
+      const response = await plannerAPI.getJiraStatus();
+      setJiraConnected(response.data.connected);
     } catch (err) {
       console.error('Failed to check Jira status:', err);
+      setJiraConnected(false);
     }
   };
 
@@ -79,8 +79,8 @@ function Commitments() {
     
     setSyncingMicrosoft(true);
     try {
-      const response = await fetch('/api/planner/microsoft/sync', { method: 'POST' });
-      const data = await response.json();
+      const response = await plannerAPI.syncMicrosoft();
+      const data = response.data;
       
       if (data.success) {
         alert(`✅ Synced ${data.synced} tasks to Microsoft Planner${data.failed > 0 ? `\n⚠️ ${data.failed} failed` : ''}`);
@@ -107,8 +107,8 @@ function Commitments() {
     
     setSyncingJira(true);
     try {
-      const response = await fetch('/api/planner/jira/sync', { method: 'POST' });
-      const data = await response.json();
+      const response = await plannerAPI.syncJira();
+      const data = response.data;
       
       if (data.success) {
         alert(`✅ Synced ${data.synced} tasks to Jira${data.failed > 0 ? `\n⚠️ ${data.failed} failed` : ''}`);
@@ -139,8 +139,8 @@ function Commitments() {
     
     setSyncingJira(true);
     try {
-      const response = await fetch('/api/planner/jira/sync-failed', { method: 'POST' });
-      const data = await response.json();
+      const response = await plannerAPI.syncJiraFailed();
+      const data = response.data;
       
       if (data.success) {
         alert(`✅ Synced ${data.synced} tasks to Jira${data.failed > 0 ? `\n⚠️ ${data.failed} failed` : ''}`);

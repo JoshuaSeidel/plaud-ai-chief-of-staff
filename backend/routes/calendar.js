@@ -156,7 +156,11 @@ router.get('/google/debug-redirect', async (req, res) => {
 router.get('/google/auth', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
-    const authUrl = await googleCalendar.getAuthUrl(profileId);
+    
+    // Get request origin for redirect URI
+    const origin = req.get('origin') || req.get('referer')?.split('/').slice(0, 3).join('/') || null;
+    
+    const authUrl = await googleCalendar.getAuthUrl(profileId, origin);
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating auth URL', error);
