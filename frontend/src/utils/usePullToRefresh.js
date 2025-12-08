@@ -18,6 +18,8 @@ export function usePullToRefresh(onRefresh, options = {}) {
   const pullDistanceRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const elementRef = useRef(null);
+  const touchStartYRef = useRef(0);
+  const isPullingRef = useRef(false);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -37,62 +39,82 @@ export function usePullToRefresh(onRefresh, options = {}) {
   useEffect(() => {
     if (disabled || !onRefresh) return;
 
-    let touchStartY = 0;
-    let isPulling = false;
-
     const handleTouchStart = (e) => {
-      if (isRefreshingRef.current) return;
+      if (isRefreshingRef.current) {
+        isPullingRef.current = false;
+        return;
+      }
       
-      touchStartY = e.touches[0].clientY;
+      // Don't interfere with interactive elements (buttons, links, inputs, etc.)
+      const target = e.target;
+      const isInteractive = target.closest('button, a, input, select, textarea, [role="button"], [onclick]');
+      if (isInteractive) {
+        isPullingRef.current = false;
+        return;
+      }
+      
+      touchStartYRef.current = e.touches[0].clientY;
       const atTop = checkScrollTop();
       
       // Only start if we're at the top
       if (atTop) {
-        isPulling = true;
-        // In PWA mode, prevent default immediately to block browser pull-to-refresh
-        if (window.matchMedia('(display-mode: standalone)').matches || 
-            window.navigator.standalone === true ||
-            document.referrer.includes('android-app://')) {
-          // This is a PWA - be more aggressive
-          console.log('[PullToRefresh] PWA mode detected, touch start at top');
-        } else {
-          console.log('[PullToRefresh] Touch start at top, enabled');
-        }
+        isPullingRef.current = true;
+        console.log('[PullToRefresh] Touch start at top, enabled');
+      } else {
+        isPullingRef.current = false;
       }
     };
 
     const handleTouchMove = (e) => {
-      if (!isPulling || isRefreshingRef.current) return;
+      if (!isPullingRef.current || isRefreshingRef.current) return;
+      
+      // Don't interfere with interactive elements
+      const target = e.target;
+      const isInteractive = target.closest('button, a, input, select, textarea, [role="button"], [onclick]');
+      if (isInteractive) {
+        setPullDistance(0);
+        pullDistanceRef.current = 0;
+        isPullingRef.current = false;
+        return;
+      }
       
       const touchY = e.touches[0].clientY;
-      const deltaY = touchY - touchStartY;
+      const deltaY = touchY - touchStartYRef.current;
       const atTop = checkScrollTop();
+      
+      // Check if we're in PWA mode
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                    window.navigator.standalone === true ||
+                    document.referrer.includes('android-app://');
 
       // Only allow pull-to-refresh if at the top and pulling down
       if (deltaY > 0 && atTop) {
-        // In PWA mode, we need to be more aggressive with preventDefault
+        // Only prevent default when actually pulling down (not scrolling up)
+        // This allows normal scrolling while blocking native pull-to-refresh
         e.preventDefault();
         e.stopPropagation();
-        e.stopImmediatePropagation();
         
         // Prevent default browser pull-to-refresh
-        if (window.scrollY === 0) {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+        if (scrollTop === 0) {
           const distance = Math.min(deltaY / resistance, threshold * 1.5);
           setPullDistance(distance);
+          pullDistanceRef.current = distance;
           if (distance > 10 && distance % 20 < 5) {
-            console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px');
+            console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px', isPWA ? '(PWA)' : '');
           }
         }
       } else if (deltaY <= 0 || !atTop) {
         setPullDistance(0);
-        isPulling = false;
+        pullDistanceRef.current = 0;
+        isPullingRef.current = false;
       }
     };
 
     const handleTouchEnd = async () => {
-      if (!isPulling) {
+      if (!isPullingRef.current) {
         setPullDistance(0);
-        isPulling = false;
+        isPullingRef.current = false;
         return;
       }
 
@@ -128,19 +150,22 @@ export function usePullToRefresh(onRefresh, options = {}) {
         setPullDistance(0);
       }
       
-      isPulling = false;
+      isPullingRef.current = false;
     };
 
     // Attach to document for better capture
     // Use capture phase to intercept before other handlers
-    document.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    // touchstart: passive: true (don't block clicks/menu interactions)
+    // touchmove: passive: false (need preventDefault for pull-to-refresh)
+    document.addEventListener('touchstart', handleTouchStart, { passive: true, capture: true });
     document.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
     document.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
 
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart, { capture: true });
-      document.removeEventListener('touchmove', handleTouchMove, { capture: true });
-      document.removeEventListener('touchend', handleTouchEnd, { capture: true });
+      const options = { capture: true };
+      document.removeEventListener('touchstart', handleTouchStart, options);
+      document.removeEventListener('touchmove', handleTouchMove, options);
+      document.removeEventListener('touchend', handleTouchEnd, options);
     };
   }, [threshold, resistance, onRefresh, disabled, checkScrollTop]);
 

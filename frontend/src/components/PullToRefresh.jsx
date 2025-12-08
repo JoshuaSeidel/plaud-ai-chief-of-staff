@@ -48,10 +48,14 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
         ...style, 
         position: 'relative',
         minHeight: '100%',
+        width: '100%',
         // Prevent browser pull-to-refresh in PWA
         overscrollBehavior: 'none',
         overscrollBehaviorY: 'none',
-        touchAction: 'pan-y'
+        // Allow vertical panning but prevent default pull-to-refresh
+        touchAction: 'pan-y',
+        // Ensure we can capture touch events
+        WebkitOverflowScrolling: 'touch'
       }}
     >
       <style>{`
