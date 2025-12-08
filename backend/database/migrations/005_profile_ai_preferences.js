@@ -115,7 +115,8 @@ async function migrateAISettingsToProfiles(dbOrClient, dbType) {
     'openaiModel',
     'ollamaModel',
     'ollamaBaseUrl',
-    'aiMaxTokens'
+    'aiMaxTokens',
+    'aiTemperature'
   ];
   
   // Get current AI settings from config table
@@ -151,6 +152,7 @@ async function migrateAISettingsToProfiles(dbOrClient, dbType) {
     currentSettings.ollamaModel = 'llama3.1';
     currentSettings.ollamaBaseUrl = 'http://localhost:11434';
     currentSettings.aiMaxTokens = '4096';
+    currentSettings.aiTemperature = '0.7';
   }
   
   // Get all profiles

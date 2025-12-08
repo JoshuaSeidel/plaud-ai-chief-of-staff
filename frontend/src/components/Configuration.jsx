@@ -110,6 +110,7 @@ function Configuration() {
     ollamaBaseUrl: 'http://localhost:11434',
     ollamaModel: 'llama3.1',
     aiMaxTokens: '4096',
+    aiTemperature: '0.7',
     plaudApiKey: '',
     plaudApiUrl: 'https://api.plaud.ai',
     googleClientId: '',
@@ -408,6 +409,7 @@ function Configuration() {
         ollamaBaseUrl: appData.ollamaBaseUrl || 'http://localhost:11434',
         ollamaModel: appData.ollamaModel || 'llama3.1',
         aiMaxTokens: appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
+        aiTemperature: appData.aiTemperature !== undefined ? appData.aiTemperature : '0.7',
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
         googleClientId: appData.googleClientId || '',
@@ -875,6 +877,7 @@ function Configuration() {
       appUpdates.ollamaBaseUrl = config.ollamaBaseUrl;
       appUpdates.ollamaModel = config.ollamaModel;
       appUpdates.aiMaxTokens = config.aiMaxTokens;
+      appUpdates.aiTemperature = config.aiTemperature !== undefined ? config.aiTemperature : '0.7';
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       
       // Save API keys only if they've been changed (not masked anymore)
@@ -1113,22 +1116,45 @@ function Configuration() {
               </div>
             </div>
             
-            <div>
-              <label className="form-label">
-                Max Tokens (Advanced)
-              </label>
-              <input
-                type="number"
-                value={config.aiMaxTokens || '4096'}
-                onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
-                placeholder="4096"
-                min="1000"
-                max="8192"
-                className="form-input"
-              />
-              <p className="form-hint">
-                Maximum tokens for AI responses (1000-8192). Higher values allow longer responses but cost more.
-              </p>
+            <div className="grid-2col">
+              <div>
+                <label className="form-label">
+                  Max Tokens (Advanced)
+                </label>
+                <input
+                  type="number"
+                  value={config.aiMaxTokens || '4096'}
+                  onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
+                  placeholder="4096"
+                  min="1000"
+                  max="8192"
+                  className="form-input"
+                  style={{ width: '100%' }}
+                />
+                <p className="form-hint">
+                  Maximum tokens for AI responses (1000-8192). Higher values allow longer responses but cost more.
+                </p>
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  Temperature
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={config.aiTemperature !== undefined ? config.aiTemperature : '0.7'}
+                  onChange={(e) => handleChange('aiTemperature', parseFloat(e.target.value) || 0.7)}
+                  placeholder="0.7"
+                  min="0"
+                  max="2"
+                  className="form-input"
+                  style={{ width: '100%' }}
+                />
+                <p className="form-hint">
+                  Controls randomness (0-2). Lower = more focused, Higher = more creative. Default: 0.7
+                </p>
+              </div>
             </div>
           </div>
         </div>

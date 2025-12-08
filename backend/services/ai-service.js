@@ -192,6 +192,37 @@ async function getMaxTokens(profileId = 2) {
 }
 
 /**
+ * Get configured temperature from profile preferences or default
+ * @param {number} profileId - Profile ID to get preferences from
+ */
+async function getTemperature(profileId = 2) {
+  const db = getDb();
+  
+  // Try to get from profile preferences first
+  if (profileId) {
+    const profileRow = await db.get('SELECT preferences FROM profiles WHERE id = ?', [profileId]);
+    if (profileRow && profileRow.preferences) {
+      try {
+        const prefs = JSON.parse(profileRow.preferences);
+        if (prefs.aiTemperature !== undefined) {
+          const temperature = parseFloat(prefs.aiTemperature);
+          if (!isNaN(temperature)) {
+            return Math.min(Math.max(temperature, 0), 2);
+          }
+        }
+      } catch (e) {
+        // Invalid JSON, fall through to global config
+      }
+    }
+  }
+  
+  // Fallback to global config
+  const row = await db.get('SELECT value FROM config WHERE key = ?', ['aiTemperature']);
+  const temperature = row?.value ? parseFloat(row.value) : 0.7;
+  return isNaN(temperature) ? 0.7 : Math.min(Math.max(temperature, 0), 2);
+}
+
+/**
  * Call Anthropic API
  */
 async function callAnthropic(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
@@ -229,6 +260,7 @@ async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profi
   const client = await getOpenAIClient();
   const model = await getModel(PROVIDERS.OPENAI, profileId);
   const tokens = maxTokens || await getMaxTokens(profileId);
+  const temperature = await getTemperature(profileId);
   
   const messageArray = [];
   
@@ -241,12 +273,12 @@ async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profi
     content: msg.content
   })));
   
-  logger.info(`Calling OpenAI API with model: ${model}, max_tokens: ${tokens}`);
+  logger.info(`Calling OpenAI API with model: ${model}, max_tokens: ${tokens}, temperature: ${temperature}`);
   const response = await client.chat.completions.create({
     model,
     messages: messageArray,
     max_tokens: tokens,
-    temperature: 0.7
+    temperature
   });
   
   return {
@@ -267,6 +299,7 @@ async function callOllama(messages, systemPrompt = null, maxTokens = null, profi
   const baseUrl = await getOllamaBaseUrl();
   const model = await getModel(PROVIDERS.OLLAMA, profileId);
   const tokens = maxTokens || await getMaxTokens(profileId);
+  const temperature = await getTemperature(profileId);
   
   // Combine system prompt with messages
   const messageArray = [];
@@ -280,7 +313,7 @@ async function callOllama(messages, systemPrompt = null, maxTokens = null, profi
     content: msg.content
   })));
   
-  logger.info(`Calling Ollama API at ${baseUrl} with model: ${model}, max_tokens: ${tokens}`);
+  logger.info(`Calling Ollama API at ${baseUrl} with model: ${model}, max_tokens: ${tokens}, temperature: ${temperature}`);
   
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
@@ -292,7 +325,7 @@ async function callOllama(messages, systemPrompt = null, maxTokens = null, profi
       messages: messageArray,
       options: {
         num_predict: tokens,
-        temperature: 0.7
+        temperature
       },
       stream: false
     })
