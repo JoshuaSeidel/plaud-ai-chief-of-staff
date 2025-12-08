@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { configAPI, intelligenceAPI, microservicesAPI, calendarAPI } from '../services/api';
+import { configAPI, intelligenceAPI, microservicesAPI, calendarAPI, profilesAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import ProfileManagement from './ProfileManagement';
 import { useProfile } from '../contexts/ProfileContext';
@@ -203,9 +203,10 @@ function Configuration() {
     ollama: false
   });
 
-  // Re-check calendar status when profile changes
+  // Re-load config and re-check calendar status when profile changes
   useEffect(() => {
     if (currentProfile?.id) {
+      loadConfig(); // Reload profile-specific settings
       checkGoogleCalendarStatus();
       checkMicrosoftPlannerStatus();
     }
@@ -370,11 +371,27 @@ function Configuration() {
 
   const loadConfig = async () => {
     try {
-      // Load app config from database
+      // Load app config from database (global settings)
       console.log('Loading app config from database...');
       const appResponse = await configAPI.getAll();
       const appData = appResponse.data;
       console.log('App config loaded:', Object.keys(appData));
+      
+      // Load current profile preferences (profile-specific settings)
+      let profilePreferences = {};
+      if (currentProfile?.id) {
+        try {
+          const profileResponse = await profilesAPI.getById(currentProfile.id);
+          if (profileResponse.data?.profile?.preferences) {
+            profilePreferences = typeof profileResponse.data.profile.preferences === 'string' 
+              ? JSON.parse(profileResponse.data.profile.preferences) 
+              : profileResponse.data.profile.preferences;
+            console.log('Profile preferences loaded:', Object.keys(profilePreferences));
+          }
+        } catch (err) {
+          console.warn('Failed to load profile preferences:', err);
+        }
+      }
       
       // Load system config from file
       console.log('Loading system config...');
@@ -408,16 +425,28 @@ function Configuration() {
         setEnabledIntegrations(prev => ({ ...prev, jira: true }));
       }
       
+      // Load profile-specific AI settings from preferences, fallback to global config
       setConfig({
-        aiProvider: appData.aiProvider || 'anthropic',
+        // Profile-specific AI settings (from profile preferences, fallback to global config)
+        aiProvider: profilePreferences.aiProvider || appData.aiProvider || 'anthropic',
+        claudeModel: profilePreferences.claudeModel || appData.claudeModel || 'claude-sonnet-4-5-20250929',
+        openaiModel: profilePreferences.openaiModel || appData.openaiModel || 'gpt-4o',
+        ollamaBaseUrl: profilePreferences.ollamaBaseUrl || appData.ollamaBaseUrl || 'http://localhost:11434',
+        ollamaModel: profilePreferences.ollamaModel || appData.ollamaModel || 'llama3.1',
+        aiMaxTokens: profilePreferences.aiMaxTokens || appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
+        aiTemperature: profilePreferences.aiTemperature !== undefined ? profilePreferences.aiTemperature : (appData.aiTemperature !== undefined ? appData.aiTemperature : '0.7'),
+        // Microservice AI configs (from profile preferences, fallback to global config)
+        aiIntelligenceProvider: profilePreferences.aiIntelligenceProvider || appData.aiIntelligenceProvider || '',
+        aiIntelligenceModel: profilePreferences.aiIntelligenceModel || appData.aiIntelligenceModel || '',
+        voiceProcessorProvider: profilePreferences.voiceProcessorProvider || appData.voiceProcessorProvider || '',
+        voiceProcessorModel: profilePreferences.voiceProcessorModel || appData.voiceProcessorModel || '',
+        patternRecognitionProvider: profilePreferences.patternRecognitionProvider || appData.patternRecognitionProvider || '',
+        patternRecognitionModel: profilePreferences.patternRecognitionModel || appData.patternRecognitionModel || '',
+        nlParserProvider: profilePreferences.nlParserProvider || appData.nlParserProvider || '',
+        nlParserModel: profilePreferences.nlParserModel || appData.nlParserModel || '',
+        // Global settings (from app config)
         anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
-        claudeModel: appData.claudeModel || 'claude-sonnet-4-5-20250929',
         openaiApiKey: appData.openaiApiKey ? '••••••••' : '',
-        openaiModel: appData.openaiModel || 'gpt-4o',
-        ollamaBaseUrl: appData.ollamaBaseUrl || 'http://localhost:11434',
-        ollamaModel: appData.ollamaModel || 'llama3.1',
-        aiMaxTokens: appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
-        aiTemperature: appData.aiTemperature !== undefined ? appData.aiTemperature : '0.7',
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
         googleClientId: appData.googleClientId || '',
@@ -876,14 +905,27 @@ function Configuration() {
         appUpdates.plaudApiKey = '';
       }
       
-      // Always save these fields (they're not masked)
-      appUpdates.aiProvider = config.aiProvider;
-      appUpdates.claudeModel = config.claudeModel;
-      appUpdates.openaiModel = config.openaiModel;
-      appUpdates.ollamaBaseUrl = config.ollamaBaseUrl;
-      appUpdates.ollamaModel = config.ollamaModel;
-      appUpdates.aiMaxTokens = config.aiMaxTokens;
-      appUpdates.aiTemperature = config.aiTemperature !== undefined ? config.aiTemperature : '0.7';
+      // Profile-specific settings (will be saved to profile preferences)
+      const profileUpdates = {
+        aiProvider: config.aiProvider,
+        claudeModel: config.claudeModel,
+        openaiModel: config.openaiModel,
+        ollamaBaseUrl: config.ollamaBaseUrl,
+        ollamaModel: config.ollamaModel,
+        aiMaxTokens: config.aiMaxTokens,
+        aiTemperature: config.aiTemperature !== undefined ? config.aiTemperature : '0.7',
+        // Microservice AI configurations
+        aiIntelligenceProvider: config.aiIntelligenceProvider || '',
+        aiIntelligenceModel: config.aiIntelligenceModel || '',
+        voiceProcessorProvider: config.voiceProcessorProvider || '',
+        voiceProcessorModel: config.voiceProcessorModel || '',
+        patternRecognitionProvider: config.patternRecognitionProvider || '',
+        patternRecognitionModel: config.patternRecognitionModel || '',
+        nlParserProvider: config.nlParserProvider || '',
+        nlParserModel: config.nlParserModel || '',
+      };
+      
+      // Global settings (API keys, OAuth credentials, etc.)
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       
       // Save API keys only if they've been changed (not masked anymore)
@@ -943,17 +985,7 @@ function Configuration() {
       appUpdates.microsoftEnabled = enabledIntegrations.microsoft;
       appUpdates.jiraEnabled = enabledIntegrations.jira;
       
-      // AI Model Configuration (per-service)
-      if (config.aiIntelligenceProvider) appUpdates.aiIntelligenceProvider = config.aiIntelligenceProvider;
-      if (config.aiIntelligenceModel) appUpdates.aiIntelligenceModel = config.aiIntelligenceModel;
-      if (config.voiceProcessorProvider) appUpdates.voiceProcessorProvider = config.voiceProcessorProvider;
-      if (config.voiceProcessorModel) appUpdates.voiceProcessorModel = config.voiceProcessorModel;
-      if (config.patternRecognitionProvider) appUpdates.patternRecognitionProvider = config.patternRecognitionProvider;
-      if (config.patternRecognitionModel) appUpdates.patternRecognitionModel = config.patternRecognitionModel;
-      if (config.nlParserProvider) appUpdates.nlParserProvider = config.nlParserProvider;
-      if (config.nlParserModel) appUpdates.nlParserModel = config.nlParserModel;
-      
-      // AI API Keys
+      // AI API Keys (global settings)
       if (config.anthropicApiKey && !config.anthropicApiKey.includes('•')) {
         appUpdates.anthropicApiKey = config.anthropicApiKey;
       }
@@ -1010,10 +1042,39 @@ function Configuration() {
         }
       }
 
-      // Save app config
-      console.log('Saving app config:', Object.keys(appUpdates));
+      // Save global app config
+      console.log('Saving global app config:', Object.keys(appUpdates));
       await configAPI.bulkUpdate(appUpdates);
-      console.log('App config saved successfully');
+      console.log('Global app config saved successfully');
+      
+      // Save profile-specific settings to profile preferences
+      if (currentProfile?.id) {
+        try {
+          console.log('Saving profile-specific settings to profile:', currentProfile.id);
+          // Get current profile to merge preferences
+          const currentProfileResponse = await profilesAPI.getById(currentProfile.id);
+          let currentPreferences = {};
+          if (currentProfileResponse.data?.profile?.preferences) {
+            currentPreferences = typeof currentProfileResponse.data.profile.preferences === 'string'
+              ? JSON.parse(currentProfileResponse.data.profile.preferences)
+              : currentProfileResponse.data.profile.preferences;
+          }
+          
+          // Merge profile updates with existing preferences
+          const updatedPreferences = { ...currentPreferences, ...profileUpdates };
+          
+          // Update profile with new preferences
+          await profilesAPI.update(currentProfile.id, { preferences: updatedPreferences });
+          console.log('Profile preferences saved successfully');
+        } catch (err) {
+          console.error('Failed to save profile preferences:', err);
+          setMessage({ 
+            type: 'error', 
+            text: 'Global settings saved, but failed to save profile-specific settings: ' + err.message 
+          });
+          return;
+        }
+      }
       
       // Save system config
       const sysResponse = await fetch('/api/config/system', {
