@@ -76,15 +76,17 @@ export function usePullToRefresh(onRefresh, options = {}) {
         e.stopImmediatePropagation();
         
         // Prevent default browser pull-to-refresh
-        if (window.scrollY === 0) {
+        if (window.scrollY === 0 || document.documentElement.scrollTop === 0) {
           const distance = Math.min(deltaY / resistance, threshold * 1.5);
           setPullDistance(distance);
+          pullDistanceRef.current = distance;
           if (distance > 10 && distance % 20 < 5) {
             console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px');
           }
         }
       } else if (deltaY <= 0 || !atTop) {
         setPullDistance(0);
+        pullDistanceRef.current = 0;
         isPulling = false;
       }
     };
@@ -133,6 +135,7 @@ export function usePullToRefresh(onRefresh, options = {}) {
 
     // Attach to document for better capture
     // Use capture phase to intercept before other handlers
+    // In PWA, we need to be more aggressive with event handling
     document.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
     document.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
     document.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });

@@ -1129,7 +1129,6 @@ function Configuration() {
                   min="1000"
                   max="8192"
                   className="form-input"
-                  style={{ width: '100%' }}
                 />
                 <p className="form-hint">
                   Maximum tokens for AI responses (1000-8192). Higher values allow longer responses but cost more.
@@ -1149,7 +1148,6 @@ function Configuration() {
                   min="0"
                   max="2"
                   className="form-input"
-                  style={{ width: '100%' }}
                 />
                 <p className="form-hint">
                   Controls randomness (0-2). Lower = more focused, Higher = more creative. Default: 0.7
@@ -1930,7 +1928,7 @@ function Configuration() {
                   value={config.jiraBaseUrl}
                   onChange={(e) => handleChange('jiraBaseUrl', e.target.value)}
                   placeholder="https://yourcompany.atlassian.net or https://jira.yourcompany.com"
-                  className="mb-md"
+                  className="form-input mb-md"
                 />
                 <p className="text-sm-muted-mt-negative-mb-md">
                   For Jira Cloud: https://yourcompany.atlassian.net<br />
@@ -1945,16 +1943,7 @@ function Configuration() {
                   value={config.jiraEmail}
                   onChange={(e) => handleChange('jiraEmail', e.target.value)}
                   placeholder="your.email@example.com"
-                  style={{ 
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #3f3f46',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    fontFamily: 'inherit',
-                    marginBottom: '1rem',
-                    color: '#e5e5e7'
-                  }}
+                  className="form-input"
                 />
                 
                 <label className="form-label-muted">
@@ -1965,7 +1954,7 @@ function Configuration() {
                   value={config.jiraApiToken}
                   onChange={(e) => handleChange('jiraApiToken', e.target.value)}
                   placeholder="Your Jira API token"
-                  className="mb-md"
+                  className="form-input mb-md"
                 />
                 {config.jiraApiToken.includes('•') && (
                   <p className="text-success-mt-negative-mb-md">
@@ -1984,7 +1973,7 @@ function Configuration() {
                   value={config.jiraProjectKey}
                   onChange={(e) => handleChange('jiraProjectKey', e.target.value.toUpperCase())}
                   placeholder="PROJ"
-                  className="mb-md"
+                  className="form-input mb-md"
                 />
                 <p className="text-sm-muted-mt-negative-mb-md">
                   The project key where issues will be created (e.g., PROJ, DEV, TASK)

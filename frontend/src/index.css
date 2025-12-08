@@ -268,6 +268,8 @@ button.secondary:hover {
 input[type="text"],
 input[type="url"],
 input[type="password"],
+input[type="email"],
+input[type="number"],
 textarea,
 select {
   width: 100%;
@@ -1595,6 +1597,20 @@ table {
   font-size: 16px;
   padding: 0.5rem;
   box-sizing: border-box;
+  background-color: #18181b;
+  color: #e4e4e7;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background-color: #27272a;
+}
+
+.form-input::placeholder {
+  color: #71717a;
 }
 
 .form-input[type="date"] {
@@ -1608,6 +1624,20 @@ table {
   font-size: 16px;
   padding: 0.5rem;
   box-sizing: border-box;
+  background-color: #18181b;
+  color: #e4e4e7;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+}
+
+.form-input-mono:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background-color: #27272a;
+}
+
+.form-input-mono::placeholder {
+  color: #71717a;
 }
 
 .form-textarea {
