@@ -226,9 +226,15 @@ router.get('/google/callback', async (req, res) => {
 router.get('/google/status', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
+    logger.info(`Checking Google Calendar status for profile ${profileId}`, {
+      profileId,
+      headerProfileId: req.headers['x-profile-id']
+    });
     const connected = await googleCalendar.isConnected(profileId);
+    logger.info(`Google Calendar connected: ${connected} for profile ${profileId}`);
     res.json({ connected, profileId });
   } catch (error) {
+    logger.error('Error checking Google status', { error: error.message, profileId: req.profileId });
     res.json({ connected: false, error: error.message });
   }
 });
