@@ -33,8 +33,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install Python3 and build tools needed for native modules (sqlite3)
-# Note: Skipping 'apk upgrade' due to QEMU emulation issues on ARM64 cross-compilation
-RUN apk add --no-cache \
+# Note: --no-scripts avoids post-install scripts that fail under QEMU ARM64 emulation
+RUN apk add --no-cache --no-scripts \
     python3 \
     py3-setuptools \
     make \

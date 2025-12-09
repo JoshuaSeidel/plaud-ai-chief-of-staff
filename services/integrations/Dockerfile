@@ -1,8 +1,8 @@
 FROM node:20-alpine
 
 # Install OpenSSL for certificate generation
-# Note: Skipping 'apk upgrade' due to QEMU emulation issues on ARM64 cross-compilation
-RUN apk add --no-cache openssl bash
+# Note: --no-scripts avoids post-install scripts that fail under QEMU ARM64 emulation
+RUN apk add --no-cache --no-scripts openssl bash
 
 WORKDIR /app
 
