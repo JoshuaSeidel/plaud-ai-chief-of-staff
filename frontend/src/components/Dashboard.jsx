@@ -11,6 +11,7 @@ function Dashboard({ setActiveTab }) {
   const [stats, setStats] = useState(null);
   const [productivityInsights, setProductivityInsights] = useState(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [lastInsightsDate, setLastInsightsDate] = useState(null);
   const [lastCompletedCount, setLastCompletedCount] = useState(null);
 
@@ -435,15 +436,15 @@ function Dashboard({ setActiveTab }) {
                     return (
                       <ReactMarkdown key={index}
                         components={{
-                          h1: ({node, children, ...props}) => <h1 className="md-h1" {...props}>{children || ''}</h1>,
-                          h2: ({node, children, ...props}) => <h2 className="md-h2" {...props}>{children || ''}</h2>,
-                          h3: ({node, children, ...props}) => <h3 className="md-h3" {...props}>{children || ''}</h3>,
-                          strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
-                          em: ({node, ...props}) => <em className="md-em" {...props} />,
-                          ul: ({node, ...props}) => <ul className="md-list" {...props} />,
-                          ol: ({node, ...props}) => <ol className="md-list" {...props} />,
-                          li: ({node, ...props}) => <li className="md-li" {...props} />,
-                          p: ({node, ...props}) => <p className="md-p" {...props} />
+                          h1: ({children, ...props}) => <h1 className="md-h1" {...props}>{children || ''}</h1>,
+                          h2: ({children, ...props}) => <h2 className="md-h2" {...props}>{children || ''}</h2>,
+                          h3: ({children, ...props}) => <h3 className="md-h3" {...props}>{children || ''}</h3>,
+                          strong: (props) => <strong className="md-strong" {...props} />,
+                          em: (props) => <em className="md-em" {...props} />,
+                          ul: (props) => <ul className="md-list" {...props} />,
+                          ol: (props) => <ol className="md-list" {...props} />,
+                          li: (props) => <li className="md-li" {...props} />,
+                          p: (props) => <p className="md-p" {...props} />
                         }}
                       >
                         {section}
@@ -537,16 +538,16 @@ function Dashboard({ setActiveTab }) {
                         {brief.split(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i)[1] && (
                           <ReactMarkdown
                             components={{
-                              h1: ({node, children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
-                              h2: ({node, children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
-                              h3: ({node, children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
-                              strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
-                              em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
-                              ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                              ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                              li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
-                              p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
-                              table: ({node, ...props}) => (
+                              h1: ({children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
+                              h2: ({children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
+                              h3: ({children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
+                              strong: (props) => <strong style={{color: '#fbbf24'}} {...props} />,
+                              em: (props) => <em style={{color: '#a1a1aa'}} {...props} />,
+                              ul: (props) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                              ol: (props) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                              li: (props) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
+                              p: (props) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
+                              table: (props) => (
                                 <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem' }}>
                                   <table style={{
                                     width: '100%',
@@ -557,10 +558,10 @@ function Dashboard({ setActiveTab }) {
                                   }} {...props} />
                                 </div>
                               ),
-                              thead: ({node, ...props}) => <thead style={{ backgroundColor: '#27272a', borderBottom: '2px solid #60a5fa' }} {...props} />,
-                              tbody: ({node, ...props}) => <tbody {...props} />,
-                              tr: ({node, ...props}) => <tr style={{ borderBottom: '1px solid #3f3f46' }} {...props} />,
-                              th: ({node, ...props}) => (
+                              thead: (props) => <thead style={{ backgroundColor: '#27272a', borderBottom: '2px solid #60a5fa' }} {...props} />,
+                              tbody: (props) => <tbody {...props} />,
+                              tr: (props) => <tr style={{ borderBottom: '1px solid #3f3f46' }} {...props} />,
+                              th: (props) => (
                                 <th style={{
                                   padding: '0.875rem 1rem',
                                   textAlign: 'left',
@@ -571,7 +572,7 @@ function Dashboard({ setActiveTab }) {
                                   borderRight: '1px solid #3f3f46'
                                 }} {...props} />
                               ),
-                              td: ({node, ...props}) => (
+                              td: (props) => (
                                 <td style={{
                                   padding: '0.875rem 1rem',
                                   color: '#e5e5e7',
@@ -597,25 +598,25 @@ function Dashboard({ setActiveTab }) {
               // Fallback: Render entire brief with markdown (if table parsing failed)
               <ReactMarkdown
                 components={{
-                  h1: ({node, children, ...props}) => <h1 className="md-h1" {...props}>{children || ''}</h1>,
-                  h2: ({node, children, ...props}) => <h2 className="md-h2" {...props}>{children || ''}</h2>,
-                  h3: ({node, children, ...props}) => <h3 className="md-h3" {...props}>{children || ''}</h3>,
-                  strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
-                  em: ({node, ...props}) => <em className="md-em" {...props} />,
-                  ul: ({node, ...props}) => <ul className="md-list" {...props} />,
-                  ol: ({node, ...props}) => <ol className="md-list" {...props} />,
-                  li: ({node, ...props}) => <li className="md-li" {...props} />,
-                  p: ({node, ...props}) => <p className="md-p" {...props} />,
-                  table: ({node, ...props}) => (
+                  h1: ({children, ...props}) => <h1 className="md-h1" {...props}>{children || ''}</h1>,
+                  h2: ({children, ...props}) => <h2 className="md-h2" {...props}>{children || ''}</h2>,
+                  h3: ({children, ...props}) => <h3 className="md-h3" {...props}>{children || ''}</h3>,
+                  strong: (props) => <strong className="md-strong" {...props} />,
+                  em: (props) => <em className="md-em" {...props} />,
+                  ul: (props) => <ul className="md-list" {...props} />,
+                  ol: (props) => <ol className="md-list" {...props} />,
+                  li: (props) => <li className="md-li" {...props} />,
+                  p: (props) => <p className="md-p" {...props} />,
+                  table: (props) => (
                     <div className="md-table-wrapper">
                       <table className="md-table" {...props} />
                     </div>
                   ),
-                  thead: ({node, ...props}) => <thead className="md-thead" {...props} />,
-                  tbody: ({node, ...props}) => <tbody {...props} />,
-                  tr: ({node, ...props}) => <tr className="md-tr" {...props} />,
-                  th: ({node, ...props}) => <th className="md-th" {...props} />,
-                  td: ({node, ...props}) => <td className="md-td" {...props} />
+                  thead: (props) => <thead className="md-thead" {...props} />,
+                  tbody: (props) => <tbody {...props} />,
+                  tr: (props) => <tr className="md-tr" {...props} />,
+                  th: (props) => <th className="md-th" {...props} />,
+                  td: (props) => <td className="md-td" {...props} />
                 }}
               >
                 {brief}
