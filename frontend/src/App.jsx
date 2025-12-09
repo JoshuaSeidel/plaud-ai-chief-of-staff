@@ -7,6 +7,7 @@ import Tasks from './components/Tasks';
 import Intelligence from './components/Intelligence';
 import ProfileSelector from './components/ProfileSelector';
 import { ProfileProvider } from './contexts/ProfileContext';
+import { ToastProvider } from './contexts/ToastContext';
 
 function App() {
   // Get initial tab from URL hash or default to dashboard
@@ -122,6 +123,7 @@ function App() {
 
   return (
     <ProfileProvider>
+      <ToastProvider>
       <div className="app">
         <header className="header">
           <div className="header-content">
@@ -174,6 +176,7 @@ function App() {
         {activeTab === 'config' && <Configuration />}
       </main>
       </div>
+      </ToastProvider>
     </ProfileProvider>
   );
 }
