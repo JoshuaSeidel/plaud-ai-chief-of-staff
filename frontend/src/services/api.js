@@ -86,6 +86,13 @@ export const integrationsAPI = {
   // Health check
   getHealth: () => api.get('/integrations/health'),
 
+  // Jira
+  getJiraStatus: () => api.get('/integrations/tasks/jira/status'),
+  getJiraConfig: () => api.get('/integrations/tasks/jira/config'),
+  saveJiraConfig: (config) => api.post('/integrations/tasks/jira/config', config),
+  testJira: () => api.post('/integrations/tasks/jira/test'),
+  getJiraProjects: () => api.get('/integrations/tasks/jira/projects'),
+
   // Trello
   getTrelloStatus: () => api.get('/integrations/tasks/trello/status'),
   getTrelloConfig: () => api.get('/integrations/tasks/trello/config'),

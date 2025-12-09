@@ -234,8 +234,9 @@ router.get('/microsoft/lists', async (req, res) => {
  */
 router.get('/jira/status', async (req, res) => {
   try {
-    const connected = await jira.isConnected();
-    res.json({ connected: connected || false });
+    const profileId = req.profileId || 2;
+    const connected = await jira.isConnected(profileId);
+    res.json({ connected: connected || false, profileId });
   } catch (error) {
     // Always return false on error, don't log as error if it's just not configured
     if (error.code === 'NOT_CONFIGURED' || (error.message && error.message.includes('not configured'))) {
@@ -252,11 +253,12 @@ router.get('/jira/status', async (req, res) => {
  */
 router.post('/jira/disconnect', async (req, res) => {
   try {
-    await jira.disconnect();
+    const profileId = req.profileId || 2;
+    await jira.disconnect(profileId);
     res.json({ success: true, message: 'Jira disconnected' });
   } catch (error) {
     logger.error('Error disconnecting Jira', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error disconnecting',
       message: error.message
     });
