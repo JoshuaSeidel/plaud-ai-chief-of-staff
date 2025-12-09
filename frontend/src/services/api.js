@@ -70,6 +70,8 @@ export const calendarAPI = {
 export const plannerAPI = {
   // Jira
   getJiraStatus: () => api.get('/planner/jira/status'),
+  getJiraConfig: () => api.get('/planner/jira/config'),
+  saveJiraConfig: (config) => api.post('/planner/jira/config', config),
   disconnectJira: () => api.post('/planner/jira/disconnect'),
   syncJira: () => api.post('/planner/jira/sync'),
   syncJiraFailed: () => api.post('/planner/jira/sync-failed'),

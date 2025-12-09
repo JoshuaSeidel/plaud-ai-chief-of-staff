@@ -249,6 +249,70 @@ router.get('/jira/status', async (req, res) => {
 });
 
 /**
+ * Jira - Get configuration
+ */
+router.get('/jira/config', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    const configRow = await db.get(
+      'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+      [profileId, 'task', 'jira']
+    );
+
+    if (!configRow || !configRow.token_data) {
+      return res.json({});
+    }
+
+    const config = JSON.parse(configRow.token_data);
+    res.json({
+      base_url: config.baseUrl || '',
+      email: config.email || '',
+      api_token: config.apiToken ? '********' : '', // Don't expose token
+      project_key: config.projectKey || ''
+    });
+  } catch (error) {
+    logger.error('Error getting Jira config', error);
+    res.status(500).json({ error: 'Error getting config', message: error.message });
+  }
+});
+
+/**
+ * Jira - Save configuration
+ */
+router.post('/jira/config', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const { base_url, email, api_token, project_key } = req.body;
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    const config = {
+      baseUrl: base_url,
+      email: email,
+      apiToken: api_token,
+      projectKey: project_key
+    };
+
+    await db.run(
+      `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT (profile_id, integration_type, integration_name)
+       DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
+      [profileId, 'task', 'jira', JSON.stringify(config), true, JSON.stringify(config), true]
+    );
+
+    logger.info(`Jira config saved for profile ${profileId}`);
+    res.json({ success: true, message: 'Jira configuration saved' });
+  } catch (error) {
+    logger.error('Error saving Jira config', error);
+    res.status(500).json({ error: 'Error saving config', message: error.message });
+  }
+});
+
+/**
  * Jira - Disconnect
  */
 router.post('/jira/disconnect', async (req, res) => {

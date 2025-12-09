@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { calendarAPI, integrationsAPI } from '../../services/api';
+import { calendarAPI, plannerAPI, integrationsAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useProfile } from '../../contexts/ProfileContext';
 import { Button } from '../common/Button';
@@ -154,11 +154,11 @@ export function IntegrationsSettings() {
   const checkJiraStatus = async () => {
     setCheckingJira(true);
     try {
-      const response = await integrationsAPI.getJiraStatus();
+      const response = await plannerAPI.getJiraStatus();
       setJiraConnected(response.data.connected);
 
-      // Load Jira config
-      const configResponse = await integrationsAPI.getJiraConfig();
+      // Load Jira config from planner API
+      const configResponse = await plannerAPI.getJiraConfig();
       if (configResponse.data) {
         setJiraConfig({
           baseUrl: configResponse.data.base_url || '',
@@ -278,7 +278,7 @@ export function IntegrationsSettings() {
 
     setSaving(true);
     try {
-      await integrationsAPI.saveJiraConfig({
+      await plannerAPI.saveJiraConfig({
         base_url: jiraConfig.baseUrl,
         email: jiraConfig.email,
         api_token: jiraConfig.apiToken,
@@ -371,7 +371,7 @@ export function IntegrationsSettings() {
         await calendarAPI.disconnectMicrosoft();
         setMicrosoftConnected(false);
       } else if (service === 'Jira') {
-        await integrationsAPI.saveJiraConfig({ base_url: '', email: '', api_token: '', project_key: '' });
+        await plannerAPI.disconnectJira();
         setJiraConnected(false);
         setJiraConfig({ baseUrl: '', email: '', apiToken: '', projectKey: '' });
       } else if (service === 'Trello') {
