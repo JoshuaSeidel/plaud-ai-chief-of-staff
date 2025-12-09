@@ -1682,40 +1682,11 @@ table {
 }
 
 /* === BUTTONS === */
-.btn {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-}
+/* Base button styles (.btn, .btn-primary, .btn-secondary, .btn-success, .btn-error, .btn-warning)
+   are defined in components.css - do not duplicate here */
 
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-success {
-  background-color: #10b981;
-  color: white;
-}
-
-.btn-error {
-  background-color: #ef4444;
-  color: white;
-}
-
-.btn-warning {
-  background-color: #f59e0b;
-  color: white;
-}
-
-.btn-full {
+/* Additional button utilities */
+.btn-full-flex {
   flex: 1;
   min-width: 100px;
 }
@@ -3087,48 +3058,7 @@ body.modal-open {
   cursor: not-allowed;
 }
 
-.btn-success {
-  padding: 0.75rem 1.5rem;
-  background-color: #22c55e;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-success:hover:not(:disabled) {
-  background-color: #16a34a;
-}
-
-.btn-success:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 0.75rem 1.5rem;
-  background-color: transparent;
-  color: #a1a1aa;
-  border: 1px solid #3f3f46;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #27272a;
-  color: #e5e5e7;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* Button styles (.btn-success, .btn-secondary) are defined in components.css */
 
 .transcript-meta {
   display: flex;
@@ -3197,10 +3127,7 @@ body.modal-open {
   color: #d4d4d8;
 }
 
-.btn-sm {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-}
+/* .btn-sm is defined in components.css */
 
 /* Quick Action Button Text */
 .quick-action-title {
