@@ -81,6 +81,32 @@ export const plannerAPI = {
   getMicrosoftLists: () => api.get('/planner/microsoft/lists'),
 };
 
+// Integrations Proxy API (for microservice integrations)
+export const integrationsAPI = {
+  // Health check
+  getHealth: () => api.get('/integrations/health'),
+
+  // Trello
+  getTrelloStatus: () => api.get('/integrations/tasks/trello/status'),
+  getTrelloConfig: () => api.get('/integrations/tasks/trello/config'),
+  saveTrelloConfig: (config) => api.post('/integrations/tasks/trello/config', config),
+  testTrello: () => api.post('/integrations/tasks/trello/test'),
+  getTrelloBoards: () => api.get('/integrations/tasks/trello/boards'),
+
+  // Monday.com
+  getMondayStatus: () => api.get('/integrations/tasks/monday/status'),
+  getMondayConfig: () => api.get('/integrations/tasks/monday/config'),
+  saveMondayConfig: (config) => api.post('/integrations/tasks/monday/config', config),
+  testMonday: () => api.post('/integrations/tasks/monday/test'),
+  getMondayBoards: () => api.get('/integrations/tasks/monday/boards'),
+
+  // Radicale/CalDAV (placeholder for future)
+  getRadicaleStatus: () => api.get('/integrations/calendar/radicale/status'),
+  getRadicaleConfig: () => api.get('/integrations/calendar/radicale/config'),
+  saveRadicaleConfig: (config) => api.post('/integrations/calendar/radicale/config', config),
+  testRadicale: () => api.post('/integrations/calendar/radicale/test'),
+};
+
 // Tasks API (commitments, actions, follow-ups, risks)
 export const tasksAPI = {
   getAll: (status = 'all') => api.get(`/commitments?status=${status}`),

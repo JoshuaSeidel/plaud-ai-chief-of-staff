@@ -36,10 +36,12 @@ router.get('/microsoft/auth', async (req, res) => {
  */
 router.get('/microsoft/callback', async (req, res) => {
   const { code, error, error_description, state } = req.query;
-  
+  // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
+  const profileId = (state && parseInt(state)) || req.profileId || 2;
+
   if (error) {
     logger.error('OAuth callback error', { error, error_description });
-    
+
     // Handle specific Azure AD errors
     let errorParam = 'microsoft_oauth_failed';
     if (error === 'access_denied') {
@@ -48,20 +50,20 @@ router.get('/microsoft/callback', async (req, res) => {
       // User account doesn't exist in tenant - likely trying to use work account with personal app
       errorParam = 'microsoft_oauth_wrong_account_type';
     }
-    
+
     return res.redirect(`/#config?error=${errorParam}&error_details=${encodeURIComponent(error_description || error)}`);
   }
-  
+
   if (!code) {
     return res.redirect('/#config?error=no_code');
   }
-  
+
   try {
     // Use microsoft-calendar service for token exchange (shared token for Calendar and Planner)
     const microsoftCalendar = require('../services/microsoft-calendar');
-    await microsoftCalendar.getTokenFromCode(code);
-    logger.info('Microsoft connected successfully (Calendar + Planner)');
-    res.redirect('/#config?success=microsoft_integration_connected');
+    await microsoftCalendar.getTokenFromCode(code, profileId);
+    logger.info(`Microsoft connected successfully (Calendar + Planner) for profile ${profileId}`);
+    res.redirect(`/#config?success=microsoft_integration_connected&profile=${profileId}`);
   } catch (error) {
     logger.error('Error exchanging code for token', error);
     res.redirect('/#config?error=microsoft_oauth_exchange_failed');

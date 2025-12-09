@@ -545,6 +545,73 @@ router.delete('/calendar/microsoft/events/:eventId', async (req, res) => {
 });
 
 // ============================================================================
+// CALDAV / RADICALE ROUTES
+// ============================================================================
+
+/**
+ * Check CalDAV/Radicale connection status
+ */
+router.get('/calendar/radicale/status', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/status');
+});
+
+/**
+ * Get CalDAV/Radicale configuration
+ */
+router.get('/calendar/radicale/config', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/config');
+});
+
+/**
+ * Save CalDAV/Radicale configuration
+ */
+router.post('/calendar/radicale/config', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/config');
+});
+
+/**
+ * Test CalDAV/Radicale connection
+ */
+router.post('/calendar/radicale/test', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/test');
+});
+
+/**
+ * List CalDAV calendars
+ */
+router.get('/calendar/radicale/calendars', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/calendars');
+});
+
+/**
+ * List CalDAV events
+ */
+router.get('/calendar/radicale/events', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/events');
+});
+
+/**
+ * Create CalDAV event
+ */
+router.post('/calendar/radicale/events', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/events');
+});
+
+/**
+ * Update CalDAV event
+ */
+router.put('/calendar/radicale/events/:eventId', async (req, res) => {
+  await proxyRequest(req, res, `/calendar/radicale/events/${req.params.eventId}`);
+});
+
+/**
+ * Delete CalDAV event
+ */
+router.delete('/calendar/radicale/events/:eventId', async (req, res) => {
+  await proxyRequest(req, res, `/calendar/radicale/events/${req.params.eventId}`);
+});
+
+// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 

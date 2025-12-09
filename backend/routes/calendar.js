@@ -176,17 +176,19 @@ router.get('/google/auth', async (req, res) => {
  */
 router.get('/google/callback', async (req, res) => {
   const { code, error, state } = req.query;
-  const profileId = req.profileId || parseInt(state) || 2; // Try to get from state param or default to 2
-  
+  // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
+  // The state parameter contains the profile ID that initiated the OAuth flow
+  const profileId = (state && parseInt(state)) || req.profileId || 2;
+
   if (error) {
     logger.error('OAuth callback error', error);
     return res.redirect('/#config?error=oauth_failed');
   }
-  
+
   if (!code) {
     return res.redirect('/#config?error=no_code');
   }
-  
+
   try {
     await googleCalendar.getTokenFromCode(code, profileId);
     logger.info(`Google Calendar connected successfully for profile ${profileId}`);
@@ -263,17 +265,18 @@ router.get('/microsoft/auth', async (req, res) => {
  */
 router.get('/microsoft/callback', async (req, res) => {
   const { code, error, state } = req.query;
-  const profileId = req.profileId || parseInt(state) || 2; // Try to get from state param or default to 2
-  
+  // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
+  const profileId = (state && parseInt(state)) || req.profileId || 2;
+
   if (error) {
     logger.error('OAuth callback error', error);
     return res.redirect('/#config?error=microsoft_oauth_failed');
   }
-  
+
   if (!code) {
     return res.redirect('/#config?error=no_code');
   }
-  
+
   try {
     await microsoftCalendar.getTokenFromCode(code, profileId);
     logger.info(`Microsoft Calendar connected successfully for profile ${profileId}`);

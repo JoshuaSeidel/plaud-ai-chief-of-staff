@@ -93,6 +93,30 @@ AI Chief of Staff is a modern AI-powered productivity assistant with:
    - Exported from `frontend/src/components/common/index.js`
    - Wrapped App in `frontend/src/index.jsx` with ErrorBoundary
 
+9. ✅ **Fixed OAuth Profile Storage**
+   - Fixed `backend/routes/calendar.js:181` - Google callback now prioritizes state parameter over middleware profileId
+   - Fixed `backend/routes/calendar.js:269` - Microsoft callback same fix
+   - Fixed `backend/routes/planner.js:40` - Microsoft Planner callback same fix
+   - Pattern: `const profileId = (state && parseInt(state)) || req.profileId || 2;`
+   - This ensures OAuth tokens are stored for the correct profile that initiated the flow
+
+10. ✅ **Added Trello Integration Frontend**
+    - Added `integrationsAPI.getTrelloStatus()`, `getTrelloConfig()`, `saveTrelloConfig()`, `testTrello()`, `getTrelloBoards()` to `frontend/src/services/api.js`
+    - Added Trello configuration UI card in `IntegrationsSettings.jsx`
+    - Includes API Key, API Token, and Board ID fields
+
+11. ✅ **Added Monday.com Integration Frontend**
+    - Added `integrationsAPI.getMondayStatus()`, `getMondayConfig()`, `saveMondayConfig()`, `testMonday()`, `getMondayBoards()` to `frontend/src/services/api.js`
+    - Added Monday.com configuration UI card in `IntegrationsSettings.jsx`
+    - Includes API Token and Board ID fields
+
+12. ✅ **Added Radicale/CalDAV Integration**
+    - Added `integrationsAPI.getRadicaleStatus()`, `getRadicaleConfig()`, `saveRadicaleConfig()`, `testRadicale()` to `frontend/src/services/api.js`
+    - Added CalDAV configuration UI card in `IntegrationsSettings.jsx`
+    - Includes Server URL, Username, Password, and Calendar Path fields
+    - Added CalDAV proxy routes to `backend/routes/integrations-proxy.js`:
+      - `/calendar/radicale/status`, `/config`, `/test`, `/calendars`, `/events` CRUD
+
 ---
 
 ## Code Quality & Optimization

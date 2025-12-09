@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { configAPI, calendarAPI, plannerAPI } from '../../services/api';
+import { configAPI, calendarAPI, plannerAPI, integrationsAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useProfile } from '../../contexts/ProfileContext';
 import { Button } from '../common/Button';
@@ -75,12 +75,35 @@ export function IntegrationsSettings() {
   const [jiraConnected, setJiraConnected] = useState(false);
   const [checkingJira, setCheckingJira] = useState(true);
 
+  // Additional integration states
+  const [trelloConnected, setTrelloConnected] = useState(false);
+  const [checkingTrello, setCheckingTrello] = useState(true);
+  const [mondayConnected, setMondayConnected] = useState(false);
+  const [checkingMonday, setCheckingMonday] = useState(true);
+  const [radicaleConnected, setRadicaleConnected] = useState(false);
+  const [checkingRadicale, setCheckingRadicale] = useState(true);
+
   // Config states for non-OAuth integrations
   const [jiraConfig, setJiraConfig] = useState({
     baseUrl: '',
     email: '',
     apiToken: '',
     projectKey: ''
+  });
+  const [trelloConfig, setTrelloConfig] = useState({
+    apiKey: '',
+    apiToken: '',
+    boardId: ''
+  });
+  const [mondayConfig, setMondayConfig] = useState({
+    apiToken: '',
+    boardId: ''
+  });
+  const [radicaleConfig, setRadicaleConfig] = useState({
+    serverUrl: '',
+    username: '',
+    password: '',
+    calendarPath: ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -94,7 +117,10 @@ export function IntegrationsSettings() {
     await Promise.all([
       checkGoogleStatus(),
       checkMicrosoftStatus(),
-      checkJiraStatus()
+      checkJiraStatus(),
+      checkTrelloStatus(),
+      checkMondayStatus(),
+      checkRadicaleStatus()
     ]);
     setLoading(false);
   };
@@ -148,6 +174,75 @@ export function IntegrationsSettings() {
     }
   };
 
+  const checkTrelloStatus = async () => {
+    setCheckingTrello(true);
+    try {
+      const response = await integrationsAPI.getTrelloStatus();
+      setTrelloConnected(response.data.connected);
+
+      // Load Trello config
+      const configResponse = await integrationsAPI.getTrelloConfig();
+      if (configResponse.data) {
+        setTrelloConfig({
+          apiKey: configResponse.data.api_key || '',
+          apiToken: configResponse.data.api_token || '',
+          boardId: configResponse.data.board_id || ''
+        });
+      }
+    } catch (err) {
+      console.error('Failed to check Trello status:', err);
+      setTrelloConnected(false);
+    } finally {
+      setCheckingTrello(false);
+    }
+  };
+
+  const checkMondayStatus = async () => {
+    setCheckingMonday(true);
+    try {
+      const response = await integrationsAPI.getMondayStatus();
+      setMondayConnected(response.data.connected);
+
+      // Load Monday config
+      const configResponse = await integrationsAPI.getMondayConfig();
+      if (configResponse.data) {
+        setMondayConfig({
+          apiToken: configResponse.data.api_token || '',
+          boardId: configResponse.data.board_id || ''
+        });
+      }
+    } catch (err) {
+      console.error('Failed to check Monday status:', err);
+      setMondayConnected(false);
+    } finally {
+      setCheckingMonday(false);
+    }
+  };
+
+  const checkRadicaleStatus = async () => {
+    setCheckingRadicale(true);
+    try {
+      const response = await integrationsAPI.getRadicaleStatus();
+      setRadicaleConnected(response.data.connected);
+
+      // Load Radicale config
+      const configResponse = await integrationsAPI.getRadicaleConfig();
+      if (configResponse.data) {
+        setRadicaleConfig({
+          serverUrl: configResponse.data.server_url || '',
+          username: configResponse.data.username || '',
+          password: configResponse.data.password || '',
+          calendarPath: configResponse.data.calendar_path || ''
+        });
+      }
+    } catch (err) {
+      console.error('Failed to check Radicale status:', err);
+      setRadicaleConnected(false);
+    } finally {
+      setCheckingRadicale(false);
+    }
+  };
+
   const handleGoogleConnect = async () => {
     try {
       const response = await calendarAPI.getGoogleAuthUrl();
@@ -197,6 +292,72 @@ export function IntegrationsSettings() {
     }
   };
 
+  const handleTrelloSave = async () => {
+    if (!trelloConfig.apiKey || !trelloConfig.apiToken) {
+      toast.warning('Please fill in Trello API Key and Token');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await integrationsAPI.saveTrelloConfig({
+        api_key: trelloConfig.apiKey,
+        api_token: trelloConfig.apiToken,
+        board_id: trelloConfig.boardId
+      });
+      await checkTrelloStatus();
+      toast.success('Trello configuration saved');
+    } catch (err) {
+      toast.error('Failed to save Trello configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMondaySave = async () => {
+    if (!mondayConfig.apiToken) {
+      toast.warning('Please fill in Monday.com API Token');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await integrationsAPI.saveMondayConfig({
+        api_token: mondayConfig.apiToken,
+        board_id: mondayConfig.boardId
+      });
+      await checkMondayStatus();
+      toast.success('Monday.com configuration saved');
+    } catch (err) {
+      toast.error('Failed to save Monday.com configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRadicaleSave = async () => {
+    if (!radicaleConfig.serverUrl || !radicaleConfig.username || !radicaleConfig.password) {
+      toast.warning('Please fill in CalDAV server URL, username, and password');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await integrationsAPI.saveRadicaleConfig({
+        server_url: radicaleConfig.serverUrl,
+        username: radicaleConfig.username,
+        password: radicaleConfig.password,
+        calendar_path: radicaleConfig.calendarPath
+      });
+      await checkRadicaleStatus();
+      toast.success('CalDAV configuration saved');
+    } catch (err) {
+      toast.error('Failed to save CalDAV configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDisconnect = async (service) => {
     const confirmed = await toast.confirm(`Are you sure you want to disconnect ${service}?`);
     if (!confirmed) return;
@@ -212,6 +373,18 @@ export function IntegrationsSettings() {
         await plannerAPI.disconnectJira();
         setJiraConnected(false);
         setJiraConfig({ baseUrl: '', email: '', apiToken: '', projectKey: '' });
+      } else if (service === 'Trello') {
+        await integrationsAPI.saveTrelloConfig({ api_key: '', api_token: '', board_id: '' });
+        setTrelloConnected(false);
+        setTrelloConfig({ apiKey: '', apiToken: '', boardId: '' });
+      } else if (service === 'Monday.com') {
+        await integrationsAPI.saveMondayConfig({ api_token: '', board_id: '' });
+        setMondayConnected(false);
+        setMondayConfig({ apiToken: '', boardId: '' });
+      } else if (service === 'CalDAV') {
+        await integrationsAPI.saveRadicaleConfig({ server_url: '', username: '', password: '', calendar_path: '' });
+        setRadicaleConnected(false);
+        setRadicaleConfig({ serverUrl: '', username: '', password: '', calendarPath: '' });
       }
       toast.success(`${service} disconnected`);
     } catch (err) {
@@ -331,6 +504,163 @@ export function IntegrationsSettings() {
         </div>
         <Button variant="primary" size="sm" onClick={handleJiraSave} loading={saving}>
           Save Jira Settings
+        </Button>
+      </IntegrationCard>
+
+      {/* Trello */}
+      <IntegrationCard
+        title="Trello"
+        icon="📝"
+        description="Sync tasks with Trello cards"
+        connected={trelloConnected}
+        checking={checkingTrello}
+        onConnect={() => setExpandedCard('trello')}
+        onDisconnect={() => handleDisconnect('Trello')}
+        expanded={expandedCard === 'trello'}
+        onToggleExpand={() => setExpandedCard(expandedCard === 'trello' ? null : 'trello')}
+      >
+        <div className="form-group">
+          <label className="form-label">API Key</label>
+          <input
+            type="text"
+            value={trelloConfig.apiKey}
+            onChange={(e) => setTrelloConfig({ ...trelloConfig, apiKey: e.target.value })}
+            placeholder="Your Trello API key"
+            className="form-input"
+          />
+          <span className="form-hint">
+            <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer">
+              Get your API key
+            </a>
+          </span>
+        </div>
+        <div className="form-group">
+          <label className="form-label">API Token</label>
+          <input
+            type="password"
+            value={trelloConfig.apiToken}
+            onChange={(e) => setTrelloConfig({ ...trelloConfig, apiToken: e.target.value })}
+            placeholder="Your Trello API token"
+            className="form-input"
+          />
+          <span className="form-hint">
+            Generate a token from the API key page above
+          </span>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Board ID (optional)</label>
+          <input
+            type="text"
+            value={trelloConfig.boardId}
+            onChange={(e) => setTrelloConfig({ ...trelloConfig, boardId: e.target.value })}
+            placeholder="Default board ID for new cards"
+            className="form-input"
+          />
+        </div>
+        <Button variant="primary" size="sm" onClick={handleTrelloSave} loading={saving}>
+          Save Trello Settings
+        </Button>
+      </IntegrationCard>
+
+      {/* Monday.com */}
+      <IntegrationCard
+        title="Monday.com"
+        icon="📊"
+        description="Sync tasks with Monday.com boards"
+        connected={mondayConnected}
+        checking={checkingMonday}
+        onConnect={() => setExpandedCard('monday')}
+        onDisconnect={() => handleDisconnect('Monday.com')}
+        expanded={expandedCard === 'monday'}
+        onToggleExpand={() => setExpandedCard(expandedCard === 'monday' ? null : 'monday')}
+      >
+        <div className="form-group">
+          <label className="form-label">API Token</label>
+          <input
+            type="password"
+            value={mondayConfig.apiToken}
+            onChange={(e) => setMondayConfig({ ...mondayConfig, apiToken: e.target.value })}
+            placeholder="Your Monday.com API token"
+            className="form-input"
+          />
+          <span className="form-hint">
+            <a href="https://monday.com/developers/apps" target="_blank" rel="noopener noreferrer">
+              Get your API token
+            </a>
+          </span>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Board ID (optional)</label>
+          <input
+            type="text"
+            value={mondayConfig.boardId}
+            onChange={(e) => setMondayConfig({ ...mondayConfig, boardId: e.target.value })}
+            placeholder="Default board ID for new items"
+            className="form-input"
+          />
+        </div>
+        <Button variant="primary" size="sm" onClick={handleMondaySave} loading={saving}>
+          Save Monday.com Settings
+        </Button>
+      </IntegrationCard>
+
+      {/* Radicale/CalDAV */}
+      <IntegrationCard
+        title="CalDAV (Radicale/Nextcloud)"
+        icon="🗓️"
+        description="Sync with self-hosted CalDAV servers"
+        connected={radicaleConnected}
+        checking={checkingRadicale}
+        onConnect={() => setExpandedCard('radicale')}
+        onDisconnect={() => handleDisconnect('CalDAV')}
+        expanded={expandedCard === 'radicale'}
+        onToggleExpand={() => setExpandedCard(expandedCard === 'radicale' ? null : 'radicale')}
+      >
+        <div className="form-group">
+          <label className="form-label">Server URL</label>
+          <input
+            type="text"
+            value={radicaleConfig.serverUrl}
+            onChange={(e) => setRadicaleConfig({ ...radicaleConfig, serverUrl: e.target.value })}
+            placeholder="https://caldav.example.com"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Username</label>
+          <input
+            type="text"
+            value={radicaleConfig.username}
+            onChange={(e) => setRadicaleConfig({ ...radicaleConfig, username: e.target.value })}
+            placeholder="your-username"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Password</label>
+          <input
+            type="password"
+            value={radicaleConfig.password}
+            onChange={(e) => setRadicaleConfig({ ...radicaleConfig, password: e.target.value })}
+            placeholder="Your CalDAV password"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Calendar Path (optional)</label>
+          <input
+            type="text"
+            value={radicaleConfig.calendarPath}
+            onChange={(e) => setRadicaleConfig({ ...radicaleConfig, calendarPath: e.target.value })}
+            placeholder="/calendars/user/default/"
+            className="form-input"
+          />
+          <span className="form-hint">
+            Leave empty to auto-discover calendars
+          </span>
+        </div>
+        <Button variant="primary" size="sm" onClick={handleRadicaleSave} loading={saving}>
+          Save CalDAV Settings
         </Button>
       </IntegrationCard>
     </div>
