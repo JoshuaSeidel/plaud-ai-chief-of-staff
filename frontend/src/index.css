@@ -291,6 +291,12 @@ button {
   overflow: hidden;
 }
 
+/* Ensure button content is above ::before shimmer */
+button > * {
+  position: relative;
+  z-index: 1;
+}
+
 button::before {
   content: '';
   position: absolute;
@@ -300,6 +306,7 @@ button::before {
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
   transition: left 0.5s;
+  z-index: 0;
 }
 
 button:hover::before {
@@ -1223,6 +1230,14 @@ table {
 
 .glass-button:disabled::before {
   display: none !important;
+}
+
+/* Ensure glass button content is above shimmer */
+.glass-button > *,
+.glass-button-primary > *,
+.glass-button-stop > * {
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 .glass-button-primary {

@@ -356,6 +356,23 @@
   border-radius: 10px;
 }
 
+/* Inner button content - ensure it's above the shimmer ::before */
+.btn > span,
+.btn > .btn-icon-wrapper,
+.btn > .btn-text,
+.btn > .btn-spinner {
+  position: relative;
+  z-index: 1;
+}
+
+/* Icon wrapper inside buttons - NOT a button itself */
+.btn-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .btn-loading .btn-text {
   opacity: 0.5;
 }

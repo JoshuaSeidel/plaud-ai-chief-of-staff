@@ -49,9 +49,9 @@ export function Button({
       {...props}
     >
       {loading && <span className="btn-spinner">⏳</span>}
-      {!loading && icon && iconPosition === 'left' && <span className="btn-icon">{icon}</span>}
+      {!loading && icon && iconPosition === 'left' && <span className="btn-icon-wrapper">{icon}</span>}
       {children && <span className="btn-text">{children}</span>}
-      {!loading && icon && iconPosition === 'right' && <span className="btn-icon">{icon}</span>}
+      {!loading && icon && iconPosition === 'right' && <span className="btn-icon-wrapper">{icon}</span>}
     </button>
   );
 }
