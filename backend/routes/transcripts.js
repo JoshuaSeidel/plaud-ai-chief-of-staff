@@ -73,7 +73,12 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
         const baseURL = process.env.API_BASE_URL || 'http://localhost:3001';
         const parseResponse = await axios.post(`${baseURL}/api/intelligence/parse-task`, {
           text: item.description
-        }, { timeout: 3000 });
+        }, { 
+          timeout: 3000,
+          headers: {
+            'X-Profile-Id': req.profileId.toString()
+          }
+        });
         
         if (parseResponse.data && parseResponse.data.success) {
           // Use parsed data to enhance commitment

@@ -54,6 +54,17 @@ export const configAPI = {
 export const calendarAPI = {
   getEvents: () => api.get('/calendar/events'),
   createBlock: (eventData) => api.post('/calendar/block', eventData),
+  getGoogleStatus: () => api.get('/calendar/google/status'),
+  getMicrosoftStatus: () => api.get('/calendar/microsoft/status'),
+};
+
+// Planner API (Jira, Microsoft Planner, etc.)
+export const plannerAPI = {
+  getJiraStatus: () => api.get('/planner/jira/status'),
+  getMicrosoftStatus: () => api.get('/planner/microsoft/status'),
+  syncJira: () => api.post('/planner/jira/sync'),
+  syncJiraFailed: () => api.post('/planner/jira/sync-failed'),
+  syncMicrosoft: () => api.post('/planner/microsoft/sync'),
 };
 
 // Tasks API (commitments, actions, follow-ups, risks)

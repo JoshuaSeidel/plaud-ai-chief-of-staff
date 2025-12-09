@@ -8,19 +8,30 @@ const logger = createModuleLogger('GOOGLE-CALENDAR');
 /**
  * Get OAuth2 client with credentials from database
  * @param {number} profileId - Profile ID to get tokens for
+ * @param {string} requestOrigin - Optional request origin for redirect URI (e.g., https://example.com)
  */
-async function getOAuthClient(profileId = 2) {
+async function getOAuthClient(profileId = 2, requestOrigin = null) {
   const db = getDb();
   
   // Get Google OAuth credentials from config (global settings)
   const clientIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientId']);
   const clientSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientSecret']);
   
-  // Get redirect URI from config or environment variable
+  // Get redirect URI from config or environment variable, or construct from request origin
   let redirectUri = process.env.GOOGLE_REDIRECT_URI;
   if (!redirectUri) {
     const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleRedirectUri']);
-    redirectUri = redirectUriRow?.value || 'http://localhost:3001/api/calendar/google/callback';
+    redirectUri = redirectUriRow?.value;
+    
+    // If no config and we have request origin, construct redirect URI
+    if (!redirectUri && requestOrigin) {
+      redirectUri = `${requestOrigin}/api/calendar/google/callback`;
+    }
+    
+    // Fallback to localhost only if nothing else is available
+    if (!redirectUri) {
+      redirectUri = 'http://localhost:3001/api/calendar/google/callback';
+    }
   }
   
   logger.info(`Using Google OAuth redirect URI: ${redirectUri}`);
@@ -55,9 +66,11 @@ async function getOAuthClient(profileId = 2) {
 
 /**
  * Generate OAuth URL for user to authorize
+ * @param {number} profileId - Profile ID to include in state for callback
+ * @param {string} requestOrigin - Optional request origin for redirect URI
  */
-async function getAuthUrl() {
-  const oauth2Client = await getOAuthClient();
+async function getAuthUrl(profileId = 2, requestOrigin = null) {
+  const oauth2Client = await getOAuthClient(profileId, requestOrigin);
   
   const scopes = [
     'https://www.googleapis.com/auth/calendar.events'
@@ -66,7 +79,8 @@ async function getAuthUrl() {
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent' // Force consent screen to get refresh token
+    prompt: 'consent', // Force consent screen to get refresh token
+    state: profileId.toString() // Include profileId in state for callback
   });
   
   return url;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { configAPI, intelligenceAPI, microservicesAPI } from '../services/api';
+import { configAPI, intelligenceAPI, microservicesAPI, calendarAPI, profilesAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import ProfileManagement from './ProfileManagement';
 import { useProfile } from '../contexts/ProfileContext';
@@ -203,6 +203,15 @@ function Configuration() {
     ollama: false
   });
 
+  // Re-load config and re-check calendar status when profile changes
+  useEffect(() => {
+    if (currentProfile?.id) {
+      loadConfig(); // Reload profile-specific settings
+      checkGoogleCalendarStatus();
+      checkMicrosoftPlannerStatus();
+    }
+  }, [currentProfile?.id]);
+
   useEffect(() => {
     loadConfig();
     loadServicesHealth();
@@ -249,8 +258,16 @@ function Configuration() {
     const success = hashParams.get('success');
     const errorDetails = hashParams.get('error_details');
     
-    if (success === 'microsoft_planner_connected' || success === 'microsoft_calendar_connected' || success === 'microsoft_integration_connected') {
+    if (success === 'google_calendar_connected') {
+      setMessage({ type: 'success', text: '✅ Google Calendar connected successfully!' });
+      setEnabledIntegrations(prev => ({ ...prev, googleCalendar: true })); // Ensure toggle is set
+      checkGoogleCalendarStatus(); // Refresh connection status
+      // Clean up URL
+      const cleanHash = hash.split('?')[0];
+      window.history.replaceState({}, '', window.location.pathname + cleanHash);
+    } else if (success === 'microsoft_planner_connected' || success === 'microsoft_calendar_connected' || success === 'microsoft_integration_connected') {
       setMessage({ type: 'success', text: '✅ Microsoft Integration connected successfully! (Calendar + Planner)' });
+      setEnabledIntegrations(prev => ({ ...prev, microsoft: true })); // Ensure toggle is set
       checkMicrosoftPlannerStatus(); // Refresh connection status
       // Clean up URL
       const cleanHash = hash.split('?')[0];
@@ -362,11 +379,27 @@ function Configuration() {
 
   const loadConfig = async () => {
     try {
-      // Load app config from database
+      // Load app config from database (global settings)
       console.log('Loading app config from database...');
       const appResponse = await configAPI.getAll();
       const appData = appResponse.data;
       console.log('App config loaded:', Object.keys(appData));
+      
+      // Load current profile preferences (profile-specific settings)
+      let profilePreferences = {};
+      if (currentProfile?.id) {
+        try {
+          const profileResponse = await profilesAPI.getById(currentProfile.id);
+          if (profileResponse.data?.profile?.preferences) {
+            profilePreferences = typeof profileResponse.data.profile.preferences === 'string' 
+              ? JSON.parse(profileResponse.data.profile.preferences) 
+              : profileResponse.data.profile.preferences;
+            console.log('Profile preferences loaded:', Object.keys(profilePreferences));
+          }
+        } catch (err) {
+          console.warn('Failed to load profile preferences:', err);
+        }
+      }
       
       // Load system config from file
       console.log('Loading system config...');
@@ -400,16 +433,28 @@ function Configuration() {
         setEnabledIntegrations(prev => ({ ...prev, jira: true }));
       }
       
+      // Load profile-specific AI settings from preferences, fallback to global config
       setConfig({
-        aiProvider: appData.aiProvider || 'anthropic',
+        // Profile-specific AI settings (from profile preferences, fallback to global config)
+        aiProvider: profilePreferences.aiProvider || appData.aiProvider || 'anthropic',
+        claudeModel: profilePreferences.claudeModel || appData.claudeModel || 'claude-sonnet-4-5-20250929',
+        openaiModel: profilePreferences.openaiModel || appData.openaiModel || 'gpt-4o',
+        ollamaBaseUrl: profilePreferences.ollamaBaseUrl || appData.ollamaBaseUrl || 'http://localhost:11434',
+        ollamaModel: profilePreferences.ollamaModel || appData.ollamaModel || 'llama3.1',
+        aiMaxTokens: profilePreferences.aiMaxTokens || appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
+        aiTemperature: profilePreferences.aiTemperature !== undefined ? profilePreferences.aiTemperature : (appData.aiTemperature !== undefined ? appData.aiTemperature : '0.7'),
+        // Microservice AI configs (from profile preferences, fallback to global config)
+        aiIntelligenceProvider: profilePreferences.aiIntelligenceProvider || appData.aiIntelligenceProvider || '',
+        aiIntelligenceModel: profilePreferences.aiIntelligenceModel || appData.aiIntelligenceModel || '',
+        voiceProcessorProvider: profilePreferences.voiceProcessorProvider || appData.voiceProcessorProvider || '',
+        voiceProcessorModel: profilePreferences.voiceProcessorModel || appData.voiceProcessorModel || '',
+        patternRecognitionProvider: profilePreferences.patternRecognitionProvider || appData.patternRecognitionProvider || '',
+        patternRecognitionModel: profilePreferences.patternRecognitionModel || appData.patternRecognitionModel || '',
+        nlParserProvider: profilePreferences.nlParserProvider || appData.nlParserProvider || '',
+        nlParserModel: profilePreferences.nlParserModel || appData.nlParserModel || '',
+        // Global settings (from app config)
         anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
-        claudeModel: appData.claudeModel || 'claude-sonnet-4-5-20250929',
         openaiApiKey: appData.openaiApiKey ? '••••••••' : '',
-        openaiModel: appData.openaiModel || 'gpt-4o',
-        ollamaBaseUrl: appData.ollamaBaseUrl || 'http://localhost:11434',
-        ollamaModel: appData.ollamaModel || 'llama3.1',
-        aiMaxTokens: appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
-        aiTemperature: appData.aiTemperature !== undefined ? appData.aiTemperature : '0.7',
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
         googleClientId: appData.googleClientId || '',
@@ -566,9 +611,8 @@ function Configuration() {
 
   const checkGoogleCalendarStatus = async () => {
     try {
-      const response = await fetch('/api/calendar/google/status');
-      const data = await response.json();
-      setGoogleConnected(data.connected);
+      const response = await calendarAPI.getGoogleStatus();
+      setGoogleConnected(response.data.connected);
     } catch (err) {
       console.error('Failed to check Google Calendar status:', err);
     } finally {
@@ -579,9 +623,8 @@ function Configuration() {
   const checkMicrosoftPlannerStatus = async () => {
     try {
       // Check Microsoft status (shared token for Calendar and Planner)
-      const response = await fetch('/api/planner/microsoft/status');
-      const data = await response.json();
-      setMicrosoftConnected(data.connected);
+      const response = await calendarAPI.getMicrosoftStatus();
+      setMicrosoftConnected(response.data.connected);
       
       // If connected, load available task lists and enable integration
       if (data.connected) {
@@ -780,6 +823,11 @@ function Configuration() {
 
   const handleGoogleConnect = async () => {
     try {
+      // Save the integration toggle before redirecting
+      if (enabledIntegrations.googleCalendar) {
+        await configAPI.update('googleCalendarEnabled', 'true');
+      }
+      
       const response = await fetch('/api/calendar/google/auth');
       const data = await response.json();
       if (data.authUrl) {
@@ -806,6 +854,11 @@ function Configuration() {
 
   const handleMicrosoftConnect = async () => {
     try {
+      // Save the integration toggle before redirecting
+      if (enabledIntegrations.microsoft) {
+        await configAPI.update('microsoftEnabled', 'true');
+      }
+      
       // Use planner route for auth (it uses microsoft-calendar service which includes both scopes)
       const response = await fetch('/api/planner/microsoft/auth');
       const data = await response.json();
@@ -870,14 +923,27 @@ function Configuration() {
         appUpdates.plaudApiKey = '';
       }
       
-      // Always save these fields (they're not masked)
-      appUpdates.aiProvider = config.aiProvider;
-      appUpdates.claudeModel = config.claudeModel;
-      appUpdates.openaiModel = config.openaiModel;
-      appUpdates.ollamaBaseUrl = config.ollamaBaseUrl;
-      appUpdates.ollamaModel = config.ollamaModel;
-      appUpdates.aiMaxTokens = config.aiMaxTokens;
-      appUpdates.aiTemperature = config.aiTemperature !== undefined ? config.aiTemperature : '0.7';
+      // Profile-specific settings (will be saved to profile preferences)
+      const profileUpdates = {
+        aiProvider: config.aiProvider,
+        claudeModel: config.claudeModel,
+        openaiModel: config.openaiModel,
+        ollamaBaseUrl: config.ollamaBaseUrl,
+        ollamaModel: config.ollamaModel,
+        aiMaxTokens: config.aiMaxTokens,
+        aiTemperature: config.aiTemperature !== undefined ? config.aiTemperature : '0.7',
+        // Microservice AI configurations
+        aiIntelligenceProvider: config.aiIntelligenceProvider || '',
+        aiIntelligenceModel: config.aiIntelligenceModel || '',
+        voiceProcessorProvider: config.voiceProcessorProvider || '',
+        voiceProcessorModel: config.voiceProcessorModel || '',
+        patternRecognitionProvider: config.patternRecognitionProvider || '',
+        patternRecognitionModel: config.patternRecognitionModel || '',
+        nlParserProvider: config.nlParserProvider || '',
+        nlParserModel: config.nlParserModel || '',
+      };
+      
+      // Global settings (API keys, OAuth credentials, etc.)
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       
       // Save API keys only if they've been changed (not masked anymore)
@@ -937,17 +1003,7 @@ function Configuration() {
       appUpdates.microsoftEnabled = enabledIntegrations.microsoft;
       appUpdates.jiraEnabled = enabledIntegrations.jira;
       
-      // AI Model Configuration (per-service)
-      if (config.aiIntelligenceProvider) appUpdates.aiIntelligenceProvider = config.aiIntelligenceProvider;
-      if (config.aiIntelligenceModel) appUpdates.aiIntelligenceModel = config.aiIntelligenceModel;
-      if (config.voiceProcessorProvider) appUpdates.voiceProcessorProvider = config.voiceProcessorProvider;
-      if (config.voiceProcessorModel) appUpdates.voiceProcessorModel = config.voiceProcessorModel;
-      if (config.patternRecognitionProvider) appUpdates.patternRecognitionProvider = config.patternRecognitionProvider;
-      if (config.patternRecognitionModel) appUpdates.patternRecognitionModel = config.patternRecognitionModel;
-      if (config.nlParserProvider) appUpdates.nlParserProvider = config.nlParserProvider;
-      if (config.nlParserModel) appUpdates.nlParserModel = config.nlParserModel;
-      
-      // AI API Keys
+      // AI API Keys (global settings)
       if (config.anthropicApiKey && !config.anthropicApiKey.includes('•')) {
         appUpdates.anthropicApiKey = config.anthropicApiKey;
       }
@@ -1004,10 +1060,39 @@ function Configuration() {
         }
       }
 
-      // Save app config
-      console.log('Saving app config:', Object.keys(appUpdates));
+      // Save global app config
+      console.log('Saving global app config:', Object.keys(appUpdates));
       await configAPI.bulkUpdate(appUpdates);
-      console.log('App config saved successfully');
+      console.log('Global app config saved successfully');
+      
+      // Save profile-specific settings to profile preferences
+      if (currentProfile?.id) {
+        try {
+          console.log('Saving profile-specific settings to profile:', currentProfile.id);
+          // Get current profile to merge preferences
+          const currentProfileResponse = await profilesAPI.getById(currentProfile.id);
+          let currentPreferences = {};
+          if (currentProfileResponse.data?.profile?.preferences) {
+            currentPreferences = typeof currentProfileResponse.data.profile.preferences === 'string'
+              ? JSON.parse(currentProfileResponse.data.profile.preferences)
+              : currentProfileResponse.data.profile.preferences;
+          }
+          
+          // Merge profile updates with existing preferences
+          const updatedPreferences = { ...currentPreferences, ...profileUpdates };
+          
+          // Update profile with new preferences
+          await profilesAPI.update(currentProfile.id, { preferences: updatedPreferences });
+          console.log('Profile preferences saved successfully');
+        } catch (err) {
+          console.error('Failed to save profile preferences:', err);
+          setMessage({ 
+            type: 'error', 
+            text: 'Global settings saved, but failed to save profile-specific settings: ' + err.message 
+          });
+          return;
+        }
+      }
       
       // Save system config
       const sysResponse = await fetch('/api/config/system', {
@@ -2379,284 +2464,6 @@ function Configuration() {
           </div>
         </div>
         )}
-
-        {/* Microservice AI Configuration - Profile-Specific */}
-        <div className="mb-xl">
-          <h3>🤖 Microservice AI Configuration</h3>
-          <p className="config-section-description">
-            AI provider selection for microservices (Pattern Recognition, Voice Processor, etc.) for this profile.
-          </p>
-          
-          <div className="mt-xl-mb-md">
-            <h4 
-              onClick={() => setMicroservicesExpanded(!microservicesExpanded)}
-              className="flex items-center gap-sm header-interactive"
-            >
-              <span className={`rotate-icon ${microservicesExpanded ? 'rotate-icon-open' : ''}`}>
-                ▶
-              </span>
-              Microservices Configuration (Optional)
-            </h4>
-          </div>
-          
-          {microservicesExpanded && (
-            <>
-              {/* AI Intelligence Service */}
-              <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">🧠 AI Intelligence Service</h4>
-            <p className="config-subsection-description">
-              Task effort estimation, energy classification, and task clustering
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.aiIntelligenceProvider || 'anthropic'}
-                  onChange={(e) => handleChange('aiIntelligenceProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="ollama">Ollama (Local)</option>
-                  <option value="bedrock">AWS Bedrock</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.aiIntelligenceProvider || 'anthropic',
-                  config.aiIntelligenceModel || 'claude-sonnet-4-5-20250929',
-                  (value) => handleChange('aiIntelligenceModel', value)
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Voice Processor Service */}
-          <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">🎤 Voice Processor Service</h4>
-            <p className="config-subsection-description">
-              Audio transcription and voice-to-text
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.voiceProcessorProvider || 'openai'}
-                  onChange={(e) => handleChange('voiceProcessorProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="openai">OpenAI Whisper</option>
-                  <option value="ollama">Ollama Whisper</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.voiceProcessorProvider || 'openai',
-                  config.voiceProcessorModel || 'whisper-1',
-                  (value) => handleChange('voiceProcessorModel', value)
-                )}
-              </div>
-            </div>
-            
-            {/* Voice Storage Configuration */}
-            <div className="section-divider">
-              <h5 className="config-subsection-subtitle mt-0">💾 Storage Configuration</h5>
-              <p className="config-subsection-description">
-                Configure where transcribed audio files are stored
-              </p>
-              
-              <div className="grid-2col mb-lg">
-                <div>
-                  <label className="form-label">
-                    Storage Type
-                  </label>
-                  <select
-                    value={config.storageType || 'local'}
-                    onChange={(e) => handleChange('storageType', e.target.value)}
-                    className="form-input"
-                  >
-                    <option value="local">Local Filesystem</option>
-                    <option value="s3">AWS S3</option>
-                  </select>
-                </div>
-                
-                {config.storageType === 'local' && (
-                  <div>
-                    <label className="form-label">
-                      Storage Path
-                    </label>
-                    <input
-                      type="text"
-                      value={config.storagePath || '/app/data/voice-recordings'}
-                      onChange={(e) => handleChange('storagePath', e.target.value)}
-                      placeholder="/app/data/voice-recordings"
-                      className="form-input"
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {config.storageType === 's3' && (
-                <div className="grid-2col">
-                  <div>
-                    <label className="form-label">
-                      S3 Bucket
-                    </label>
-                    <input
-                      type="text"
-                      value={config.s3Bucket || ''}
-                      onChange={(e) => handleChange('s3Bucket', e.target.value)}
-                      placeholder="my-bucket"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Region
-                    </label>
-                    <input
-                      type="text"
-                      value={config.s3Region || 'us-east-1'}
-                      onChange={(e) => handleChange('s3Region', e.target.value)}
-                      placeholder="us-east-1"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Access Key ID
-                    </label>
-                    <input
-                      type="password"
-                      value={config.s3AccessKeyId || ''}
-                      onChange={(e) => handleChange('s3AccessKeyId', e.target.value)}
-                      placeholder="AKIA..."
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Secret Access Key
-                    </label>
-                    <input
-                      type="password"
-                      value={config.s3SecretAccessKey || ''}
-                      onChange={(e) => handleChange('s3SecretAccessKey', e.target.value)}
-                      placeholder="••••••••"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="grid-2col-span">
-                    <label className="form-label">
-                      S3 Endpoint (Optional - for S3-compatible services)
-                    </label>
-                    <input
-                      type="text"
-                      value={config.s3Endpoint || ''}
-                      onChange={(e) => handleChange('s3Endpoint', e.target.value)}
-                      placeholder="https://s3.amazonaws.com"
-                      className="form-input"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Pattern Recognition Service */}
-          <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">🔍 Pattern Recognition Service</h4>
-            <p className="config-subsection-description">
-              Behavioral pattern analysis and productivity insights
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.patternRecognitionProvider || 'anthropic'}
-                  onChange={(e) => handleChange('patternRecognitionProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="ollama">Ollama (Local)</option>
-                  <option value="bedrock">AWS Bedrock</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.patternRecognitionProvider || 'anthropic',
-                  config.patternRecognitionModel || 'claude-sonnet-4-5-20250929',
-                  (value) => handleChange('patternRecognitionModel', value)
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* NL Parser Service */}
-          <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">📝 NL Parser Service</h4>
-            <p className="config-subsection-description">
-              Natural language task parsing and date extraction
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.nlParserProvider || 'anthropic'}
-                  onChange={(e) => handleChange('nlParserProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="ollama">Ollama (Local)</option>
-                  <option value="bedrock">AWS Bedrock</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.nlParserProvider || 'anthropic',
-                  config.nlParserModel || 'claude-sonnet-4-5-20250929',
-                  (value) => handleChange('nlParserModel', value)
-                )}
-              </div>
-            </div>
-          </div>
-            </>
-          )}
-        </div>
 
         {/* AI Prompts - Profile-Specific */}
         <div className="card mb-xl">
