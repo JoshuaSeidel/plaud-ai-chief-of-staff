@@ -400,7 +400,8 @@ router.get('/microservices', async (req, res) => {
     'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002',
     'nl-parser': process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003',
     'voice-processor': process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004',
-    'context-service': process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005'
+    'context-service': process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005',
+    'integrations': process.env.INTEGRATIONS_URL || 'https://aicos-integrations:8006'
   };
 
   const healthStatus = {
