@@ -93,10 +93,10 @@ export function ConfirmModal({
       size="sm"
       footer={
         <div className="modal-actions">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
             {cancelText}
           </Button>
-          <Button variant={confirmVariant} onClick={handleConfirm} loading={loading}>
+          <Button variant={confirmVariant} size="sm" onClick={handleConfirm} loading={loading}>
             {confirmText}
           </Button>
         </div>

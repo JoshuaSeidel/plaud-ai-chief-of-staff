@@ -158,8 +158,8 @@ export function SystemSettings() {
 
       <div className="info-card">
         <p className="text-muted">
-          Storage configuration is managed via environment variables.
-          See the documentation for setup instructions.
+          Storage configuration is managed in the <strong>AI Settings</strong> tab under "Storage Configuration".
+          Choose between local filesystem or AWS S3 for storing voice recordings and transcripts.
         </p>
       </div>
 
