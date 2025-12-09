@@ -224,25 +224,10 @@ function Dashboard({ setActiveTab }) {
       <div className="card">
         <div className="flex-between mb-lg flex-wrap gap-lg">
           <h2 className="mt-0 mb-0">Morning Dashboard</h2>
-                    <button 
-            onClick={generateBrief} 
+                    <button
+            onClick={generateBrief}
             disabled={loading}
             className="glass-button-primary btn-generate"
-            style={{
-              cursor: loading ? 'not-allowed' : 'pointer'
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.backgroundColor = '#52525b';
-                e.currentTarget.style.borderColor = '#60a5fa';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.backgroundColor = '#3f3f46';
-                e.currentTarget.style.borderColor = '#52525b';
-              }
-            }}
           >
             <span>{loading ? '⏳' : '🔄'}</span>
             {loading ? 'Generating...' : 'Generate Brief'}
