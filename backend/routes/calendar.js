@@ -164,20 +164,20 @@ router.post('/google/config', async (req, res) => {
     // Update each config key
     if (client_id !== undefined) {
       await db.run(
-        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
-        ['googleClientId', client_id, client_id]
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        ['googleClientId', client_id]
       );
     }
     if (client_secret !== undefined && client_secret !== '********') {
       await db.run(
-        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
-        ['googleClientSecret', client_secret, client_secret]
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        ['googleClientSecret', client_secret]
       );
     }
     if (redirect_uri !== undefined) {
       await db.run(
-        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
-        ['googleRedirectUri', redirect_uri, redirect_uri]
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        ['googleRedirectUri', redirect_uri]
       );
     }
 
@@ -366,26 +366,26 @@ router.post('/microsoft/config', async (req, res) => {
 
     if (client_id !== undefined) {
       await db.run(
-        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
-        ['microsoftClientId', client_id, client_id]
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        ['microsoftClientId', client_id]
       );
     }
     if (client_secret !== undefined && client_secret !== '********') {
       await db.run(
-        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
-        ['microsoftClientSecret', client_secret, client_secret]
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        ['microsoftClientSecret', client_secret]
       );
     }
     if (tenant_id !== undefined) {
       await db.run(
-        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
-        ['microsoftTenantId', tenant_id, tenant_id]
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        ['microsoftTenantId', tenant_id]
       );
     }
     if (redirect_uri !== undefined) {
       await db.run(
-        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
-        ['microsoftRedirectUri', redirect_uri, redirect_uri]
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        ['microsoftRedirectUri', redirect_uri]
       );
     }
 
