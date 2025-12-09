@@ -130,16 +130,76 @@ router.post('/block', async (req, res) => {
 });
 
 /**
+ * Google OAuth - Get configuration
+ */
+router.get('/google/config', async (req, res) => {
+  try {
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    const clientIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientId']);
+    const clientSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientSecret']);
+    const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleRedirectUri']);
+
+    res.json({
+      client_id: clientIdRow?.value || '',
+      client_secret: clientSecretRow?.value ? '********' : '', // Don't expose secret
+      redirect_uri: redirectUriRow?.value || ''
+    });
+  } catch (error) {
+    logger.error('Error getting Google config', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Google OAuth - Save configuration
+ */
+router.post('/google/config', async (req, res) => {
+  try {
+    const { client_id, client_secret, redirect_uri } = req.body;
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    // Update each config key
+    if (client_id !== undefined) {
+      await db.run(
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
+        ['googleClientId', client_id, client_id]
+      );
+    }
+    if (client_secret !== undefined && client_secret !== '********') {
+      await db.run(
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
+        ['googleClientSecret', client_secret, client_secret]
+      );
+    }
+    if (redirect_uri !== undefined) {
+      await db.run(
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
+        ['googleRedirectUri', redirect_uri, redirect_uri]
+      );
+    }
+
+    logger.info('Google OAuth config saved');
+    res.json({ success: true, message: 'Google configuration saved' });
+  } catch (error) {
+    logger.error('Error saving Google config', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Google OAuth - Debug redirect URI
  */
 router.get('/google/debug-redirect', async (req, res) => {
   try {
     const { getDb } = require('../database/db');
     const db = getDb();
-    
+
     const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleRedirectUri']);
     const envRedirectUri = process.env.GOOGLE_REDIRECT_URI;
-    
+
     res.json({
       configuredInDatabase: redirectUriRow?.value || null,
       environmentVariable: envRedirectUri || null,
@@ -271,6 +331,73 @@ router.post('/google/disconnect', async (req, res) => {
 });
 
 /**
+ * Microsoft OAuth - Get configuration
+ */
+router.get('/microsoft/config', async (req, res) => {
+  try {
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    const clientIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftClientId']);
+    const clientSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftClientSecret']);
+    const tenantIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftTenantId']);
+    const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftRedirectUri']);
+
+    res.json({
+      client_id: clientIdRow?.value || '',
+      client_secret: clientSecretRow?.value ? '********' : '', // Don't expose secret
+      tenant_id: tenantIdRow?.value || 'common',
+      redirect_uri: redirectUriRow?.value || ''
+    });
+  } catch (error) {
+    logger.error('Error getting Microsoft config', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Microsoft OAuth - Save configuration
+ */
+router.post('/microsoft/config', async (req, res) => {
+  try {
+    const { client_id, client_secret, tenant_id, redirect_uri } = req.body;
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    if (client_id !== undefined) {
+      await db.run(
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
+        ['microsoftClientId', client_id, client_id]
+      );
+    }
+    if (client_secret !== undefined && client_secret !== '********') {
+      await db.run(
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
+        ['microsoftClientSecret', client_secret, client_secret]
+      );
+    }
+    if (tenant_id !== undefined) {
+      await db.run(
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
+        ['microsoftTenantId', tenant_id, tenant_id]
+      );
+    }
+    if (redirect_uri !== undefined) {
+      await db.run(
+        'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = ?',
+        ['microsoftRedirectUri', redirect_uri, redirect_uri]
+      );
+    }
+
+    logger.info('Microsoft OAuth config saved');
+    res.json({ success: true, message: 'Microsoft configuration saved' });
+  } catch (error) {
+    logger.error('Error saving Microsoft config', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Microsoft OAuth - Initiate
  */
 router.get('/microsoft/auth', async (req, res) => {
@@ -280,7 +407,7 @@ router.get('/microsoft/auth', async (req, res) => {
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating Microsoft auth URL', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error initiating Microsoft Calendar authorization',
       message: error.message
     });

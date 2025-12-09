@@ -83,6 +83,19 @@ export function IntegrationsSettings() {
   const [radicaleConnected, setRadicaleConnected] = useState(false);
   const [checkingRadicale, setCheckingRadicale] = useState(true);
 
+  // Config states for OAuth integrations (credentials needed before connecting)
+  const [googleConfig, setGoogleConfig] = useState({
+    clientId: '',
+    clientSecret: '',
+    redirectUri: ''
+  });
+  const [microsoftConfig, setMicrosoftConfig] = useState({
+    clientId: '',
+    clientSecret: '',
+    tenantId: '',
+    redirectUri: ''
+  });
+
   // Config states for non-OAuth integrations
   const [jiraConfig, setJiraConfig] = useState({
     baseUrl: '',
@@ -130,6 +143,16 @@ export function IntegrationsSettings() {
     try {
       const response = await calendarAPI.getGoogleStatus();
       setGoogleConnected(response.data.connected);
+
+      // Load Google OAuth config
+      const configResponse = await calendarAPI.getGoogleConfig();
+      if (configResponse.data) {
+        setGoogleConfig({
+          clientId: configResponse.data.client_id || '',
+          clientSecret: configResponse.data.client_secret || '',
+          redirectUri: configResponse.data.redirect_uri || ''
+        });
+      }
     } catch (err) {
       console.error('Failed to check Google status:', err);
       setGoogleConnected(false);
@@ -143,6 +166,17 @@ export function IntegrationsSettings() {
     try {
       const response = await calendarAPI.getMicrosoftStatus();
       setMicrosoftConnected(response.data.connected);
+
+      // Load Microsoft OAuth config
+      const configResponse = await calendarAPI.getMicrosoftConfig();
+      if (configResponse.data) {
+        setMicrosoftConfig({
+          clientId: configResponse.data.client_id || '',
+          clientSecret: configResponse.data.client_secret || '',
+          tenantId: configResponse.data.tenant_id || 'common',
+          redirectUri: configResponse.data.redirect_uri || ''
+        });
+      }
     } catch (err) {
       console.error('Failed to check Microsoft status:', err);
       setMicrosoftConnected(false);
@@ -244,7 +278,34 @@ export function IntegrationsSettings() {
     }
   };
 
+  const handleGoogleSaveConfig = async () => {
+    if (!googleConfig.clientId || !googleConfig.clientSecret || !googleConfig.redirectUri) {
+      toast.warning('Please fill in Client ID, Client Secret, and Redirect URI');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await calendarAPI.saveGoogleConfig({
+        client_id: googleConfig.clientId,
+        client_secret: googleConfig.clientSecret,
+        redirect_uri: googleConfig.redirectUri
+      });
+      toast.success('Google configuration saved. You can now connect.');
+    } catch (err) {
+      toast.error('Failed to save Google configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleGoogleConnect = async () => {
+    if (!googleConfig.clientId || !googleConfig.redirectUri) {
+      toast.warning('Please configure and save Google OAuth settings first');
+      setExpandedCard('google');
+      return;
+    }
+
     try {
       const response = await calendarAPI.getGoogleAuthUrl();
       if (response.data.authUrl) {
@@ -257,7 +318,35 @@ export function IntegrationsSettings() {
     }
   };
 
+  const handleMicrosoftSaveConfig = async () => {
+    if (!microsoftConfig.clientId || !microsoftConfig.clientSecret || !microsoftConfig.redirectUri) {
+      toast.warning('Please fill in Client ID, Client Secret, and Redirect URI');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await calendarAPI.saveMicrosoftConfig({
+        client_id: microsoftConfig.clientId,
+        client_secret: microsoftConfig.clientSecret,
+        tenant_id: microsoftConfig.tenantId || 'common',
+        redirect_uri: microsoftConfig.redirectUri
+      });
+      toast.success('Microsoft configuration saved. You can now connect.');
+    } catch (err) {
+      toast.error('Failed to save Microsoft configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleMicrosoftConnect = async () => {
+    if (!microsoftConfig.clientId || !microsoftConfig.redirectUri) {
+      toast.warning('Please configure and save Microsoft OAuth settings first');
+      setExpandedCard('microsoft');
+      return;
+    }
+
     try {
       const response = await calendarAPI.getMicrosoftAuthUrl();
       if (response.data.authUrl) {
@@ -424,9 +513,52 @@ export function IntegrationsSettings() {
         expanded={expandedCard === 'google'}
         onToggleExpand={() => setExpandedCard(expandedCard === 'google' ? null : 'google')}
       >
-        <p className="text-muted text-sm">
-          Connect your Google Calendar to sync events and automatically create calendar blocks for tasks.
+        <p className="text-muted text-sm mb-3">
+          Configure your Google OAuth credentials from Google Cloud Console, then click Connect.
         </p>
+        <div className="form-group">
+          <label className="form-label">Client ID</label>
+          <input
+            type="text"
+            value={googleConfig.clientId}
+            onChange={(e) => setGoogleConfig({ ...googleConfig, clientId: e.target.value })}
+            placeholder="your-client-id.apps.googleusercontent.com"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Client Secret</label>
+          <input
+            type="password"
+            value={googleConfig.clientSecret}
+            onChange={(e) => setGoogleConfig({ ...googleConfig, clientSecret: e.target.value })}
+            placeholder="Your client secret"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Redirect URI</label>
+          <input
+            type="text"
+            value={googleConfig.redirectUri}
+            onChange={(e) => setGoogleConfig({ ...googleConfig, redirectUri: e.target.value })}
+            placeholder="https://your-domain.com/api/calendar/google/callback"
+            className="form-input"
+          />
+          <span className="form-hint">
+            Must match exactly in Google Cloud Console
+          </span>
+        </div>
+        <div className="button-group">
+          <Button variant="secondary" size="sm" onClick={handleGoogleSaveConfig} loading={saving}>
+            Save Config
+          </Button>
+          {googleConfig.clientId && googleConfig.redirectUri && !googleConnected && (
+            <Button variant="primary" size="sm" onClick={handleGoogleConnect}>
+              Connect to Google
+            </Button>
+          )}
+        </div>
       </IntegrationCard>
 
       {/* Microsoft */}
@@ -441,9 +573,65 @@ export function IntegrationsSettings() {
         expanded={expandedCard === 'microsoft'}
         onToggleExpand={() => setExpandedCard(expandedCard === 'microsoft' ? null : 'microsoft')}
       >
-        <p className="text-muted text-sm">
-          Connect to Microsoft 365 for calendar sync and task management with Planner/To Do.
+        <p className="text-muted text-sm mb-3">
+          Configure your Microsoft Azure AD app credentials, then click Connect.
         </p>
+        <div className="form-group">
+          <label className="form-label">Client ID (Application ID)</label>
+          <input
+            type="text"
+            value={microsoftConfig.clientId}
+            onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, clientId: e.target.value })}
+            placeholder="your-application-id"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Client Secret</label>
+          <input
+            type="password"
+            value={microsoftConfig.clientSecret}
+            onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, clientSecret: e.target.value })}
+            placeholder="Your client secret"
+            className="form-input"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Tenant ID</label>
+          <input
+            type="text"
+            value={microsoftConfig.tenantId}
+            onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, tenantId: e.target.value })}
+            placeholder="common (or your tenant ID)"
+            className="form-input"
+          />
+          <span className="form-hint">
+            Use &quot;common&quot; for multi-tenant or your specific tenant ID
+          </span>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Redirect URI</label>
+          <input
+            type="text"
+            value={microsoftConfig.redirectUri}
+            onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, redirectUri: e.target.value })}
+            placeholder="https://your-domain.com/api/calendar/microsoft/callback"
+            className="form-input"
+          />
+          <span className="form-hint">
+            Must match exactly in Azure AD app registration
+          </span>
+        </div>
+        <div className="button-group">
+          <Button variant="secondary" size="sm" onClick={handleMicrosoftSaveConfig} loading={saving}>
+            Save Config
+          </Button>
+          {microsoftConfig.clientId && microsoftConfig.redirectUri && !microsoftConnected && (
+            <Button variant="primary" size="sm" onClick={handleMicrosoftConnect}>
+              Connect to Microsoft
+            </Button>
+          )}
+        </div>
       </IntegrationCard>
 
       {/* Jira */}

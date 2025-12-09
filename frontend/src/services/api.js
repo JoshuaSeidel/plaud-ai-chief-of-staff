@@ -57,11 +57,15 @@ export const calendarAPI = {
   // Google Calendar
   getGoogleStatus: () => api.get('/calendar/google/status'),
   getGoogleAuthUrl: () => api.get('/calendar/google/auth'),
+  getGoogleConfig: () => api.get('/calendar/google/config'),
+  saveGoogleConfig: (config) => api.post('/calendar/google/config', config),
   disconnectGoogle: () => api.post('/calendar/google/disconnect'),
   getGoogleCalendars: () => api.get('/calendar/google/calendars'),
   // Microsoft Calendar
   getMicrosoftStatus: () => api.get('/calendar/microsoft/status'),
   getMicrosoftAuthUrl: () => api.get('/calendar/microsoft/auth'),
+  getMicrosoftConfig: () => api.get('/calendar/microsoft/config'),
+  saveMicrosoftConfig: (config) => api.post('/calendar/microsoft/config', config),
   disconnectMicrosoft: () => api.post('/calendar/microsoft/disconnect'),
   getMicrosoftCalendars: () => api.get('/calendar/microsoft/calendars'),
 };
