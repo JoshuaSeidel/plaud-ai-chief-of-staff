@@ -25,6 +25,9 @@ const CA_CERT_PATHS = [
 // Environment flag to allow insecure connections (development only)
 const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === 'true';
 
+// Log the flag on module load
+logger.info(`HTTPS Agent module loaded. ALLOW_INSECURE_TLS=${ALLOW_INSECURE_TLS}`);
+
 // Cached HTTPS agent - initialized once, used everywhere
 let cachedHttpsAgent = null;
 let agentInitialized = false;
@@ -34,19 +37,24 @@ let agentInitialized = false;
  * @returns {Buffer|null} The CA certificate buffer or null if not found
  */
 function loadCACertificate() {
+  logger.info('Searching for CA certificate...');
+
   for (const certPath of CA_CERT_PATHS) {
     try {
+      logger.debug(`Checking path: ${certPath}`);
       if (fs.existsSync(certPath)) {
         const cert = fs.readFileSync(certPath);
-        logger.info(`Loaded CA certificate from: ${certPath}`);
+        logger.info(`✅ Loaded CA certificate from: ${certPath} (${cert.length} bytes)`);
         return cert;
+      } else {
+        logger.debug(`Path does not exist: ${certPath}`);
       }
     } catch (error) {
-      logger.debug(`Could not load CA cert from ${certPath}: ${error.message}`);
+      logger.warn(`Error reading cert from ${certPath}: ${error.message}`);
     }
   }
 
-  logger.warn('No CA certificate found at any expected location', {
+  logger.warn('❌ No CA certificate found at any expected location', {
     searchedPaths: CA_CERT_PATHS
   });
   return null;
@@ -57,9 +65,14 @@ function loadCACertificate() {
  * This should be called once at server startup
  */
 function initializeHttpsAgent() {
-  if (agentInitialized) {
+  if (agentInitialized && cachedHttpsAgent) {
+    logger.debug('HTTPS agent already initialized, returning cached agent');
     return cachedHttpsAgent;
   }
+
+  logger.info('=== Initializing HTTPS Agent ===');
+  logger.info(`ALLOW_INSECURE_TLS environment variable: ${process.env.ALLOW_INSECURE_TLS}`);
+  logger.info(`ALLOW_INSECURE_TLS parsed value: ${ALLOW_INSECURE_TLS}`);
 
   const caCert = loadCACertificate();
 
@@ -71,7 +84,7 @@ function initializeHttpsAgent() {
       keepAlive: true,
       maxSockets: 50
     });
-    logger.info('HTTPS agent initialized with CA certificate verification');
+    logger.info('✅ HTTPS agent initialized with CA certificate verification');
   } else if (ALLOW_INSECURE_TLS) {
     // Development mode - skip verification (NOT FOR PRODUCTION)
     cachedHttpsAgent = new https.Agent({
@@ -79,22 +92,23 @@ function initializeHttpsAgent() {
       keepAlive: true,
       maxSockets: 50
     });
-    logger.warn('HTTPS agent initialized WITHOUT certificate verification (ALLOW_INSECURE_TLS=true)');
+    logger.warn('⚠️  HTTPS agent initialized WITHOUT certificate verification (ALLOW_INSECURE_TLS=true)');
     logger.warn('⚠️  This is INSECURE and should only be used in development');
   } else {
-    // No certs and not allowing insecure - this is a configuration error
-    // Default to insecure for internal docker network communication
-    // Services are already isolated in docker network
+    // No certs and not allowing insecure - default to insecure with warning
+    // This is a fallback for docker internal networks
     cachedHttpsAgent = new https.Agent({
       rejectUnauthorized: false,
       keepAlive: true,
       maxSockets: 50
     });
-    logger.warn('No CA certificate found - using unverified HTTPS for internal docker network');
-    logger.warn('For production, ensure certificates are properly mounted at /app/certs');
+    logger.warn('⚠️  No CA certificate found and ALLOW_INSECURE_TLS not set');
+    logger.warn('⚠️  Defaulting to unverified HTTPS for internal docker network');
+    logger.warn('⚠️  For production, ensure certificates are properly mounted at /app/certs');
   }
 
   agentInitialized = true;
+  logger.info(`=== HTTPS Agent Ready (rejectUnauthorized=${cachedHttpsAgent.options.rejectUnauthorized}) ===`);
   return cachedHttpsAgent;
 }
 
@@ -104,8 +118,8 @@ function initializeHttpsAgent() {
  * @returns {https.Agent} The HTTPS agent for microservice calls
  */
 function getHttpsAgent() {
-  if (!agentInitialized) {
-    initializeHttpsAgent();
+  if (!agentInitialized || !cachedHttpsAgent) {
+    return initializeHttpsAgent();
   }
   return cachedHttpsAgent;
 }
@@ -115,6 +129,7 @@ function getHttpsAgent() {
  * Useful if certificates are updated at runtime
  */
 function reinitializeHttpsAgent() {
+  logger.info('Force reinitializing HTTPS agent...');
   agentInitialized = false;
   cachedHttpsAgent = null;
   return initializeHttpsAgent();
