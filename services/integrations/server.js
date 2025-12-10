@@ -132,9 +132,10 @@ app.get('/', (req, res) => {
     });
 
     // Start server with HTTPS after routes are loaded
-    const CERT_DIR = path.join(__dirname, 'certs');
-    const CERT_PATH = path.join(CERT_DIR, 'aicos-integrations.crt');
-    const KEY_PATH = path.join(CERT_DIR, 'aicos-integrations.key');
+    // Certs are mounted from tls-certs volume at /app/certs
+    const CERT_DIR = '/app/certs';
+    const CERT_PATH = path.join(CERT_DIR, 'integrations-cert.pem');
+    const KEY_PATH = path.join(CERT_DIR, 'integrations-key.pem');
 
     // Check if certificates exist
     if (fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH)) {

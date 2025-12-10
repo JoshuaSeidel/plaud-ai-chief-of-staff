@@ -1388,15 +1388,26 @@
 
   .settings-tabs {
     gap: 0.25rem;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.75rem;
+    -webkit-overflow-scrolling: touch;
   }
 
   .settings-tab {
     padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    min-width: max-content;
   }
 
   .settings-tab-label {
-    display: none;
+    display: inline;
+    font-size: 0.7rem;
+  }
+
+  .settings-tab-icon {
+    font-size: 1rem;
   }
 
   .integration-header {
@@ -1643,6 +1654,51 @@
   .btn-sm {
     min-height: 44px;
     padding: 0.625rem 1rem;
+  }
+}
+
+/* Mobile task action buttons - ensure full visibility and touch targets */
+@media (max-width: 768px) {
+  /* Task card action buttons */
+  .task-card .flex.gap-sm,
+  .card .flex.gap-sm.mt-md {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .task-card .btn,
+  .card .flex.gap-sm.mt-md .btn {
+    flex: 1 1 auto;
+    min-width: 80px;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    min-height: 48px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Ensure buttons in confirmation section are always visible */
+  .card-warning-border .flex.gap-sm {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .card-warning-border .btn {
+    flex: 1 1 calc(33% - 0.5rem);
+    min-width: 90px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  /* PWA-specific: Prevent any button click issues */
+  button,
+  .btn,
+  [role="button"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
   }
 }
 
