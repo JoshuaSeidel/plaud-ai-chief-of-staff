@@ -2,6 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import ProfileSelector from './components/ProfileSelector';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { KeyboardShortcutsHelp, OnboardingTutorial, useOnboarding } from './components/common';
 
 // Lazy load route components for code splitting
 // This reduces initial bundle size by only loading components when needed
@@ -36,6 +37,9 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+
+  // Onboarding tutorial state
+  const { showTutorial, completeTutorial } = useOnboarding();
 
   // Minimum swipe distance (in pixels)
   const minSwipeDistance = 50;
@@ -216,6 +220,12 @@ function App() {
           {renderActiveTab()}
         </Suspense>
       </main>
+
+      {/* Global Keyboard Shortcuts Help - accessible via "?" key */}
+      <KeyboardShortcutsHelp />
+
+      {/* Onboarding Tutorial - shows for first-time users */}
+      <OnboardingTutorial isOpen={showTutorial} onComplete={completeTutorial} />
       </div>
       </ToastProvider>
     </ProfileProvider>

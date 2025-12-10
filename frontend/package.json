@@ -1,6 +1,6 @@
 {
   "name": "ai-chief-of-staff-frontend",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Frontend for AI Chief of Staff Application",
   "author": "Joshua Seidel <me@joshuaseidel.com>",
   "license": "SEE LICENSE IN ../LICENSE",
@@ -17,10 +17,16 @@
     "react-router-dom": "^7.9.6"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^4.6.2",
+    "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vite-plugin-pwa": "^0.20.5"
   },
@@ -28,10 +34,11 @@
     "dev": "vite",
     "start": "vite",
     "prebuild": "node scripts/inject-version.cjs",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "lint": "eslint src --ext .js,.jsx --max-warnings=0",
-    "lint:fix": "eslint src --ext .js,.jsx --fix",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx --max-warnings=0",
+    "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
+    "typecheck": "tsc --noEmit",
     "generate-icons": "node public/generate-icons.cjs"
   },
   "eslintConfig": {
@@ -42,8 +49,10 @@
     "extends": [
       "eslint:recommended",
       "plugin:react/recommended",
-      "plugin:react-hooks/recommended"
+      "plugin:react-hooks/recommended",
+      "plugin:@typescript-eslint/recommended"
     ],
+    "parser": "@typescript-eslint/parser",
     "parserOptions": {
       "ecmaVersion": "latest",
       "sourceType": "module",
@@ -51,6 +60,7 @@
         "jsx": true
       }
     },
+    "plugins": ["@typescript-eslint"],
     "settings": {
       "react": {
         "version": "detect"
@@ -58,7 +68,9 @@
     },
     "rules": {
       "react/react-in-jsx-scope": "off",
-      "react/prop-types": "off"
+      "react/prop-types": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-explicit-any": "warn"
     }
   },
   "browserslist": {

@@ -281,16 +281,18 @@ function Dashboard({ setActiveTab }) {
                 <summary className="insights-summary">
                   {productivityInsights.insights === 'Generating AI insights...' ? '🤖 Generating AI insights...' : 'View AI insights'}
                 </summary>
-                <div className="insights-content">
+                <div className="insights-content markdown-content">
                   {productivityInsights.insights === 'Generating AI insights...' ? (
                     <div className="insights-item-success">
                       <span>🔄</span>
                       <span>Analyzing your patterns with AI...</span>
                     </div>
                   ) : (
-                    productivityInsights.insights.length > 500 
-                      ? `${productivityInsights.insights.substring(0, 500)}...` 
-                      : productivityInsights.insights
+                    <ReactMarkdown>
+                      {productivityInsights.insights.length > 500
+                        ? `${productivityInsights.insights.substring(0, 500)}...`
+                        : productivityInsights.insights}
+                    </ReactMarkdown>
                   )}
                 </div>
               </details>
