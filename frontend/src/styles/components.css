@@ -1124,19 +1124,78 @@
 .settings-section-header h3,
 .settings-section-header h4 {
   margin: 0;
-  color: #e5e5e7;
+  color: var(--color-text-primary);
 }
 
 .settings-section-description {
-  color: #71717a;
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   margin: 0;
 }
 
 .settings-divider {
   height: 1px;
-  background: #3f3f46;
+  background: var(--color-border-primary);
   margin: 1.5rem 0;
+}
+
+/* Theme Settings */
+.theme-settings {
+  margin-bottom: 0.5rem;
+}
+
+.theme-options {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.theme-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.75rem;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-option:hover {
+  border-color: var(--color-border-secondary);
+  background: var(--color-bg-tertiary);
+}
+
+.theme-option-active {
+  border-color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.theme-option-active:hover {
+  border-color: var(--color-primary-hover);
+}
+
+.theme-option-icon {
+  font-size: 1.5rem;
+}
+
+.theme-option-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.theme-option-active .theme-option-label {
+  color: var(--color-primary);
+}
+
+.theme-status {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
 }
 
 .settings-actions {
