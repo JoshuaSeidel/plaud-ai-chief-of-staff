@@ -67,6 +67,12 @@
   --color-error-dark: rgba(220, 38, 38, 0.6);
   --color-error-glow: rgba(239, 68, 68, 0.3);
 
+  /* Danger - Deep Red (critical/highest priority) */
+  --color-danger: #dc2626;
+  --color-danger-hover: #ef4444;
+  --color-danger-light: rgba(220, 38, 38, 0.8);
+  --color-danger-glow: rgba(220, 38, 38, 0.3);
+
   /* Info - Cyan */
   --color-info: #06b6d4;
   --color-info-hover: #22d3ee;
@@ -173,6 +179,7 @@
   --input-placeholder: #71717a;
   --button-secondary-bg: #27272a;
   --button-secondary-hover: #3f3f46;
+  --danger-zone-bg: rgba(239, 68, 68, 0.08);
 
   /* ========================================
      TRANSITIONS
@@ -280,6 +287,8 @@
   --color-warning-glow: rgba(217, 119, 6, 0.15);
   --color-error: #dc2626;
   --color-error-glow: rgba(220, 38, 38, 0.15);
+  --color-danger: #b91c1c;
+  --color-danger-glow: rgba(185, 28, 28, 0.15);
 
   /* Input fields */
   --input-bg: rgba(255, 255, 255, 0.8);
@@ -289,4 +298,7 @@
   /* Buttons */
   --button-secondary-bg: rgba(0, 0, 0, 0.05);
   --button-secondary-hover: rgba(0, 0, 0, 0.08);
+
+  /* Danger zone - subtle red tint for light mode */
+  --danger-zone-bg: rgba(239, 68, 68, 0.06);
 }
