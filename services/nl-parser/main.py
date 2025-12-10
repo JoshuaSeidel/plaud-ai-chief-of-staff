@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Natural Language Parser Service",
     description="Parses natural language into structured task data",
-    version="1.1.1"
+    version="1.1.2"
 )
 
 # Middleware for request logging

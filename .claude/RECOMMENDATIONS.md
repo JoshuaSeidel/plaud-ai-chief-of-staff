@@ -467,12 +467,15 @@ AI Chief of Staff is a modern AI-powered productivity assistant with:
 
 | Feature | Description | Effort | Impact |
 |---------|-------------|--------|--------|
-| Push Notifications | Task reminders, daily brief alerts, meeting prep | Low | High |
+| Daily Brief Push Notifications | Send morning summary as push notification | Low | High |
+| Notification Preferences UI | User-configurable quiet hours, frequency, categories | Low | Medium |
 | Offline Mode | Cache tasks/briefs for offline viewing, queue syncs | Medium | High |
 | Voice Commands | "Hey AI CoS, add a task for tomorrow" | High | Medium |
 | Widget Support | iOS/Android home screen widgets for quick task view | Medium | Medium |
 | Share Sheet Integration | Share content from other apps to create tasks | Low | Medium |
 | Haptic Feedback | Subtle vibrations on task completion | Low | Low |
+
+> **Note**: Core push notifications already implemented (task reminders, overdue alerts, event reminders with VAPID, rate limiting, dismiss handling). Above items are enhancements.
 
 ### AI & Intelligence Features
 
@@ -531,16 +534,16 @@ AI Chief of Staff is a modern AI-powered productivity assistant with:
 
 Based on effort/impact analysis, recommended order:
 
-1. **Push Notifications** - Low effort, high impact for mobile engagement
-2. **Natural Language Dates** - Enhances existing quick-add functionality
-3. **Meeting Prep Briefs** - Leverages existing AI + calendar data
-4. **Slack Integration** - Many professionals live in Slack
-5. **Dark/Light Theme Toggle** - Common user expectation
-6. **Weekly Productivity Reports** - Builds on existing patterns analysis
-7. **Offline Mode** - Critical for PWA reliability
-8. **Task Dependencies** - Requested in original analysis
-9. **Email Integration** - High value for busy executives
-10. **Time Tracking** - Natural extension of commitment tracking
+1. **Natural Language Dates** - Low effort, enhances existing quick-add functionality
+2. **Daily Brief Push Notifications** - Low effort, leverages existing push infrastructure
+3. **Meeting Prep Briefs** - Medium effort, leverages existing AI + calendar data
+4. **Slack Integration** - Medium effort, many professionals live in Slack
+5. **Dark/Light Theme Toggle** - Low effort, common user expectation
+6. **Weekly Productivity Reports** - Medium effort, builds on existing patterns analysis
+7. **Offline Mode** - Medium effort, critical for PWA reliability
+8. **Task Dependencies** - Medium effort, requested in original analysis
+9. **Email Integration** - High effort, high value for busy executives
+10. **Time Tracking** - Medium effort, natural extension of commitment tracking
 
 ---
 

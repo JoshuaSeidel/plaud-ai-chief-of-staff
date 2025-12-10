@@ -127,6 +127,7 @@ export function useOnboarding() {
       }, 1000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [hasCompletedOnboarding]);
 
   const completeTutorial = useCallback(() => {

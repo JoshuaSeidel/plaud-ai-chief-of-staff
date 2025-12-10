@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Voice Processor Service",
     description="Audio transcription using OpenAI Whisper API",
-    version="1.1.1"
+    version="1.1.2"
 )
 
 # Request logging middleware
