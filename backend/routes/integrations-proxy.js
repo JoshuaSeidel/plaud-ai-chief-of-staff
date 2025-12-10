@@ -9,48 +9,27 @@ const logger = createModuleLogger('INTEGRATIONS-PROXY');
 // Get integrations service URL from environment
 const INTEGRATIONS_URL = process.env.INTEGRATIONS_URL || 'https://aicos-integrations:8006';
 
-// Create axios instance for integrations service
-// Note: httpsAgent is retrieved dynamically to use cached agent
-const integrationsClient = axios.create({
+// Create base axios config for integrations service
+// Note: httpsAgent is retrieved dynamically on each request since the agent
+// may not be initialized when this module loads
+const integrationsClientConfig = {
   baseURL: INTEGRATIONS_URL,
   timeout: 30000, // 30 second timeout
-  httpsAgent: getHttpsAgent(),
   maxBodyLength: 10 * 1024 * 1024, // 10MB max body size
   maxContentLength: 10 * 1024 * 1024, // 10MB max content size
   headers: {
     'Content-Type': 'application/json'
   }
-});
+};
 
-// Add request logging
-integrationsClient.interceptors.request.use(request => {
-  logger.debug(`Proxying request to integrations service`, {
-    method: request.method.toUpperCase(),
-    url: request.url,
-    baseURL: request.baseURL
+// Helper to get axios instance with current HTTPS agent
+const getIntegrationsClient = () => {
+  return axios.create({
+    ...integrationsClientConfig,
+    httpsAgent: getHttpsAgent()
   });
-  return request;
-});
+};
 
-// Add response logging and error handling
-integrationsClient.interceptors.response.use(
-  response => {
-    logger.debug(`Received response from integrations service`, {
-      status: response.status,
-      url: response.config.url
-    });
-    return response;
-  },
-  error => {
-    logger.error(`Error from integrations service`, {
-      message: error.message,
-      url: error.config?.url,
-      status: error.response?.status,
-      data: error.response?.data
-    });
-    return Promise.reject(error);
-  }
-);
 
 /**
  * Generic proxy handler - forwards requests to integrations service
@@ -58,7 +37,15 @@ integrationsClient.interceptors.response.use(
  */
 async function proxyRequest(req, res, targetPath) {
   try {
-    const response = await integrationsClient({
+    const client = getIntegrationsClient();
+
+    logger.debug(`Proxying request to integrations service`, {
+      method: req.method.toUpperCase(),
+      url: targetPath,
+      baseURL: INTEGRATIONS_URL
+    });
+
+    const response = await client({
       method: req.method,
       url: targetPath,
       data: req.body,
@@ -67,6 +54,11 @@ async function proxyRequest(req, res, targetPath) {
         // Forward relevant headers
         'content-type': req.get('content-type') || 'application/json'
       }
+    });
+
+    logger.debug(`Received response from integrations service`, {
+      status: response.status,
+      url: targetPath
     });
     
     res.status(response.status).json(response.data);
@@ -582,7 +574,8 @@ router.delete('/calendar/radicale/events/:eventId', async (req, res) => {
  */
 router.get('/health', async (req, res) => {
   try {
-    const response = await integrationsClient.get('/health');
+    const client = getIntegrationsClient();
+    const response = await client.get('/health');
     res.json({
       ...response.data,
       proxyStatus: 'ok',
