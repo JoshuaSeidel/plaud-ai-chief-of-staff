@@ -60,7 +60,7 @@ app.use((req, res, next) => {
 // Health check
 app.get('/health', (req, res) => {
   res.json({
-    status: 'ok',
+    status: 'healthy',
     service: 'integrations',
     version: '1.0.0',
     timestamp: new Date().toISOString()
